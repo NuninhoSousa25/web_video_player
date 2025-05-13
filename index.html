@@ -3,782 +3,345 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mobile Video Player with Loop & Point Cloud</title>
+    <title>Video Player & Point Cloud Viewer</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, 
-                Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-            background-color: #121212;
-            color: #f0f0f0;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            background-color: #121212; color: #f0f0f0;
+            min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 10px;
         }
-        
         .container {
-            width: 100%;
-            max-width: 500px;
-            margin: 0 auto;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-            border-radius: 8px;
-            overflow: hidden;
-            background-color: #1e1e1e;
+            width: 100%; max-width: 500px; margin: 0 auto;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3); border-radius: 8px;
+            overflow: hidden; background-color: #1e1e1e;
         }
-        
-        .player-header {
-            padding: 16px;
-            background-color: #2d2d2d;
-            text-align: center;
+        .player-header { padding: 12px 16px; background-color: #2d2d2d; text-align: center; }
+        .player-header h1 { font-size: 18px; font-weight: 600; }
+
+        .mode-switcher { display: flex; background-color: #2d2d2d; border-bottom: 1px solid #333;}
+        .mode-switcher button {
+            flex: 1; padding: 12px; background-color: #2d2d2d; color: #aaa;
+            border: none; border-bottom: 3px solid transparent; font-size: 14px; cursor: pointer;
         }
+        .mode-switcher button.active { color: #2c7be5; border-bottom-color: #2c7be5; font-weight: bold; }
+        .mode-switcher button:hover:not(.active) { background-color: #383838; }
+
+        .video-container { position: relative; width: 100%; background-color: #000; }
+        video { width: 100%; display: block; }
         
-        .player-header h1 {
-            font-size: 18px;
-            font-weight: 600;
+        .video-container.fullscreen, .point-cloud-container.fullscreen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 9999; background-color: #000;
+            display: flex; align-items: center; justify-content: center;
         }
-        
-        .video-container {
-            position: relative;
-            width: 100%;
-            background-color: #000;
+        .video-container.fullscreen video, .point-cloud-container.fullscreen #pointCloudCanvas {
+            max-width: 100%; max-height: 100%; width: auto !important; height: auto !important; object-fit: contain;
         }
-        
-        video {
-            width: 100%;
-            display: block;
-        }
-        
-        /* Fullscreen styling */
-        .video-container.fullscreen {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 9999;
-            background-color: #000;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        .video-container.fullscreen video {
-            max-width: 100%;
-            max-height: 100%;
-            width: auto;
-            height: auto;
-            object-fit: contain;
-        }
-        
-        .video-container.fullscreen .controls-overlay {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
+        .controls-overlay { /* For video fullscreen controls */
+            position: absolute; bottom: 0; left: 0; right: 0;
             background: linear-gradient(transparent, rgba(0,0,0,0.7));
-            padding: 20px 10px 10px;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-            z-index: 10000;
+            padding: 20px 10px 10px; opacity: 0; transition: opacity 0.3s ease; z-index: 10000;
         }
-        
         .video-container.fullscreen:hover .controls-overlay,
-        .video-container.fullscreen .controls-overlay.active {
-            opacity: 1;
-        }
+        .video-container.fullscreen .controls-overlay.active { opacity: 1; }
         
-        .controls {
-            padding: 16px;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
+        .controls, .filter-controls, .point-cloud-params-container {
+            padding: 12px 16px; display: flex; flex-direction: column; gap: 12px;
         }
-        
-        .main-controls {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
+        .filter-controls, .point-cloud-params-container { background-color: #2a2a2a; border-top: 1px solid #333; }
+        .main-controls { display: flex; justify-content: space-between; align-items: center; }
         
         .file-controls {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            padding: 16px; /* Added padding for consistency */
-            background-color: #1e1e1e; /* Added background for consistency */
+            display: flex; flex-direction: column; gap: 8px; padding: 16px; background-color: #1e1e1e;
         }
-        
         button {
-            background-color: #2c7be5;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            padding: 10px 15px;
-            font-size: 14px;
-            cursor: pointer;
-            transition: background-color 0.2s;
+            background-color: #2c7be5; color: white; border: none; border-radius: 4px;
+            padding: 10px 15px; font-size: 14px; cursor: pointer; transition: background-color 0.2s;
         }
-        
-        button:hover {
-            background-color: #1a68d1;
-        }
-        
-        button:disabled {
-            background-color: #555;
-            cursor: not-allowed;
-        }
-        
-        .toggle-button {
-            min-width: 100px;
-        }
-        
-        input[type="file"] {
-            display: none;
-        }
-        
+        button:hover { background-color: #1a68d1; }
+        button:disabled { background-color: #555; cursor: not-allowed; }
+        .toggle-button { min-width: 100px; }
+        input[type="file"] { display: none; }
         .file-label {
-            display: inline-block;
-            background-color: #4caf50;
-            color: white;
-            border-radius: 4px;
-            padding: 10px 15px;
-            font-size: 14px;
-            cursor: pointer;
-            transition: background-color 0.2s;
+            display: inline-block; background-color: #4caf50; color: white; border-radius: 4px;
+            padding: 10px 15px; font-size: 14px; cursor: pointer; transition: background-color 0.2s;
             text-align: center;
         }
-        
-        .file-label:hover {
-            background-color: #3e8e41;
-        }
-        
-        .file-name {
-            padding: 5px;
-            color: #aaa;
-            font-size: 14px;
-            text-align: center;
-            word-break: break-all;
-        }
+        .file-label:hover { background-color: #3e8e41; }
+        .file-name { padding: 5px; color: #aaa; font-size: 14px; text-align: center; word-break: break-all; }
         
         .progress-container {
-            width: 100%;
-            height: 5px;
-            background-color: #333;
-            border-radius: 5px;
-            overflow: hidden;
-            margin-top: 8px;
-            cursor: pointer; /* Make it clear it's clickable */
+            width: 100%; height: 5px; background-color: #333; border-radius: 5px;
+            overflow: hidden; margin-top: 8px; cursor: pointer;
         }
+        .progress-bar { height: 100%; background-color: #2c7be5; width: 0; transition: width 0.1s; }
+        .time-display { display: flex; justify-content: space-between; font-size: 12px; color: #aaa; margin-top: 5px; }
         
-        .progress-bar {
-            height: 100%;
-            background-color: #2c7be5;
-            width: 0;
-            transition: width 0.1s;
-        }
-        
-        .time-display {
-            display: flex;
-            justify-content: space-between;
-            font-size: 12px;
-            color: #aaa;
-            margin-top: 5px;
-        }
-        
-        .volume-container {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-top: 5px;
-        }
-        
-        .volume-icon {
-            color: #aaa;
-            width: 20px;
-            text-align: center;
-        }
-        
+        .volume-container { display: flex; align-items: center; gap: 10px; margin-top: 5px; }
+        .volume-icon { color: #aaa; width: 20px; text-align: center; }
         .volume-slider {
-            flex: 1;
-            -webkit-appearance: none;
-            height: 5px;
-            border-radius: 5px;
-            background: #333;
-            outline: none;
+            flex: 1; -webkit-appearance: none; height: 5px; border-radius: 5px; background: #333; outline: none;
         }
-        
         .volume-slider::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 15px;
-            height: 15px;
-            border-radius: 50%;
-            background: #2c7be5;
-            cursor: pointer;
+            -webkit-appearance: none; appearance: none; width: 15px; height: 15px;
+            border-radius: 50%; background: #2c7be5; cursor: pointer;
         }
-        
-        .volume-slider::-moz-range-thumb {
-            width: 15px;
-            height: 15px;
-            border-radius: 50%;
-            background: #2c7be5;
-            cursor: pointer;
+        .volume-slider::-moz-range-thumb { /* For Firefox */
+            width: 15px; height: 15px; border-radius: 50%; background: #2c7be5; cursor: pointer; border: none;
         }
+        .placeholder-message { padding: 30px; text-align: center; color: #888; }
+        .loop-info { font-size: 12px; color: #aaa; text-align: center; margin-top: 5px; }
         
-        .placeholder-message {
-            padding: 30px;
-            text-align: center;
-            color: #888;
-        }
-        
-        .loop-info {
-            font-size: 12px;
-            color: #aaa;
-            text-align: center;
-            margin-top: 5px;
-        }
-        
-        .filter-controls {
-            padding: 12px 16px;
-            background-color: #2a2a2a;
-            border-top: 1px solid #333;
-            margin-top: 10px;
-        }
-        
-        .filter-control {
-            margin-bottom: 12px;
-        }
-        
-        .filter-control:last-child {
-            margin-bottom: 0;
-        }
-        
-        .filter-label {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 5px;
-            font-size: 14px;
-            color: #ddd;
-        }
-        
-        .filter-value {
-            color: #2c7be5;
-            font-weight: 500;
-        }
-        
+        .filter-control { margin-bottom: 12px; }
+        .filter-control:last-child { margin-bottom: 0; }
+        .filter-label { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 14px; color: #ddd; }
+        .filter-value { color: #2c7be5; font-weight: 500; }
         .filter-slider {
-            width: 100%;
-            -webkit-appearance: none;
-            height: 5px;
-            border-radius: 5px;
-            background: #333;
-            outline: none;
+            width: 100%; -webkit-appearance: none; height: 5px; border-radius: 5px; background: #333; outline: none;
         }
-        
         .filter-slider::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 15px;
-            height: 15px;
-            border-radius: 50%;
-            background: #2c7be5;
-            cursor: pointer;
+            -webkit-appearance: none; appearance: none; width: 15px; height: 15px;
+            border-radius: 50%; background: #2c7be5; cursor: pointer;
         }
-        
-        .filter-slider::-moz-range-thumb {
-            width: 15px;
-            height: 15px;
-            border-radius: 50%;
-            background: #2c7be5;
-            cursor: pointer;
+         .filter-slider::-moz-range-thumb { /* For Firefox */
+            width: 15px; height: 15px; border-radius: 50%; background: #2c7be5; cursor: pointer; border: none;
         }
-        
         .filter-reset {
-            background-color: #555;
-            margin-top: 10px;
-            width: 100%;
-            font-size: 13px;
-            padding: 8px;
+            background-color: #555; margin-top: 10px; width: 100%;
+            font-size: 13px; padding: 8px;
         }
+        .filter-reset:hover { background-color: #666; }
         
-        .filter-reset:hover {
-            background-color: #666;
-        }
-        
-        /* Sensor section styling */
         .sensor-section {
-            background-color: #1e1e1e;
-            border-radius: 0 0 8px 8px; /* Adjust if sections are reordered */
-            padding: 15px;
-            margin-top: 0px; /* Adjust if sections are reordered */
+            background-color: #1e1e1e; border-radius: 0 0 8px 8px; padding: 15px;
             border-top: 1px solid #333;
         }
-        
-        .sensor-heading {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-        }
-        
-        .sensor-title {
-            font-size: 16px;
-            font-weight: 600;
-        }
-        
+        .sensor-heading { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .sensor-title { font-size: 16px; font-weight: 600; }
         .sensor-toggle {
-            background-color: #2c7be5;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            padding: 6px 12px;
-            font-size: 14px;
-            cursor: pointer;
+            background-color: #2c7be5; color: white; border: none; border-radius: 4px;
+            padding: 6px 12px; font-size: 14px; cursor: pointer;
         }
-        
-        .sensor-toggle.active {
-            background-color: #4caf50;
-        }
-        
-        .sensor-values {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 10px;
-            margin-bottom: 10px;
-        }
-        
-        .sensor-value {
-            background-color: #2d2d2d;
-            padding: 8px;
-            border-radius: 6px;
-            text-align: center;
-        }
-        
-        .value-label {
-            font-size: 12px;
-            color: #aaa;
-            margin-bottom: 5px;
-        }
-        
-        .value-number {
-            font-size: 16px;
-            font-weight: 500;
-            font-family: monospace;
-            color: #2c7be5;
-        }
-        
+        .sensor-toggle.active { background-color: #4caf50; }
+        .sensor-values { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 10px; }
+        .sensor-value { background-color: #2d2d2d; padding: 8px; border-radius: 6px; text-align: center; }
+        .value-label { font-size: 12px; color: #aaa; margin-bottom: 5px; }
+        .value-number { font-size: 16px; font-weight: 500; font-family: monospace; color: #2c7be5; }
         .compass {
-            width: 120px;
-            height: 120px;
-            margin: 10px auto;
-            position: relative;
-            border-radius: 50%;
-            background-color: #2d2d2d;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5) inset;
+            width: 100px; height: 100px; margin: 10px auto; position: relative; border-radius: 50%;
+            background-color: #2d2d2d; display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 0 8px rgba(0,0,0,0.4) inset;
         }
-        
         .compass-needle {
-            position: absolute;
-            width: 4px;
-            height: 90px;
+            position: absolute; width: 3px; height: 70px;
             background: linear-gradient(to bottom, #f44336 50%, #fff 50%);
-            transform-origin: center center;
-            transition: transform 0.1s ease;
+            transform-origin: center center; transition: transform 0.1s ease;
         }
-        
-        .compass-center {
-            width: 12px;
-            height: 12px;
-            background-color: #333;
-            border-radius: 50%;
-            z-index: 1;
+        .compass-center { width: 10px; height: 10px; background-color: #333; border-radius: 50%; z-index: 1;}
+        .compass-marker span { position: absolute; width: 18px; text-align: center; font-weight: bold; color: #ddd; font-size: 12px;}
+        .compass-marker .north { top: 5px; left: calc(50% - 9px); }
+        .compass-marker .east { right: 5px; top: calc(50% - 9px); }
+        .compass-marker .south { bottom: 5px; left: calc(50% - 9px); }
+        .compass-marker .west { left: 5px; top: calc(50% - 9px); }
+
+        .mapping-info { font-size: 13px; color: #aaa; margin: 10px 0; text-align: center; line-height: 1.4; }
+        .mapping-highlight { color: #2c7be5; font-weight: 500; }
+        .sensor-configuration { margin-top: 15px; border-top: 1px solid #333; padding-top: 15px; }
+        .sensor-config-title { font-size: 14px; font-weight: 600; margin-bottom: 10px; color: #ddd; }
+        .sensor-config-controls { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+        .sensor-config-control { background-color: #2d2d2d; padding: 10px; border-radius: 6px; }
+        .config-label { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 5px; }
+        .config-value { color: #2c7be5; font-weight: 500; }
+        .config-slider { /* Re-use filter-slider styles */
+            width: 100%; -webkit-appearance: none; height: 5px; border-radius: 5px; background: #333; outline: none;
         }
-        
-        .compass-marker {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            border-radius: 50%;
+        .config-slider::-webkit-slider-thumb { /* Re-use filter-slider styles */
+            -webkit-appearance: none; appearance: none; width: 15px; height: 15px;
+            border-radius: 50%; background: #2c7be5; cursor: pointer;
         }
-        
-        .compass-marker span {
-            position: absolute;
-            width: 20px;
-            text-align: center;
-            font-weight: bold;
-            color: #ddd;
+        .config-slider::-moz-range-thumb { /* For Firefox */
+            width: 15px; height: 15px; border-radius: 50%; background: #2c7be5; cursor: pointer; border: none;
         }
-        
-        .compass-marker .north { top: 8px; left: calc(50% - 10px); }
-        .compass-marker .east { right: 8px; top: calc(50% - 10px); }
-        .compass-marker .south { bottom: 8px; left: calc(50% - 10px); }
-        .compass-marker .west { left: 8px; top: calc(50% - 10px); }
-        
-        .phone-visualization {
-            display: flex;
-            justify-content: space-around;
-            align-items: center;
-            margin: 15px 0;
-        }
-        
-        .mapping-info {
-            font-size: 13px;
-            color: #aaa;
-            margin: 10px 0;
-            text-align: center;
-            line-height: 1.4;
-        }
-        
-        .mapping-highlight {
-            color: #2c7be5;
-            font-weight: 500;
-        }
-        
-        .sensor-configuration {
-            margin-top: 15px;
-            border-top: 1px solid #333;
-            padding-top: 15px;
-        }
-        
-        .sensor-config-title {
-            font-size: 14px;
-            font-weight: 600;
-            margin-bottom: 10px;
-            color: #ddd;
-        }
-        
-        .sensor-config-controls {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
-        }
-        
-        .sensor-config-control {
-            background-color: #2d2d2d;
-            padding: 10px;
-            border-radius: 6px;
-        }
-        
-        .config-label {
-            display: flex;
-            justify-content: space-between;
-            font-size: 12px;
-            margin-bottom: 5px;
-        }
-        
-        .config-value {
-            color: #2c7be5;
-            font-weight: 500;
-        }
-        
-        .config-slider {
-            width: 100%;
-            -webkit-appearance: none;
-            height: 5px;
-            border-radius: 5px;
-            background: #333;
-            outline: none;
-        }
-        
-        .config-slider::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 15px;
-            height: 15px;
-            border-radius: 50%;
-            background: #2c7be5;
-            cursor: pointer;
-        }
-        
-        .config-slider::-moz-range-thumb {
-            width: 15px;
-            height: 15px;
-            border-radius: 50%;
-            background: #2c7be5;
-            cursor: pointer;
-        }
-        
-        .sensor-actions {
-            display: flex;
-            gap: 10px;
-            margin-top: 10px;
-        }
-        
+        .sensor-actions { display: flex; gap: 10px; margin-top: 10px; }
         .sensor-action-btn {
-            flex: 1;
-            padding: 8px;
-            font-size: 13px;
-            background-color: #555;
+            flex: 1; padding: 8px; font-size: 13px; background-color: #555;
         }
-        
-        .sensor-action-btn:hover {
-            background-color: #666;
-        }
+        .sensor-action-btn:hover { background-color: #666; }
 
-        /* Point Cloud Specific Styles */
-        .point-cloud-controls {
-            padding: 12px 16px;
-            background-color: #2a2a2a;
-            border-top: 1px solid #333;
-        }
-
+        .point-cloud-container { width:100%; /* Container for canvas for fullscreen */ }
         #pointCloudCanvas {
-            width: 100%;
-            background-color: #050505;
-            margin-top: 10px;
-            display: none;
-            border: 1px solid #333;
+            width: 100%; background-color: #050505;
+            /* margin-top: 10px; No, part of pointCloudModeContent */
+            border: 1px solid #333; display: block; /* Important for layout */
+            cursor: pointer; /* For double tap fullscreen */
         }
         
         @media (max-width: 480px) {
-            .controls {
-                padding: 12px;
-            }
-            
-            button {
-                padding: 8px 12px;
-                font-size: 13px;
-            }
-            
-            .toggle-button {
-                min-width: 80px;
-            }
-            
-            .file-label {
-                padding: 8px 12px;
-                font-size: 13px;
-            }
+            .controls, .filter-controls, .point-cloud-params-container { padding: 10px; gap: 10px;}
+            button, .file-label { padding: 8px 12px; font-size: 13px; }
+            .toggle-button { min-width: 80px; }
+            .sensor-config-controls { grid-template-columns: 1fr; } /* Stack sensor config on small screens */
         }
+        .hidden { display: none !important; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="player-header">
-            <h1>Mobile Video Player</h1>
-        </div>
-        
-        <div class="video-container">
-            <video id="videoPlayer" playsinline webkit-playsinline></video> <!-- playsinline for iOS -->
-            <div class="controls-overlay" id="fullscreenControls">
-                <div class="progress-container">
-                    <div class="progress-bar" id="progressBarFullscreen"></div>
-                </div>
-                <div class="main-controls">
-                    <button id="playPauseFullscreen" class="toggle-button">Play</button>
-                    <button id="exitFullscreen" class="toggle-button">Exit Full</button>
-                </div>
-            </div>
-        </div>
-        
-        <div id="placeholder" class="placeholder-message">
-            <p>Select a video file to play</p>
-        </div>
-        
-        <div class="controls" id="controls" style="display: none;">
-            <div class="progress-container" id="mainProgressContainer">
-                <div class="progress-bar" id="progressBar"></div>
-            </div>
-            <div class="time-display">
-                <span id="currentTime">0:00</span>
-                <span id="duration">0:00</span>
-            </div>
-            
-            <div class="main-controls">
-                <button id="playPauseBtn" class="toggle-button">Play</button>
-                <button id="fullscreenBtn" class="toggle-button">Fullscreen</button>
-                <button id="loopBtn" class="toggle-button">Loop: OFF</button>
-            </div>
-            
-            <div class="volume-container">
-                <div class="volume-icon">🔊</div>
-                <input type="range" min="0" max="1" step="0.1" value="1" class="volume-slider" id="volumeSlider">
-            </div>
-            
-            <div class="loop-info" id="loopInfo"></div>
-            
-            <div class="filter-controls">
-                <div class="filter-control">
-                    <div class="filter-label">
-                        <span>Brightness</span>
-                        <span class="filter-value" id="brightnessValue">100%</span>
-                    </div>
-                    <input type="range" min="25" max="200" value="100" class="filter-slider" id="brightnessSlider">
-                </div>
-                
-                <div class="filter-control">
-                    <div class="filter-label">
-                        <span>Saturation</span>
-                        <span class="filter-value" id="saturationValue">100%</span>
-                    </div>
-                    <input type="range" min="25" max="200" value="100" class="filter-slider" id="saturationSlider">
-                </div>
-                
-                <div class="filter-control">
-                    <div class="filter-label">
-                        <span>Contrast</span>
-                        <span class="filter-value" id="contrastValue">100%</span>
-                    </div>
-                    <input type="range" min="25" max="200" value="100" class="filter-slider" id="contrastSlider">
-                </div>
-                
-                <button id="resetFilters" class="filter-reset">Reset All Filters</button>
-            </div>
-        </div>
-        
-        <div class="file-controls">
-            <input type="file" id="fileInput" accept="video/*">
-            <label for="fileInput" class="file-label">Choose Video File</label>
-            <div class="file-name" id="fileName"></div>
+            <h1>Video & Point Cloud Tool</h1>
         </div>
 
-        <!-- Point Cloud Section -->
-        <div class="point-cloud-controls">
-            <button id="togglePointCloudBtn" class="toggle-button" style="width: 100%; margin-bottom: 10px;">Show Point Cloud</button>
-            <canvas id="pointCloudCanvas"></canvas>
-            <div id="pointCloudParams" style="display: none; margin-top: 10px;">
-                <div class="filter-control">
-                    <div class="filter-label">
-                        <span>Point Density</span>
-                        <span class="filter-value" id="densityValue">32</span>
+        <div class="mode-switcher">
+            <button id="showVideoPlayerModeBtn" class="active">Video Player</button>
+            <button id="showPointCloudModeBtn">Point Cloud</button>
+        </div>
+
+        <!-- Video Player Mode Content -->
+        <div id="videoPlayerModeContent">
+            <div class="video-container" id="mainVideoContainer">
+                <video id="videoPlayer" playsinline webkit-playsinline></video>
+                <div class="controls-overlay" id="fullscreenControlsOverlay">
+                    <div class="progress-container">
+                        <div class="progress-bar" id="progressBarFullscreen"></div>
                     </div>
+                    <div class="main-controls">
+                        <button id="playPauseFullscreen" class="toggle-button">Play</button>
+                        <button id="exitVideoFullscreenBtn" class="toggle-button">Exit Full</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="videoPlaceholder" class="placeholder-message">
+                <p>Select a video file to play</p>
+            </div>
+            
+            <div class="controls" id="videoPlayerControls">
+                <div class="progress-container" id="mainProgressContainer">
+                    <div class="progress-bar" id="progressBar"></div>
+                </div>
+                <div class="time-display">
+                    <span id="currentTime">0:00</span>
+                    <span id="duration">0:00</span>
+                </div>
+                <div class="main-controls">
+                    <button id="playPauseBtn" class="toggle-button">Play</button>
+                    <button id="videoFullscreenBtn" class="toggle-button">Fullscreen</button>
+                    <button id="loopBtn" class="toggle-button">Loop: ON</button>
+                </div>
+                <div class="volume-container">
+                    <div class="volume-icon">🔊</div>
+                    <input type="range" min="0" max="1" step="0.1" value="1" class="volume-slider" id="volumeSlider">
+                </div>
+                <div class="loop-info" id="loopInfo"></div>
+            </div>
+            
+            <div class="filter-controls" id="videoFilterControls">
+                 <div class="filter-control">
+                    <div class="filter-label"><span>Brightness</span><span class="filter-value" id="brightnessValue">100%</span></div>
+                    <input type="range" min="25" max="200" value="100" class="filter-slider" id="brightnessSlider">
+                </div>
+                <div class="filter-control">
+                    <div class="filter-label"><span>Saturation</span><span class="filter-value" id="saturationValue">100%</span></div>
+                    <input type="range" min="25" max="200" value="100" class="filter-slider" id="saturationSlider">
+                </div>
+                <div class="filter-control">
+                    <div class="filter-label"><span>Contrast</span><span class="filter-value" id="contrastValue">100%</span></div>
+                    <input type="range" min="25" max="200" value="100" class="filter-slider" id="contrastSlider">
+                </div>
+                <button id="resetFiltersBtn" class="filter-reset">Reset All Filters</button>
+            </div>
+        </div>
+
+        <!-- Point Cloud Mode Content -->
+        <div id="pointCloudModeContent" class="hidden">
+            <div class="point-cloud-container" id="mainPointCloudContainer">
+                 <canvas id="pointCloudCanvas"></canvas>
+            </div>
+            <div class="point-cloud-params-container" id="pointCloudParams">
+                <div class="filter-control">
+                    <div class="filter-label"><span>Point Density</span><span class="filter-value" id="densityValue">32</span></div>
                     <input type="range" min="8" max="128" value="32" step="1" class="filter-slider" id="densitySlider">
                 </div>
                 <div class="filter-control">
-                    <div class="filter-label">
-                        <span>Displacement Scale</span>
-                        <span class="filter-value" id="displacementValue">50</span>
-                    </div>
+                    <div class="filter-label"><span>Displacement Scale</span><span class="filter-value" id="displacementValue">50</span></div>
                     <input type="range" min="0" max="200" value="50" step="1" class="filter-slider" id="displacementSlider">
                 </div>
                  <div class="filter-control">
-                    <div class="filter-label">
-                        <span>Point Size</span>
-                        <span class="filter-value" id="pointSizeValue">3</span>
-                    </div>
+                    <div class="filter-label"><span>Point Size</span><span class="filter-value" id="pointSizeValue">3</span></div>
                     <input type="range" min="1" max="10" value="3" step="1" class="filter-slider" id="pointSizeSlider">
                 </div>
-                <div class="filter-control"> <!-- New Tilt Sensitivity Slider -->
-                    <div class="filter-label">
-                        <span>Tilt Sensitivity</span>
-                        <span class="filter-value" id="tiltSensitivityValue">10</span>
-                    </div>
+                <div class="filter-control">
+                    <div class="filter-label"><span>Tilt Sensitivity</span><span class="filter-value" id="tiltSensitivityValue">10</span></div>
                     <input type="range" min="0" max="50" value="10" step="1" class="filter-slider" id="tiltSensitivitySlider">
                 </div>
             </div>
         </div>
-        <!-- End of Point Cloud Section -->
         
-        <!-- Sensor Controls Section -->
-        <div class="sensor-section" id="sensorSection">
+        <!-- Common Controls -->
+        <div class="file-controls">
+            <input type="file" id="fileInput" accept="video/*">
+            <label for="fileInput" class="file-label">Choose Video File</label>
+            <div class="file-name" id="fileName">No file selected</div>
+        </div>
+        
+        <div class="sensor-section" id="sensorSectionControls">
             <div class="sensor-heading">
                 <div class="sensor-title">Motion Controls</div>
-                <button id="sensorToggle" class="sensor-toggle">Enable Sensors</button>
+                <button id="sensorToggleBtn" class="sensor-toggle">Enable Sensors</button>
             </div>
-            
-            <div class="mapping-info">
-                Tilt your device to control video effects or point cloud view:
-                <br>
-                <span class="mapping-highlight">Rotation</span> → Saturation • 
-                <span class="mapping-highlight">Tilt Forward/Back</span> → Brightness / PC Tilt Y • 
-                <span class="mapping-highlight">Tilt Left/Right</span> → Contrast / PC Tilt X
+            <div class="mapping-info" id="sensorMappingInfo">
+                <!-- Content will be set by JavaScript -->
             </div>
-            
             <div class="sensor-values">
-                <div class="sensor-value">
-                    <div class="value-label">Alpha (°)</div>
-                    <div id="orientAlpha" class="value-number">0.00</div>
-                </div>
-                <div class="sensor-value">
-                    <div class="value-label">Beta (°)</div>
-                    <div id="orientBeta" class="value-number">0.00</div>
-                </div>
-                <div class="sensor-value">
-                    <div class="value-label">Gamma (°)</div>
-                    <div id="orientGamma" class="value-number">0.00</div>
-                </div>
+                <div class="sensor-value"><div class="value-label">Alpha (°)</div><div id="orientAlpha" class="value-number">0.00</div></div>
+                <div class="sensor-value"><div class="value-label">Beta (°)</div><div id="orientBeta" class="value-number">0.00</div></div>
+                <div class="sensor-value"><div class="value-label">Gamma (°)</div><div id="orientGamma" class="value-number">0.00</div></div>
             </div>
-            
-            <div class="phone-visualization">
+            <div style="display: flex; justify-content: center;"> <!-- Centering compass -->
                 <div class="compass">
                     <div id="compassNeedle" class="compass-needle"></div>
                     <div class="compass-center"></div>
                     <div class="compass-marker">
-                        <span class="north">N</span>
-                        <span class="east">E</span>
-                        <span class="south">S</span>
-                        <span class="west">W</span>
+                        <span class="north">N</span><span class="east">E</span><span class="south">S</span><span class="west">W</span>
                     </div>
                 </div>
             </div>
-            
             <div class="sensor-configuration">
                 <div class="sensor-config-title">Sensor Sensitivity Settings</div>
                 <div class="sensor-config-controls">
                     <div class="sensor-config-control">
-                        <div class="config-label">
-                            <span>Alpha Sensitivity</span>
-                            <span class="config-value" id="alphaSensValue">1.0</span>
-                        </div>
-                        <input type="range" min="0.1" max="2" step="0.1" value="1" class="config-slider" id="alphaSensitivity">
+                        <div class="config-label"><span>Alpha Sensitivity</span><span class="config-value" id="alphaSensValue">1.0</span></div>
+                        <input type="range" min="0.1" max="2" step="0.1" value="1" class="config-slider" id="alphaSensitivitySlider">
                     </div>
                     <div class="sensor-config-control">
-                        <div class="config-label">
-                            <span>Beta Sensitivity</span>
-                            <span class="config-value" id="betaSensValue">1.0</span>
-                        </div>
-                        <input type="range" min="0.1" max="2" step="0.1" value="1" class="config-slider" id="betaSensitivity">
+                        <div class="config-label"><span>Beta Sensitivity</span><span class="config-value" id="betaSensValue">1.0</span></div>
+                        <input type="range" min="0.1" max="2" step="0.1" value="1" class="config-slider" id="betaSensitivitySlider">
                     </div>
                     <div class="sensor-config-control">
-                        <div class="config-label">
-                            <span>Gamma Sensitivity</span>
-                            <span class="config-value" id="gammaSensValue">1.0</span>
-                        </div>
-                        <input type="range" min="0.1" max="2" step="0.1" value="1" class="config-slider" id="gammaSensitivity">
+                        <div class="config-label"><span>Gamma Sensitivity</span><span class="config-value" id="gammaSensValue">1.0</span></div>
+                        <input type="range" min="0.1" max="2" step="0.1" value="1" class="config-slider" id="gammaSensitivitySlider">
                     </div>
                     <div class="sensor-config-control">
-                        <div class="config-label">
-                            <span>Smoothing</span>
-                            <span class="config-value" id="smoothingValue">0.3</span>
-                        </div>
+                        <div class="config-label"><span>Smoothing</span><span class="config-value" id="smoothingValue">0.3</span></div>
                         <input type="range" min="0" max="0.9" step="0.1" value="0.3" class="config-slider" id="smoothingSlider">
                     </div>
                 </div>
-                
                 <div class="sensor-config-title">Manual Offset Adjustments</div>
                 <div class="sensor-config-controls">
                     <div class="sensor-config-control">
-                        <div class="config-label">
-                            <span>Alpha Offset</span>
-                            <span class="config-value" id="alphaOffsetValue">0°</span>
-                        </div>
-                        <input type="range" min="-180" max="180" step="5" value="0" class="config-slider" id="alphaOffset">
+                        <div class="config-label"><span>Alpha Offset</span><span class="config-value" id="alphaOffsetValue">0°</span></div>
+                        <input type="range" min="-180" max="180" step="5" value="0" class="config-slider" id="alphaOffsetSlider">
                     </div>
                     <div class="sensor-config-control">
-                        <div class="config-label">
-                            <span>Beta Offset</span>
-                            <span class="config-value" id="betaOffsetValue">0°</span>
-                        </div>
-                        <input type="range" min="-45" max="45" step="1" value="0" class="config-slider" id="betaOffset">
+                        <div class="config-label"><span>Beta Offset</span><span class="config-value" id="betaOffsetValue">0°</span></div>
+                        <input type="range" min="-45" max="45" step="1" value="0" class="config-slider" id="betaOffsetSlider">
                     </div>
                     <div class="sensor-config-control">
-                        <div class="config-label">
-                            <span>Gamma Offset</span>
-                            <span class="config-value" id="gammaOffsetValue">0°</span>
-                        </div>
-                        <input type="range" min="-45" max="45" step="1" value="0" class="config-slider" id="gammaOffset">
+                        <div class="config-label"><span>Gamma Offset</span><span class="config-value" id="gammaOffsetValue">0°</span></div>
+                        <input type="range" min="-45" max="45" step="1" value="0" class="config-slider" id="gammaOffsetSlider">
                     </div>
                 </div>
-                
                 <div class="sensor-actions">
                     <button id="calibrateBtn" class="sensor-action-btn">Calibrate</button>
                     <button id="invertBtn" class="sensor-action-btn">Invert Controls</button>
@@ -789,7 +352,12 @@
     
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            // --- DOM Elements ---
             const videoPlayer = document.getElementById('videoPlayer');
+            const mainVideoContainer = document.getElementById('mainVideoContainer');
+            const videoPlaceholder = document.getElementById('videoPlaceholder');
+            const videoPlayerControls = document.getElementById('videoPlayerControls');
+            const videoFilterControls = document.getElementById('videoFilterControls');
             const playPauseBtn = document.getElementById('playPauseBtn');
             const loopBtn = document.getElementById('loopBtn');
             const fileInput = document.getElementById('fileInput');
@@ -799,8 +367,6 @@
             const currentTimeEl = document.getElementById('currentTime');
             const durationEl = document.getElementById('duration');
             const volumeSlider = document.getElementById('volumeSlider');
-            const placeholder = document.getElementById('placeholder');
-            const controls = document.getElementById('controls');
             const loopInfo = document.getElementById('loopInfo');
             
             const brightnessSlider = document.getElementById('brightnessSlider');
@@ -809,39 +375,18 @@
             const brightnessValue = document.getElementById('brightnessValue');
             const saturationValue = document.getElementById('saturationValue');
             const contrastValue = document.getElementById('contrastValue');
-            const resetFilters = document.getElementById('resetFilters');
-            const fullscreenBtn = document.getElementById('fullscreenBtn');
+            const resetFiltersBtn = document.getElementById('resetFiltersBtn');
             
-            const sensorToggle = document.getElementById('sensorToggle');
-            const orientAlpha = document.getElementById('orientAlpha');
-            const orientBeta = document.getElementById('orientBeta');
-            const orientGamma = document.getElementById('orientGamma');
-            const compassNeedle = document.getElementById('compassNeedle');
-            const alphaSensitivity = document.getElementById('alphaSensitivity');
-            const betaSensitivity = document.getElementById('betaSensitivity');
-            const gammaSensitivity = document.getElementById('gammaSensitivity');
-            const smoothingSlider = document.getElementById('smoothingSlider');
-            const alphaSensValue = document.getElementById('alphaSensValue');
-            const betaSensValue = document.getElementById('betaSensValue');
-            const gammaSensValue = document.getElementById('gammaSensValue');
-            const smoothingValue = document.getElementById('smoothingValue');
-            const calibrateBtn = document.getElementById('calibrateBtn');
-            const invertBtn = document.getElementById('invertBtn');
-            const alphaOffset = document.getElementById('alphaOffset'); 
-            const betaOffset = document.getElementById('betaOffset');   
-            const gammaOffset = document.getElementById('gammaOffset'); 
-            const alphaOffsetValue = document.getElementById('alphaOffsetValue'); 
-            const betaOffsetValue = document.getElementById('betaOffsetValue');   
-            const gammaOffsetValue = document.getElementById('gammaOffsetValue'); 
-
-            const fullscreenControls = document.getElementById('fullscreenControls');
+            const videoFullscreenBtn = document.getElementById('videoFullscreenBtn');
+            const fullscreenControlsOverlay = document.getElementById('fullscreenControlsOverlay');
             const progressBarFullscreen = document.getElementById('progressBarFullscreen');
             const playPauseFullscreen = document.getElementById('playPauseFullscreen');
-            const exitFullscreen = document.getElementById('exitFullscreen');
-            const fullscreenProgressContainer = document.querySelector('.controls-overlay .progress-container');
+            const exitVideoFullscreenBtn = document.getElementById('exitVideoFullscreenBtn');
+            const fullscreenProgressContainer = fullscreenControlsOverlay.querySelector('.progress-container');
 
-            const togglePointCloudBtn = document.getElementById('togglePointCloudBtn');
+            // Point Cloud Elements
             const pointCloudCanvas = document.getElementById('pointCloudCanvas');
+            const mainPointCloudContainer = document.getElementById('mainPointCloudContainer');
             const pointCloudParams = document.getElementById('pointCloudParams');
             const densitySlider = document.getElementById('densitySlider');
             const densityValue = document.getElementById('densityValue');
@@ -849,107 +394,197 @@
             const displacementValue = document.getElementById('displacementValue');
             const pointSizeSlider = document.getElementById('pointSizeSlider');
             const pointSizeValue = document.getElementById('pointSizeValue');
-            const tiltSensitivitySlider = document.getElementById('tiltSensitivitySlider'); // New
-            const tiltSensitivityValue = document.getElementById('tiltSensitivityValue'); // New
+            const tiltSensitivitySlider = document.getElementById('tiltSensitivitySlider'); 
+            const tiltSensitivityValue = document.getElementById('tiltSensitivityValue'); 
 
+            // Sensor Elements
+            const sensorToggleBtn = document.getElementById('sensorToggleBtn');
+            const sensorMappingInfo = document.getElementById('sensorMappingInfo');
+            const orientAlpha = document.getElementById('orientAlpha');
+            const orientBeta = document.getElementById('orientBeta');
+            const orientGamma = document.getElementById('orientGamma');
+            const compassNeedle = document.getElementById('compassNeedle');
+            const alphaSensitivitySlider = document.getElementById('alphaSensitivitySlider');
+            const betaSensitivitySlider = document.getElementById('betaSensitivitySlider');
+            const gammaSensitivitySlider = document.getElementById('gammaSensitivitySlider');
+            const smoothingSlider = document.getElementById('smoothingSlider');
+            const alphaSensValue = document.getElementById('alphaSensValue');
+            const betaSensValue = document.getElementById('betaSensValue');
+            const gammaSensValue = document.getElementById('gammaSensValue');
+            const smoothingValue = document.getElementById('smoothingValue');
+            const alphaOffsetSlider = document.getElementById('alphaOffsetSlider'); 
+            const betaOffsetSlider = document.getElementById('betaOffsetSlider');   
+            const gammaOffsetSlider = document.getElementById('gammaOffsetSlider'); 
+            const alphaOffsetValue = document.getElementById('alphaOffsetValue'); 
+            const betaOffsetValue = document.getElementById('betaOffsetValue');   
+            const gammaOffsetValue = document.getElementById('gammaOffsetValue'); 
+            const calibrateBtn = document.getElementById('calibrateBtn');
+            const invertBtn = document.getElementById('invertBtn');
+
+            // Mode Switching Elements
+            const showVideoPlayerModeBtn = document.getElementById('showVideoPlayerModeBtn');
+            const showPointCloudModeBtn = document.getElementById('showPointCloudModeBtn');
+            const videoPlayerModeContent = document.getElementById('videoPlayerModeContent');
+            const pointCloudModeContent = document.getElementById('pointCloudModeContent');
+
+            // --- State Variables ---
+            let currentMode = 'videoPlayer'; // 'videoPlayer' or 'pointCloud'
+            let isLooping = true; // Loop by default
+            let loopCount = 0;
+            
+            let sensorsGloballyEnabled = false; // Master switch for sensor processing
+            let deviceOrientationPermissionGranted = false;
+            let controlsInverted = false;
+            let calibrationValues = { alpha: 0, beta: 0, gamma: 0 };
+            let manualOffsets = { alpha: 0, beta: 0, gamma: 0 }; 
+            let lastVideoFilterValues = { brightness: 100, saturation: 100, contrast: 100 };
 
             let pointCloudCtx;
-            let isPointCloudViewActive = false;
             let pointCloudAnimationFrameId;
             const tempCanvas = document.createElement('canvas'); 
             const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true }); 
+            let pointCloudConfig = {
+                density: 32,
+                displacementScale: 50,
+                pointSize: 3,
+                tiltSensitivity: 10
+            };
+            let pointCloudTiltAngles = { beta: 0, gamma: 0 };
 
-            let pointCloudDensity = 32;
-            let pointCloudDisplacementScale = 50;
-            let currentPointSize = 3;
-            let pointCloudTiltSensitivity = 10; // New
-            let pointCloudTiltAngles = { beta: 0, gamma: 0 }; // For point cloud tilt
+            // --- Initialization ---
+            updateModeUI();
+            loadPlayerSettings();
+            updateFilterDisplayValues();
+            applyVideoFilters();
+            updateLoopButton(); // Set initial loop button text
+
+            if (pointCloudCanvas) {
+                pointCloudCtx = pointCloudCanvas.getContext('2d', { willReadFrequently: true });
+                updatePointCloudParamDisplays();
+            }
+
+            // --- Mode Switching Logic ---
+            showVideoPlayerModeBtn.addEventListener('click', () => switchMode('videoPlayer'));
+            showPointCloudModeBtn.addEventListener('click', () => switchMode('pointCloud'));
+
+            function switchMode(newMode) {
+                if (newMode === currentMode) return;
+
+                currentMode = newMode;
+                updateModeUI();
+
+                if (currentMode === 'pointCloud') {
+                    if (!videoPlayer.src || videoPlayer.readyState < videoPlayer.HAVE_METADATA) {
+                        alert("Please load and play a video first to use Point Cloud mode.");
+                        // Revert to video player mode if no video
+                        currentMode = 'videoPlayer'; 
+                        updateModeUI();
+                        return;
+                    }
+                    setupPointCloudCanvasDimensions();
+                    if (videoPlayer.paused) videoPlayer.play().catch(handlePlayError);
+                    renderPointCloudFrame();
+                } else { // Switching to videoPlayer mode
+                    if (pointCloudAnimationFrameId) {
+                        cancelAnimationFrame(pointCloudAnimationFrameId);
+                        pointCloudAnimationFrameId = null;
+                    }
+                }
+            }
+
+            function updateModeUI() {
+                showVideoPlayerModeBtn.classList.toggle('active', currentMode === 'videoPlayer');
+                showPointCloudModeBtn.classList.toggle('active', currentMode === 'pointCloud');
+
+                videoPlayerModeContent.classList.toggle('hidden', currentMode !== 'videoPlayer');
+                pointCloudModeContent.classList.toggle('hidden', currentMode !== 'pointCloud');
+                
+                // Hide placeholder if video is loaded, regardless of mode
+                videoPlaceholder.classList.toggle('hidden', !!videoPlayer.src);
+                // Show video controls only if video loaded AND in video player mode
+                videoPlayerControls.classList.toggle('hidden', !videoPlayer.src || currentMode !== 'videoPlayer');
+                videoFilterControls.classList.toggle('hidden', !videoPlayer.src || currentMode !== 'videoPlayer');
 
 
-            let isLooping = false;
-            let loopCount = 0;
-            let sensorsEnabled = false;
-            let deviceOrientationEnabled = false;
-            let controlsInverted = false;
-            
-            let calibrationValues = { alpha: 0, beta: 0, gamma: 0 };
-            let manualOffsets = { alpha: 0, beta: 0, gamma: 0 }; 
-            
-            let lastFilterValues = { brightness: 100, saturation: 100, contrast: 100 };
-            
-            const savedVolume = localStorage.getItem('videoPlayerVolume');
-            if (savedVolume) {
-                videoPlayer.volume = parseFloat(savedVolume);
-                volumeSlider.value = parseFloat(savedVolume);
+                // Update sensor mapping info text
+                if (currentMode === 'videoPlayer') {
+                    sensorMappingInfo.innerHTML = `Tilt your device to control video effects: <br>
+                        <span class="mapping-highlight">Rotation</span> → Saturation • 
+                        <span class="mapping-highlight">Tilt Fwd/Back</span> → Brightness • 
+                        <span class="mapping-highlight">Tilt Left/Right</span> → Contrast`;
+                } else { // pointCloud mode
+                    sensorMappingInfo.innerHTML = `Tilt your device to adjust point cloud view. Ensure sensors are enabled below.`;
+                }
             }
             
-            const savedBrightness = localStorage.getItem('videoPlayerBrightness');
-            const savedSaturation = localStorage.getItem('videoPlayerSaturation');
-            const savedContrast = localStorage.getItem('videoPlayerContrast');
-            
-            if (savedBrightness) brightnessSlider.value = savedBrightness;
-            if (savedSaturation) saturationSlider.value = savedSaturation;
-            if (savedContrast) contrastSlider.value = savedContrast;
-            updateFilterDisplayValues(); 
-            applyFilters();
-            
+            // --- File Handling & Player Setup ---
             fileInput.addEventListener('change', function() {
                 const file = this.files[0];
                 if (file) {
                     const videoURL = URL.createObjectURL(file);
                     videoPlayer.src = videoURL;
                     fileName.textContent = file.name;
-                    placeholder.style.display = 'none';
-                    controls.style.display = 'flex';
+                    
+                    videoPlayer.loop = isLooping; // Apply default loop state
                     loopCount = 0;
                     updateLoopInfo();
-                     // If point cloud was active, reset its dimensions for the new video
-                    if (isPointCloudViewActive && videoPlayer.readyState >= videoPlayer.HAVE_METADATA) {
-                         setTimeout(setupPointCloudCanvasDimensions, 100); // Allow video metadata to load
-                    } else if (isPointCloudViewActive) {
-                        videoPlayer.onloadedmetadata = () => {
-                            setupPointCloudCanvasDimensions();
-                            videoPlayer.onloadedmetadata = null; // Remove listener
-                        };
+                    updateLoopButton();
+                    
+                    videoPlaceholder.classList.add('hidden');
+                    if (currentMode === 'videoPlayer') {
+                        videoPlayerControls.classList.remove('hidden');
+                        videoFilterControls.classList.remove('hidden');
                     }
+                    // If switching to point cloud, it will handle its own setup
+                }
+            });
+
+            videoPlayer.addEventListener('loadedmetadata', function() {
+                durationEl.textContent = formatTime(videoPlayer.duration);
+                if (currentMode === 'pointCloud') { 
+                    setupPointCloudCanvasDimensions();
+                }
+                 // Autoplay if a file is loaded (useful for point cloud mode especially)
+                if (videoPlayer.src && videoPlayer.paused) {
+                   videoPlayer.play().catch(handlePlayError);
                 }
             });
             
+            // --- Video Player Controls ---
             playPauseBtn.addEventListener('click', togglePlayPause);
-            
+            playPauseFullscreen.addEventListener('click', togglePlayPause);
+
             loopBtn.addEventListener('click', function() {
                 isLooping = !isLooping;
                 videoPlayer.loop = isLooping;
-                loopBtn.textContent = isLooping ? 'Loop: ON' : 'Loop: OFF';
-                updateLoopInfo();
+                updateLoopButton();
+                updateLoopInfo(); // Reset count if looping is turned off and then on
+                if (!isLooping) loopCount = 0; 
             });
-            
+             function updateLoopButton() {
+                loopBtn.textContent = isLooping ? 'Loop: ON' : 'Loop: OFF';
+            }
+
+
             videoPlayer.addEventListener('timeupdate', function() {
+                if (!videoPlayer.duration) return;
                 const percentage = (videoPlayer.currentTime / videoPlayer.duration) * 100;
                 progressBar.style.width = percentage + '%';
                 progressBarFullscreen.style.width = percentage + '%';
                 currentTimeEl.textContent = formatTime(videoPlayer.currentTime);
             });
             
-            function seek(event, progressContainerElement) {
+            function seekVideo(event, progressContainerElement) {
                  if (!videoPlayer.duration) return;
                 const progressContainerWidth = progressContainerElement.offsetWidth;
                 const clickPosition = event.offsetX;
                 const seekTime = (clickPosition / progressContainerWidth) * videoPlayer.duration;
                 videoPlayer.currentTime = seekTime;
             }
-
-            mainProgressContainer.addEventListener('click', (e) => seek(e, mainProgressContainer));
+            mainProgressContainer.addEventListener('click', (e) => seekVideo(e, mainProgressContainer));
             if(fullscreenProgressContainer) { 
-                 fullscreenProgressContainer.addEventListener('click', (e) => seek(e, fullscreenProgressContainer));
+                 fullscreenProgressContainer.addEventListener('click', (e) => seekVideo(e, fullscreenProgressContainer));
             }
-            
-            videoPlayer.addEventListener('loadedmetadata', function() {
-                durationEl.textContent = formatTime(videoPlayer.duration);
-                 if (isPointCloudViewActive) { 
-                    setupPointCloudCanvasDimensions();
-                }
-            });
             
             volumeSlider.addEventListener('input', function() {
                 videoPlayer.volume = this.value;
@@ -957,7 +592,7 @@
             });
             
             videoPlayer.addEventListener('ended', function() {
-                if (isLooping) {
+                if (videoPlayer.loop) { // Use videoPlayer.loop directly
                     loopCount++;
                     updateLoopInfo();
                 } else {
@@ -966,34 +601,41 @@
                 }
             });
             
-            videoPlayer.addEventListener('play', function() {
+            videoPlayer.addEventListener('play', () => { 
                 playPauseBtn.textContent = 'Pause';
                 playPauseFullscreen.textContent = 'Pause';
-                 if (isPointCloudViewActive) { // Kickstart rendering if paused
-                    renderPointCloudFrame();
-                }
+                if (currentMode === 'pointCloud') renderPointCloudFrame(); // Resume PC if it was paused
             });
-            
-            videoPlayer.addEventListener('pause', function() {
+            videoPlayer.addEventListener('pause', () => {
                 playPauseBtn.textContent = 'Play';
                 playPauseFullscreen.textContent = 'Play';
             });
-            
+
+            function togglePlayPause() {
+                if (videoPlayer.paused || videoPlayer.ended) {
+                    videoPlayer.play().catch(handlePlayError);
+                } else {
+                    videoPlayer.pause();
+                }
+            }
+            function handlePlayError(e) { console.error("Video play error:", e); }
+
+            // --- Video Filters ---
             [brightnessSlider, saturationSlider, contrastSlider].forEach(slider => {
                 slider.addEventListener('input', () => {
                     updateFilterDisplayValues();
-                    saveFilters();
-                    applyFilters();
+                    saveVideoPlayerSettings();
+                    applyVideoFilters();
                 });
             });
             
-            resetFilters.addEventListener('click', function() {
+            resetFiltersBtn.addEventListener('click', function() {
                 brightnessSlider.value = 100;
                 saturationSlider.value = 100;
                 contrastSlider.value = 100;
                 updateFilterDisplayValues();
-                saveFilters();
-                applyFilters();
+                saveVideoPlayerSettings();
+                applyVideoFilters();
             });
 
             function updateFilterDisplayValues() {
@@ -1001,231 +643,206 @@
                 saturationValue.textContent = `${saturationSlider.value}%`;
                 contrastValue.textContent = `${contrastSlider.value}%`;
             }
-
-            function saveFilters() {
-                 localStorage.setItem('videoPlayerBrightness', brightnessSlider.value);
-                 localStorage.setItem('videoPlayerSaturation', saturationSlider.value);
-                 localStorage.setItem('videoPlayerContrast', contrastSlider.value);
-            }
-            
-            function applyFilters() {
-                const brightness = brightnessSlider.value;
-                const saturation = saturationSlider.value;
-                const contrast = contrastSlider.value;
-                videoPlayer.style.filter = `brightness(${brightness}%) saturate(${saturation}%) contrast(${contrast}%)`;
-            }
-            
-            function formatTime(seconds) {
-                const minutes = Math.floor(seconds / 60);
-                const remainingSeconds = Math.floor(seconds % 60);
-                return `${minutes}:${remainingSeconds < 10 ? '0' : ''}${remainingSeconds}`;
-            }
-            
-            function updateLoopInfo() {
-                loopInfo.textContent = isLooping ? `Looped ${loopCount} time${loopCount === 1 ? '' : 's'}` : '';
+            function applyVideoFilters() {
+                lastVideoFilterValues.brightness = brightnessSlider.value;
+                lastVideoFilterValues.saturation = saturationSlider.value;
+                lastVideoFilterValues.contrast = contrastSlider.value;
+                videoPlayer.style.filter = `brightness(${lastVideoFilterValues.brightness}%) saturate(${lastVideoFilterValues.saturation}%) contrast(${lastVideoFilterValues.contrast}%)`;
             }
 
-            function togglePlayPause() {
-                if (videoPlayer.paused || videoPlayer.ended) {
-                    videoPlayer.play().catch(e => console.error("Play error:", e));
-                } else {
-                    videoPlayer.pause();
-                }
-            }
-            
-            let lastTap = 0;
-            videoPlayer.addEventListener('touchend', function(e) {
+            // --- Fullscreen Logic (Video & Point Cloud) ---
+            let lastVideoTap = 0;
+            videoPlayer.addEventListener('touchend', (e) => {
+                if (currentMode !== 'videoPlayer') return;
                 const currentTime = new Date().getTime();
-                if (currentTime - lastTap < 500) {
-                    toggleFullscreen();
-                    e.preventDefault();
-                }
-                lastTap = currentTime;
+                if (currentTime - lastVideoTap < 500) { toggleVideoFullscreen(); e.preventDefault(); }
+                lastVideoTap = currentTime;
             });
-            videoPlayer.addEventListener('dblclick', toggleFullscreen);
-            fullscreenBtn.addEventListener('click', toggleFullscreen);
-            exitFullscreen.addEventListener('click', exitFullscreenMode);
+            videoPlayer.addEventListener('dblclick', () => { if (currentMode === 'videoPlayer') toggleVideoFullscreen(); });
+            videoFullscreenBtn.addEventListener('click', toggleVideoFullscreen);
+            exitVideoFullscreenBtn.addEventListener('click', exitVideoFullscreenMode);
 
-            function toggleFullscreen() {
-                const videoContainer = document.querySelector('.video-container');
-                if (!videoContainer.classList.contains('fullscreen')) {
-                    enterFullscreenMode();
-                } else {
-                    exitFullscreenMode();
-                }
+            function toggleVideoFullscreen() {
+                if (!mainVideoContainer.classList.contains('fullscreen')) enterVideoFullscreenMode();
+                else exitVideoFullscreenMode();
             }
-
-            function enterFullscreenMode() {
-                const videoContainer = document.querySelector('.video-container');
-                videoContainer.classList.add('fullscreen');
+            function enterVideoFullscreenMode() {
+                mainVideoContainer.classList.add('fullscreen');
                 document.body.style.overflow = 'hidden';
-                fullscreenBtn.textContent = 'Exit Full';
-                showFullscreenControlsBriefly();
-                document.addEventListener('keydown', exitOnEscape);
-
-                if (videoContainer.requestFullscreen) videoContainer.requestFullscreen().catch(err => console.error("FS Error:", err));
-                else if (videoContainer.mozRequestFullScreen) videoContainer.mozRequestFullScreen();
-                else if (videoContainer.webkitRequestFullscreen) videoContainer.webkitRequestFullscreen();
-                else if (videoContainer.msRequestFullscreen) videoContainer.msRequestFullscreen();
+                videoFullscreenBtn.textContent = 'Exit Full';
+                showVideoFullscreenControlsBriefly();
+                document.addEventListener('keydown', exitFullscreenOnEscape);
+                if (mainVideoContainer.requestFullscreen) mainVideoContainer.requestFullscreen().catch(err => console.error("FS Error:", err));
+                // Add other browser prefixes if needed
             }
-
-            function exitFullscreenMode() {
-                const videoContainer = document.querySelector('.video-container');
-                videoContainer.classList.remove('fullscreen');
+            function exitVideoFullscreenMode() {
+                mainVideoContainer.classList.remove('fullscreen');
                 document.body.style.overflow = '';
-                fullscreenBtn.textContent = 'Fullscreen';
-                fullscreenControls.classList.remove('active');
-                document.removeEventListener('keydown', exitOnEscape);
-
+                videoFullscreenBtn.textContent = 'Fullscreen';
+                fullscreenControlsOverlay.classList.remove('active');
+                document.removeEventListener('keydown', exitFullscreenOnEscape);
                 if (document.exitFullscreen) document.exitFullscreen().catch(err => console.error("Exit FS Error:", err));
-                else if (document.mozCancelFullScreen) document.mozCancelFullScreen();
-                else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
-                else if (document.msExitFullscreen) document.msExitFullscreen();
             }
+            function showVideoFullscreenControlsBriefly() {
+                fullscreenControlsOverlay.classList.add('active');
+                setTimeout(() => fullscreenControlsOverlay.classList.remove('active'), 3000);
+            }
+             videoPlayer.addEventListener('touchstart', () => {
+                if (mainVideoContainer.classList.contains('fullscreen')) showVideoFullscreenControlsBriefly();
+            });
             
-            function exitOnEscape(e) {
-                if (e.key === 'Escape' && document.querySelector('.video-container.fullscreen')) {
-                    exitFullscreenMode();
+            let lastCanvasTap = 0;
+            pointCloudCanvas.addEventListener('touchend', (e) => {
+                if (currentMode !== 'pointCloud') return;
+                const currentTime = new Date().getTime();
+                if (currentTime - lastCanvasTap < 500) { togglePointCloudFullscreen(); e.preventDefault(); }
+                lastCanvasTap = currentTime;
+            });
+            pointCloudCanvas.addEventListener('dblclick', () => { if (currentMode === 'pointCloud') togglePointCloudFullscreen(); });
+
+            function togglePointCloudFullscreen() {
+                 if (!mainPointCloudContainer.classList.contains('fullscreen')) enterPointCloudFullscreenMode();
+                 else exitPointCloudFullscreenMode();
+            }
+            function enterPointCloudFullscreenMode() {
+                mainPointCloudContainer.classList.add('fullscreen');
+                document.body.style.overflow = 'hidden';
+                document.addEventListener('keydown', exitFullscreenOnEscape);
+                if (mainPointCloudContainer.requestFullscreen) mainPointCloudContainer.requestFullscreen().catch(err => console.error("FS Error:", err));
+            }
+            function exitPointCloudFullscreenMode() {
+                mainPointCloudContainer.classList.remove('fullscreen');
+                document.body.style.overflow = '';
+                document.removeEventListener('keydown', exitFullscreenOnEscape);
+                if (document.exitFullscreen) document.exitFullscreen().catch(err => console.error("Exit FS Error:", err));
+            }
+
+            function exitFullscreenOnEscape(e) { // Common escape handler
+                if (e.key === 'Escape') {
+                    if (mainVideoContainer.classList.contains('fullscreen')) exitVideoFullscreenMode();
+                    if (mainPointCloudContainer.classList.contains('fullscreen')) exitPointCloudFullscreenMode();
                 }
             }
-             document.addEventListener('fullscreenchange', () => {
+            document.addEventListener('fullscreenchange', () => { // Common listener for browser FS exit
                 if (!document.fullscreenElement && !document.webkitIsFullScreen && !document.mozFullScreen && !document.msFullscreenElement) {
-                     if(document.querySelector('.video-container.fullscreen')) exitFullscreenMode();
+                     if(mainVideoContainer.classList.contains('fullscreen')) exitVideoFullscreenMode();
+                     if(mainPointCloudContainer.classList.contains('fullscreen')) exitPointCloudFullscreenMode();
                 }
             });
+            
+            // --- Sensor Logic ---
+            sensorToggleBtn.addEventListener('click', () => sensorsGloballyEnabled ? disableSensors() : setupSensors());
 
-            function showFullscreenControlsBriefly() {
-                fullscreenControls.classList.add('active');
-                setTimeout(() => fullscreenControls.classList.remove('active'), 3000);
+            function setupSensors() {
+                if (typeof DeviceOrientationEvent !== 'undefined' && DeviceOrientationEvent.requestPermission) {
+                    DeviceOrientationEvent.requestPermission()
+                        .then(permissionState => {
+                            if (permissionState === 'granted') {
+                                window.addEventListener('deviceorientation', handleOrientationEvent);
+                                deviceOrientationPermissionGranted = true;
+                                sensorsGloballyEnabled = true;
+                                sensorToggleBtn.textContent = 'Disable Sensors';
+                                sensorToggleBtn.classList.add('active');
+                            } else {
+                                alert('Motion sensor permission denied.');
+                                disableSensors(); // Ensure state is reset
+                            }
+                        }).catch(err => {
+                             console.error("Sensor permission error:", err);
+                             alert('Error requesting sensor permissions.');
+                             disableSensors();
+                        });
+                } else if ('DeviceOrientationEvent' in window) {
+                    window.addEventListener('deviceorientation', handleOrientationEvent);
+                    deviceOrientationPermissionGranted = true; // Assume granted for non-iOS13+
+                    sensorsGloballyEnabled = true;
+                    sensorToggleBtn.textContent = 'Disable Sensors';
+                    sensorToggleBtn.classList.add('active');
+                } else {
+                    alert('Device orientation not supported on your device.');
+                    sensorToggleBtn.textContent = 'Not Supported';
+                    sensorToggleBtn.disabled = true;
+                }
             }
-            videoPlayer.addEventListener('touchstart', () => {
-                if (document.querySelector('.video-container.fullscreen')) showFullscreenControlsBriefly();
-            });
-             playPauseFullscreen.addEventListener('click', togglePlayPause);
+            function disableSensors() {
+                window.removeEventListener('deviceorientation', handleOrientationEvent);
+                sensorsGloballyEnabled = false;
+                // deviceOrientationPermissionGranted remains true if it was ever granted
+                sensorToggleBtn.textContent = 'Enable Sensors';
+                sensorToggleBtn.classList.remove('active');
+                pointCloudTiltAngles = { beta: 0, gamma: 0 }; // Reset tilt if sensors off
+            }
 
+            function handleOrientationEvent(event) {
+                if (!sensorsGloballyEnabled) return; 
+                const { alpha, beta, gamma } = event;
+                if (alpha == null || beta == null || gamma == null) return;
 
-            function formatSensorNumber(num) { return num != null ? num.toFixed(2) : '0.00'; }
+                orientAlpha.textContent = (alpha != null ? alpha.toFixed(2) : '0.00');
+                orientBeta.textContent = (beta != null ? beta.toFixed(2) : '0.00');
+                orientGamma.textContent = (gamma != null ? gamma.toFixed(2) : '0.00');
+                if (compassNeedle) compassNeedle.style.transform = `rotate(${(alpha || 0)}deg)`;
+                
+                mapOrientationInput(alpha || 0, beta || 0, gamma || 0);
+            }
 
-            function mapOrientationToFilters(alpha, beta, gamma) {
-                if (!sensorsEnabled) return;
-
-                const effectiveAlpha = ((alpha - calibrationValues.alpha - manualOffsets.alpha + 360) % 360);
-                const effectiveBeta = beta - calibrationValues.beta - manualOffsets.beta;
-                const effectiveGamma = gamma - calibrationValues.gamma - manualOffsets.gamma;
+            function mapOrientationInput(rawAlpha, rawBeta, rawGamma) {
+                const effectiveAlpha = ((rawAlpha - calibrationValues.alpha - manualOffsets.alpha + 360) % 360);
+                let effectiveBeta = rawBeta - calibrationValues.beta - manualOffsets.beta;
+                let effectiveGamma = rawGamma - calibrationValues.gamma - manualOffsets.gamma;
 
                 const finalAlpha = controlsInverted ? (360 - effectiveAlpha + 360) % 360 : effectiveAlpha;
                 let finalBeta = controlsInverted ? -effectiveBeta : effectiveBeta;
                 let finalGamma = controlsInverted ? -effectiveGamma : effectiveGamma;
                 
-                // Update point cloud tilt angles if point cloud view is active
-                if (isPointCloudViewActive) {
-                    pointCloudTiltAngles.beta = finalBeta;
-                    pointCloudTiltAngles.gamma = finalGamma;
-                }
+                if (currentMode === 'videoPlayer') {
+                    const alphaSens = parseFloat(alphaSensitivitySlider.value);
+                    const betaSens = parseFloat(betaSensitivitySlider.value);
+                    const gammaSens = parseFloat(gammaSensitivitySlider.value);
+                    
+                    const alphaNormalized = ((finalAlpha + 180) % 360) - 180;
+                    let newSaturation = 100 + Math.round((alphaNormalized * alphaSens) / 180 * 75); 
+                    let newBrightness = 100 + Math.round((finalBeta * betaSens) / 90 * 75); 
+                    let newContrast = 100 + Math.round((finalGamma * gammaSens) / 90 * 75);    
 
-                const alphaSens = parseFloat(alphaSensitivity.value);
-                const betaSens = parseFloat(betaSensitivity.value);
-                const gammaSens = parseFloat(gammaSensitivity.value);
-                
-                const alphaNormalized = ((finalAlpha + 180) % 360) - 180;
-                let newSaturation = 100 + Math.round((alphaNormalized * alphaSens) / 180 * 75); 
-                let newBrightness = 100 + Math.round((finalBeta * betaSens) / 90 * 75); 
-                let newContrast = 100 + Math.round((finalGamma * gammaSens) / 90 * 75);    
-
-                newSaturation = Math.max(25, Math.min(200, newSaturation));
-                newBrightness = Math.max(25, Math.min(200, newBrightness));
-                newContrast = Math.max(25, Math.min(200, newContrast));
-                
-                const smoothingFactor = parseFloat(smoothingSlider.value);
-                lastFilterValues.brightness = applySmoothing('brightness', newBrightness, smoothingFactor);
-                lastFilterValues.saturation = applySmoothing('saturation', newSaturation, smoothingFactor);
-                lastFilterValues.contrast = applySmoothing('contrast', newContrast, smoothingFactor);
-                
-                brightnessSlider.value = lastFilterValues.brightness;
-                saturationSlider.value = lastFilterValues.saturation;
-                contrastSlider.value = lastFilterValues.contrast;
-                
-                updateFilterDisplayValues();
-                applyFilters(); 
-            }
-            
-            function applySmoothing(filterName, newValue, factor) {
-                if (factor === 0) return newValue;
-                return lastFilterValues[filterName] * factor + newValue * (1 - factor);
-            }
-            
-            function handleOrientation(event) {
-                if (!sensorsEnabled) return; // Ensure sensors are globally enabled first
-                const { alpha, beta, gamma } = event;
-                if (alpha == null || beta == null || gamma == null) return;
-
-                orientAlpha.textContent = formatSensorNumber(alpha);
-                orientBeta.textContent = formatSensorNumber(beta);
-                orientGamma.textContent = formatSensorNumber(gamma);
-                if (compassNeedle) compassNeedle.style.transform = `rotate(${alpha}deg)`;
-                
-                mapOrientationToFilters(alpha, beta, gamma); // This will also update pointCloudTiltAngles
-            }
-            
-            function setupDeviceOrientation() {
-                if (typeof DeviceOrientationEvent !== 'undefined' && DeviceOrientationEvent.requestPermission) {
-                    DeviceOrientationEvent.requestPermission()
-                        .then(permissionState => {
-                            if (permissionState === 'granted') {
-                                window.addEventListener('deviceorientation', handleOrientation);
-                                deviceOrientationEnabled = true;
-                                sensorsEnabled = true;
-                                sensorToggle.textContent = 'Disable Sensors';
-                                sensorToggle.classList.add('active');
-                            } else {
-                                alert('Motion sensor permission denied.');
-                                disableDeviceOrientation();
-                            }
-                        }).catch(err => {
-                             console.error("Sensor permission error:", err);
-                             alert('Error requesting sensor permissions.');
-                             disableDeviceOrientation();
-                        });
-                } else if ('DeviceOrientationEvent' in window) {
-                    window.addEventListener('deviceorientation', handleOrientation);
-                    deviceOrientationEnabled = true;
-                    sensorsEnabled = true;
-                    sensorToggle.textContent = 'Disable Sensors';
-                    sensorToggle.classList.add('active');
-                } else {
-                    alert('Device orientation not supported.');
-                    sensorToggle.textContent = 'Not Supported';
-                    sensorToggle.disabled = true;
+                    newSaturation = Math.max(25, Math.min(200, newSaturation));
+                    newBrightness = Math.max(25, Math.min(200, newBrightness));
+                    newContrast = Math.max(25, Math.min(200, newContrast));
+                    
+                    const smoothingFactor = parseFloat(smoothingSlider.value);
+                    brightnessSlider.value = applySmoothing('brightness', newBrightness, smoothingFactor, lastVideoFilterValues);
+                    saturationSlider.value = applySmoothing('saturation', newSaturation, smoothingFactor, lastVideoFilterValues);
+                    contrastSlider.value = applySmoothing('contrast', newContrast, smoothingFactor, lastVideoFilterValues);
+                    
+                    updateFilterDisplayValues();
+                    applyVideoFilters(); // This updates lastVideoFilterValues internally
+                } else if (currentMode === 'pointCloud') {
+                    pointCloudTiltAngles.beta = finalBeta; // Use the processed beta
+                    pointCloudTiltAngles.gamma = finalGamma; // Use the processed gamma
                 }
             }
             
-            function disableDeviceOrientation() {
-                window.removeEventListener('deviceorientation', handleOrientation);
-                sensorsEnabled = false;
-                deviceOrientationEnabled = false; 
-                sensorToggle.textContent = 'Enable Sensors';
-                sensorToggle.classList.remove('active');
-                // Reset point cloud tilt angles when sensors are disabled
-                pointCloudTiltAngles = { beta: 0, gamma: 0 };
+            function applySmoothing(filterName, newValue, factor, targetObject) {
+                if (factor === 0) { targetObject[filterName] = newValue; return newValue; }
+                const smoothed = targetObject[filterName] * factor + newValue * (1 - factor);
+                targetObject[filterName] = smoothed;
+                return smoothed;
             }
-            
-            sensorToggle.addEventListener('click', () => sensorsEnabled ? disableDeviceOrientation() : setupDeviceOrientation());
-            
+
             calibrateBtn.addEventListener('click', () => {
-                if (!deviceOrientationEnabled) { alert('Enable sensors first.'); return; }
+                if (!sensorsGloballyEnabled) { alert('Enable sensors first.'); return; }
                 calibrationValues.alpha = parseFloat(orientAlpha.textContent) || 0;
                 calibrationValues.beta = parseFloat(orientBeta.textContent) || 0;
                 calibrationValues.gamma = parseFloat(orientGamma.textContent) || 0;
                 
                 manualOffsets = { alpha: 0, beta: 0, gamma: 0 };
-                alphaOffset.value = 0; betaOffset.value = 0; gammaOffset.value = 0;
-                alphaOffsetValue.textContent = '0°'; betaOffsetValue.textContent = '0°'; gammaOffsetValue.textContent = '0°';
+                alphaOffsetSlider.value = 0; betaOffsetSlider.value = 0; gammaOffsetSlider.value = 0;
+                updateSensorConfigDisplayValues();
 
-                alert('Sensors calibrated to current orientation. Manual offsets reset.');
-                resetFilters.click();
-                lastFilterValues = { brightness: 100, saturation: 100, contrast: 100 };
-                 // After calibration, update current tilt angles to zero effectively
-                pointCloudTiltAngles = { beta: 0, gamma: 0 };
+                alert('Sensors calibrated. Manual offsets reset.');
+                if (currentMode === 'videoPlayer') resetFiltersBtn.click();
+                lastVideoFilterValues = { brightness: 100, saturation: 100, contrast: 100 };
+                pointCloudTiltAngles = { beta: 0, gamma: 0 }; 
             });
             
             invertBtn.addEventListener('click', () => {
@@ -1234,57 +851,49 @@
                 invertBtn.style.backgroundColor = controlsInverted ? '#f44336' : '#555';
             });
 
-            [alphaSensitivity, betaSensitivity, gammaSensitivity, smoothingSlider].forEach(slider => {
-                slider.addEventListener('input', function() {
-                    document.getElementById(this.id.replace('Slider', 'Value').replace('Sensitivity', 'SensValue')).textContent = this.value;
-                });
+            [alphaSensitivitySlider, betaSensitivitySlider, gammaSensitivitySlider, smoothingSlider, alphaOffsetSlider, betaOffsetSlider, gammaOffsetSlider].forEach(slider => {
+                slider.addEventListener('input', updateSensorConfigDisplayValues);
             });
-            [alphaOffset, betaOffset, gammaOffset].forEach(slider => {
-                slider.addEventListener('input', function() {
-                    const axis = this.id.replace('Offset', ''); 
-                    manualOffsets[axis] = parseFloat(this.value);
-                    document.getElementById(`${axis}OffsetValue`).textContent = `${this.value}°`;
-                });
-            });
-
-            if (pointCloudCanvas) {
-                pointCloudCtx = pointCloudCanvas.getContext('2d', { willReadFrequently: true });
-                densitySlider.value = pointCloudDensity;
-                densityValue.textContent = pointCloudDensity;
-                displacementSlider.value = pointCloudDisplacementScale;
-                displacementValue.textContent = pointCloudDisplacementScale;
-                pointSizeSlider.value = currentPointSize;
-                pointSizeValue.textContent = currentPointSize;
-                tiltSensitivitySlider.value = pointCloudTiltSensitivity; // New
-                tiltSensitivityValue.textContent = pointCloudTiltSensitivity; // New
-
-
-                densitySlider.addEventListener('input', (e) => {
-                    pointCloudDensity = parseInt(e.target.value);
-                    densityValue.textContent = pointCloudDensity;
-                });
-                displacementSlider.addEventListener('input', (e) => {
-                    pointCloudDisplacementScale = parseInt(e.target.value);
-                    displacementValue.textContent = pointCloudDisplacementScale;
-                });
-                pointSizeSlider.addEventListener('input', (e) => {
-                    currentPointSize = parseInt(e.target.value);
-                    pointSizeValue.textContent = currentPointSize;
-                });
-                tiltSensitivitySlider.addEventListener('input', (e) => { // New
-                    pointCloudTiltSensitivity = parseInt(e.target.value);
-                    tiltSensitivityValue.textContent = pointCloudTiltSensitivity;
-                });
-
-                togglePointCloudBtn.addEventListener('click', togglePointCloudView);
+            function updateSensorConfigDisplayValues() {
+                alphaSensValue.textContent = parseFloat(alphaSensitivitySlider.value).toFixed(1);
+                betaSensValue.textContent = parseFloat(betaSensitivitySlider.value).toFixed(1);
+                gammaSensValue.textContent = parseFloat(gammaSensitivitySlider.value).toFixed(1);
+                smoothingValue.textContent = parseFloat(smoothingSlider.value).toFixed(1);
+                alphaOffsetValue.textContent = `${alphaOffsetSlider.value}°`;
+                betaOffsetValue.textContent = `${betaOffsetSlider.value}°`;
+                gammaOffsetValue.textContent = `${gammaOffsetSlider.value}°`;
+                // Update manual offsets from sliders
+                manualOffsets.alpha = parseFloat(alphaOffsetSlider.value);
+                manualOffsets.beta = parseFloat(betaOffsetSlider.value);
+                manualOffsets.gamma = parseFloat(gammaOffsetSlider.value);
             }
 
-            function setupPointCloudCanvasDimensions() {
-                if (!videoPlayer.videoWidth || !videoPlayer.videoHeight) return;
+            // --- Point Cloud Logic ---
+            function updatePointCloudParamDisplays() {
+                densityValue.textContent = pointCloudConfig.density;
+                displacementValue.textContent = pointCloudConfig.displacementScale;
+                pointSizeValue.textContent = pointCloudConfig.pointSize;
+                tiltSensitivityValue.textContent = pointCloudConfig.tiltSensitivity;
+            }
+            densitySlider.addEventListener('input', (e) => { pointCloudConfig.density = parseInt(e.target.value); updatePointCloudParamDisplays(); });
+            displacementSlider.addEventListener('input', (e) => { pointCloudConfig.displacementScale = parseInt(e.target.value); updatePointCloudParamDisplays(); });
+            pointSizeSlider.addEventListener('input', (e) => { pointCloudConfig.pointSize = parseInt(e.target.value); updatePointCloudParamDisplays(); });
+            tiltSensitivitySlider.addEventListener('input', (e) => { pointCloudConfig.tiltSensitivity = parseInt(e.target.value); updatePointCloudParamDisplays();});
 
+            function setupPointCloudCanvasDimensions() {
+                if (!videoPlayer.videoWidth || !videoPlayer.videoHeight || !pointCloudCanvas.parentElement) return;
                 const videoAspectRatio = videoPlayer.videoWidth / videoPlayer.videoHeight;
                 let canvasWidth = pointCloudCanvas.parentElement.clientWidth;
-                if (canvasWidth === 0) canvasWidth = Math.min(window.innerWidth - 40, 500-32); // Fallback width
+
+                if (!canvasWidth && mainPointCloudContainer.classList.contains('fullscreen')) { // Fullscreen canvas case
+                    canvasWidth = window.innerWidth;
+                     pointCloudCanvas.width = window.innerWidth;
+                     pointCloudCanvas.height = window.innerHeight;
+                     return; // Aspect ratio handled by object-fit in fullscreen
+                } else if (!canvasWidth) { // Fallback if parent has no width yet
+                     canvasWidth = Math.min(window.innerWidth - 40, 500-32); // Approx width of container
+                }
+
 
                 pointCloudCanvas.width = canvasWidth;
                 if (videoAspectRatio && isFinite(videoAspectRatio) && videoAspectRatio > 0) {
@@ -1297,55 +906,20 @@
                 }
             }
 
-            function togglePointCloudView() {
-                isPointCloudViewActive = !isPointCloudViewActive;
-                if (isPointCloudViewActive) {
-                    if (!videoPlayer.src || videoPlayer.readyState < videoPlayer.HAVE_METADATA) {
-                        alert("Please load a video first.");
-                        isPointCloudViewActive = false; 
-                        return;
-                    }
-                    
-                    videoPlayer.style.display = 'none';
-                    if (controls) controls.style.display = 'none'; 
-                    
-                    pointCloudCanvas.style.display = 'block';
-                    pointCloudParams.style.display = 'block';
-
-                    setupPointCloudCanvasDimensions();
-                    
-                    togglePointCloudBtn.textContent = 'Show Video Player';
-                    
-                    if (videoPlayer.paused && videoPlayer.readyState >= videoPlayer.HAVE_ENOUGH_DATA) {
-                        videoPlayer.play().catch(e => console.error("Error playing video for point cloud:", e)); 
-                    }
-                    renderPointCloudFrame();
-                } else {
-                    videoPlayer.style.display = 'block';
-                    if(controls && fileName.textContent) controls.style.display = 'flex'; 
-                    
-                    pointCloudCanvas.style.display = 'none';
-                    pointCloudParams.style.display = 'none';
-                    togglePointCloudBtn.textContent = 'Show Point Cloud';
-                    
-                    if (pointCloudAnimationFrameId) {
-                        cancelAnimationFrame(pointCloudAnimationFrameId);
-                        pointCloudAnimationFrameId = null;
-                    }
-                    if(pointCloudCtx) pointCloudCtx.clearRect(0, 0, pointCloudCanvas.width, pointCloudCanvas.height);
-                }
-            }
-
             function renderPointCloudFrame() {
-                if (!isPointCloudViewActive) return; 
+                if (currentMode !== 'pointCloud' || !videoPlayer.src) {
+                     if (pointCloudAnimationFrameId) cancelAnimationFrame(pointCloudAnimationFrameId);
+                     pointCloudAnimationFrameId = null;
+                     return;
+                }
 
                 if (videoPlayer.paused || videoPlayer.ended || videoPlayer.seeking || videoPlayer.readyState < videoPlayer.HAVE_CURRENT_DATA) {
-                    pointCloudAnimationFrameId = requestAnimationFrame(renderPointCloudFrame);
+                    pointCloudAnimationFrameId = requestAnimationFrame(renderPointCloudFrame); // Keep trying
                     return;
                 }
                 
+                const MAX_PROCESS_DIM = 120; // Keep it small for performance
                 let processWidth, processHeight;
-                const MAX_PROCESS_DIM = 128; // Keep it small for performance
                 if (videoPlayer.videoWidth > videoPlayer.videoHeight) {
                     processWidth = Math.min(videoPlayer.videoWidth, MAX_PROCESS_DIM);
                     processHeight = videoPlayer.videoHeight * (processWidth / videoPlayer.videoWidth);
@@ -1359,30 +933,25 @@
                 if (tempCanvas.width !== processWidth) tempCanvas.width = processWidth;
                 if (tempCanvas.height !== processHeight) tempCanvas.height = processHeight;
 
-                tempCtx.drawImage(videoPlayer, 0, 0, tempCanvas.width, tempCanvas.height);
-                
-                let imageData;
                 try {
-                    imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+                    tempCtx.drawImage(videoPlayer, 0, 0, tempCanvas.width, tempCanvas.height);
+                    const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+                    drawPointCloud(imageData, pointCloudTiltAngles.beta, pointCloudTiltAngles.gamma);
                 } catch (e) {
-                    console.error("Error getting image data:", e);
-                    isPointCloudViewActive = false; 
-                    togglePointCloudBtn.textContent = 'Point Cloud Error';
-                    togglePointCloudBtn.disabled = true;
-                    pointCloudCanvas.style.display = 'none';
-                    pointCloudParams.style.display = 'none';
-                    videoPlayer.style.display = 'block';
-                    if(controls && fileName.textContent) controls.style.display = 'flex';
-                    alert("Error processing video for point cloud. Video source might be restricted (CORS).");
+                    console.error("Error processing video for point cloud:", e);
+                    if (e.name === "SecurityError") {
+                        alert("Point Cloud Error: Cannot process video due to cross-origin restrictions (CORS). Try a different video source.");
+                    } else {
+                        alert("Point Cloud Error: Could not process video frame.");
+                    }
+                    switchMode('videoPlayer'); // Revert to video player on error
                     return;
                 }
-                
-                drawPointCloud(imageData, pointCloudTiltAngles.beta, pointCloudTiltAngles.gamma);
                 pointCloudAnimationFrameId = requestAnimationFrame(renderPointCloudFrame);
             }
 
             function drawPointCloud(imageData, tiltBeta, tiltGamma) {
-                if (!pointCloudCtx) return;
+                if (!pointCloudCtx || !pointCloudCanvas) return;
                 pointCloudCtx.fillStyle = '#050505'; 
                 pointCloudCtx.fillRect(0, 0, pointCloudCanvas.width, pointCloudCanvas.height);
 
@@ -1390,51 +959,63 @@
                 const imgWidth = imageData.width;
                 const imgHeight = imageData.height;
 
-                const stepX = Math.max(1, imgWidth / pointCloudDensity);
-                const stepY = Math.max(1, imgHeight / pointCloudDensity);
+                const stepX = Math.max(1, imgWidth / pointCloudConfig.density);
+                const stepY = Math.max(1, imgHeight / pointCloudConfig.density);
 
-                let currentTiltSensitivity = 0;
-                if (sensorsEnabled && tiltSensitivitySlider) { // Check if slider exists
-                     currentTiltSensitivity = parseFloat(tiltSensitivitySlider.value);
+                let currentPCSensorTiltSensitivity = 0;
+                if (sensorsGloballyEnabled) {
+                     currentPCSensorTiltSensitivity = pointCloudConfig.tiltSensitivity;
                 }
 
-                // Normalize raw tilt angles (e.g. from -90 to 90 for beta/gamma) to -1 to 1
-                // Clamp practical tilt range to +/- 90 degrees for beta and gamma
                 const normTiltBeta = Math.max(-90, Math.min(90, tiltBeta || 0)) / 90.0;
                 const normTiltGamma = Math.max(-90, Math.min(90, tiltGamma || 0)) / 90.0;
-
 
                 for (let y = 0; y < imgHeight; y += stepY) {
                     for (let x = 0; x < imgWidth; x += stepX) {
                         const i = (Math.floor(y) * imgWidth + Math.floor(x)) * 4;
-                        const r = data[i];
-                        const g = data[i + 1];
-                        const b = data[i + 2];
-
+                        const r = data[i]; const g = data[i + 1]; const b = data[i + 2];
                         const brightness = (0.299 * r + 0.587 * g + 0.114 * b) / 255; 
 
                         const canvasX = (x / imgWidth) * pointCloudCanvas.width;
                         const baseCanvasY = (y / imgHeight) * pointCloudCanvas.height;
                         
-                        const displacement = (brightness - 0.5) * pointCloudDisplacementScale; 
-                        const finalCanvasY = baseCanvasY - displacement; // Y is inverted in canvas (0 at top)
+                        const displacement = (brightness - 0.5) * pointCloudConfig.displacementScale; 
+                        const finalCanvasY = baseCanvasY - displacement; 
 
-                        let shiftX = 0;
-                        let shiftY = 0;
-
-                        if (sensorsEnabled && currentTiltSensitivity > 0) {
-                            // depthFactor: how much the point is displaced. Normalized to roughly -1 to 1.
-                            // If pointCloudDisplacementScale is 0, displacement is 0, so depthFactor is 0.
-                            const depthFactor = pointCloudDisplacementScale !== 0 ? displacement / (0.5 * pointCloudDisplacementScale + 1e-6) : 0;
-                            
-                            shiftX = normTiltGamma * depthFactor * currentTiltSensitivity;
-                            shiftY = normTiltBeta * depthFactor * currentTiltSensitivity;
+                        let shiftX = 0; let shiftY = 0;
+                        if (sensorsGloballyEnabled && currentPCSensorTiltSensitivity > 0) {
+                            const depthFactor = pointCloudConfig.displacementScale !== 0 ? displacement / (0.5 * pointCloudConfig.displacementScale + 1e-6) : 0;
+                            shiftX = normTiltGamma * depthFactor * currentPCSensorTiltSensitivity;
+                            shiftY = normTiltBeta * depthFactor * currentPCSensorTiltSensitivity; 
                         }
                         
                         pointCloudCtx.fillStyle = `rgb(${r},${g},${b})`;
-                        pointCloudCtx.fillRect(canvasX + shiftX, finalCanvasY + shiftY, currentPointSize, currentPointSize);
+                        pointCloudCtx.fillRect(canvasX + shiftX, finalCanvasY + shiftY, pointCloudConfig.pointSize, pointCloudConfig.pointSize);
                     }
                 }
+            }
+
+            // --- Utility & Local Storage ---
+            function formatTime(seconds) {
+                const minutes = Math.floor(seconds / 60);
+                const remainingSeconds = Math.floor(seconds % 60);
+                return `${minutes}:${remainingSeconds < 10 ? '0' : ''}${remainingSeconds}`;
+            }
+            function updateLoopInfo() {
+                loopInfo.textContent = videoPlayer.loop ? `Looped ${loopCount} time${loopCount === 1 ? '' : 's'}` : '';
+            }
+            function loadPlayerSettings() {
+                const savedVolume = localStorage.getItem('videoPlayerVolume');
+                if (savedVolume) { videoPlayer.volume = parseFloat(savedVolume); volumeSlider.value = parseFloat(savedVolume); }
+                
+                brightnessSlider.value = localStorage.getItem('videoPlayerBrightness') || 100;
+                saturationSlider.value = localStorage.getItem('videoPlayerSaturation') || 100;
+                contrastSlider.value = localStorage.getItem('videoPlayerContrast') || 100;
+            }
+            function saveVideoPlayerSettings() {
+                 localStorage.setItem('videoPlayerBrightness', brightnessSlider.value);
+                 localStorage.setItem('videoPlayerSaturation', saturationSlider.value);
+                 localStorage.setItem('videoPlayerContrast', contrastSlider.value);
             }
         });
     </script>
