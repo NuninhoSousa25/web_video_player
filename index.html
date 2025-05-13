@@ -1,4 +1,5 @@
-<!DOCTYPE html>
+// Fullscreen button
+            fullscreenBtn.addEventListener('click', toggleFullscreen);<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -699,6 +700,31 @@
                     </div>
                 </div>
                 
+                <div class="sensor-config-title">Manual Offset Adjustments</div>
+                <div class="sensor-config-controls">
+                    <div class="sensor-config-control">
+                        <div class="config-label">
+                            <span>Alpha Offset</span>
+                            <span class="config-value" id="alphaOffsetValue">0°</span>
+                        </div>
+                        <input type="range" min="-180" max="180" step="5" value="0" class="config-slider" id="alphaOffset">
+                    </div>
+                    <div class="sensor-config-control">
+                        <div class="config-label">
+                            <span>Beta Offset</span>
+                            <span class="config-value" id="betaOffsetValue">0°</span>
+                        </div>
+                        <input type="range" min="-45" max="45" step="1" value="0" class="config-slider" id="betaOffset">
+                    </div>
+                    <div class="sensor-config-control">
+                        <div class="config-label">
+                            <span>Gamma Offset</span>
+                            <span class="config-value" id="gammaOffsetValue">0°</span>
+                        </div>
+                        <input type="range" min="-45" max="45" step="1" value="0" class="config-slider" id="gammaOffset">
+                    </div>
+                </div>
+                
                 <div class="sensor-actions">
                     <button id="calibrateBtn" class="sensor-action-btn">Calibrate</button>
                     <button id="invertBtn" class="sensor-action-btn">Invert Controls</button>
@@ -736,6 +762,21 @@
             let loopCount = 0;
             let sensorsEnabled = false;
             let deviceOrientationEnabled = false;
+            let controlsInverted = false;
+            
+            // Sensor calibration values
+            let calibrationValues = {
+                alpha: 0,
+                beta: 0,
+                gamma: 0
+            };
+            
+            // Smoothing variables
+            let lastFilterValues = {
+                brightness: 100,
+                saturation: 100,
+                contrast: 100
+            };
             
             // Initialize volume from localStorage or set default
             const savedVolume = localStorage.getItem('videoPlayerVolume');
@@ -924,6 +965,12 @@
                 lastTap = currentTime;
             });
             
+            // Double-click to toggle fullscreen
+            videoPlayer.addEventListener('dblclick', function(e) {
+                toggleFullscreen();
+                e.preventDefault();
+            });
+            
             // Fullscreen button
             fullscreenBtn.addEventListener('click', toggleFullscreen);
             
@@ -943,6 +990,12 @@
                     
                     // Set video to maintain aspect ratio
                     videoPlayer.style.objectFit = 'contain';
+                    
+                    // Show fullscreen controls briefly
+                    fullscreenControls.classList.add('active');
+                    setTimeout(() => {
+                        fullscreenControls.classList.remove('active');
+                    }, 3000);
                     
                     // Listen for escape key
                     document.addEventListener('keydown', exitOnEscape);
@@ -964,6 +1017,9 @@
                 // Reset video style
                 videoPlayer.style.objectFit = '';
                 
+                // Hide fullscreen controls
+                fullscreenControls.classList.remove('active');
+                
                 // Remove escape listener
                 document.removeEventListener('keydown', exitOnEscape);
                 
@@ -977,6 +1033,9 @@
                 } else if (document.msExitFullscreen) {
                     document.msExitFullscreen();
                 }
+                
+                // Synchronize both progress bars
+                progressBar.style.width = progressBarFullscreen.style.width;
             }
             
             // Exit fullscreen on escape key
@@ -1019,28 +1078,67 @@
             function mapOrientationToFilters(alpha, beta, gamma) {
                 if (!sensorsEnabled) return;
                 
-                // Tilt forward/backward (gamma) maps to brightness (25-200%)
-                const newBrightness = 100 + Math.round(gamma / 90 * 75);
-                const brightnessValue = Math.max(25, Math.min(200, newBrightness));
-                brightnessSlider.value = brightnessValue;
+                // Apply calibration offset
+                const calibratedAlpha = ((alpha - calibrationValues.alpha + 360) % 360);
+                const calibratedBeta = beta - calibrationValues.beta;
+                const calibratedGamma = gamma - calibrationValues.gamma;
                 
+                // Apply inversion if enabled
+                const finalAlpha = controlsInverted ? (360 - calibratedAlpha) % 360 : calibratedAlpha;
+                const finalBeta = controlsInverted ? -calibratedBeta : calibratedBeta;
+                const finalGamma = controlsInverted ? -calibratedGamma : calibratedGamma;
+                
+                // Get sensitivity values
+                const alphaSens = parseFloat(alphaSensitivity.value);
+                const betaSens = parseFloat(betaSensitivity.value);
+                const gammaSens = parseFloat(gammaSensitivity.value);
+                
+                // Calculate new filter values
                 // Rotation (alpha) maps to saturation (25-200%)
-                const alphaNormalized = ((alpha + 180) % 360) - 180; // Normalize -180 to 180
-                const newSaturation = 100 + Math.round(alphaNormalized / 180 * 100);
-                const saturationValue = Math.max(25, Math.min(200, newSaturation));
-                saturationSlider.value = saturationValue;
+                // Normalize alpha to -180 to 180 for more intuitive control
+                const alphaNormalized = ((finalAlpha + 180) % 360) - 180;
+                let newSaturation = 100 + Math.round((alphaNormalized * alphaSens) / 180 * 100);
+                newSaturation = Math.max(25, Math.min(200, newSaturation));
+                
+                // Tilt forward/backward (gamma) maps to brightness (25-200%)
+                // Gamma typically ranges from -90 to 90
+                let newBrightness = 100 + Math.round((finalGamma * gammaSens) / 90 * 75);
+                newBrightness = Math.max(25, Math.min(200, newBrightness));
                 
                 // Tilt left/right (beta) maps to contrast (25-200%)
-                const newContrast = 100 + Math.round(beta / 90 * 75);
-                const contrastValue = Math.max(25, Math.min(200, newContrast));
-                contrastSlider.value = contrastValue;
+                // Beta typically ranges from -180 to 180, but we'll use -90 to 90 for sensitivity
+                let newContrast = 100 + Math.round((finalBeta * betaSens) / 90 * 75);
+                newContrast = Math.max(25, Math.min(200, newContrast));
                 
-                // Update filter values and apply them
-                brightnessValue.textContent = `${brightnessValue}%`;
-                saturationValue.textContent = `${saturationValue}%`;
-                contrastValue.textContent = `${contrastValue}%`;
+                // Apply smoothing
+                const smoothingFactor = parseFloat(smoothingSlider.value);
+                newBrightness = applySmoothing('brightness', newBrightness, smoothingFactor);
+                newSaturation = applySmoothing('saturation', newSaturation, smoothingFactor);
+                newContrast = applySmoothing('contrast', newContrast, smoothingFactor);
                 
+                // Update sliders
+                brightnessSlider.value = newBrightness;
+                saturationSlider.value = newSaturation;
+                contrastSlider.value = newContrast;
+                
+                // Update display values
+                brightnessValue.textContent = `${Math.round(newBrightness)}%`;
+                saturationValue.textContent = `${Math.round(newSaturation)}%`;
+                contrastValue.textContent = `${Math.round(newContrast)}%`;
+                
+                // Apply filters
                 applyFilters();
+            }
+            
+            // Apply smoothing to filter values
+            function applySmoothing(filterName, newValue, smoothingFactor) {
+                if (smoothingFactor === 0) return newValue;
+                
+                const lastValue = lastFilterValues[filterName];
+                const smoothedValue = lastValue * smoothingFactor + newValue * (1 - smoothingFactor);
+                lastFilterValues[filterName] = smoothedValue;
+                
+                return smoothedValue;
             }
             
             // Handle device orientation event
@@ -1115,6 +1213,60 @@
                 }
             }
             
+            // Calibrate sensors
+            function calibrateSensors() {
+                if (deviceOrientationEnabled) {
+                    // Get current orientation values from display
+                    const currentAlpha = parseFloat(orientAlpha.textContent);
+                    const currentBeta = parseFloat(orientBeta.textContent);
+                    const currentGamma = parseFloat(orientGamma.textContent);
+                    
+                    // Set as calibration values
+                    calibrationValues = {
+                        alpha: currentAlpha,
+                        beta: currentBeta,
+                        gamma: currentGamma
+                    };
+                    
+                    // Reset current filter values to defaults
+                    brightnessSlider.value = 100;
+                    saturationSlider.value = 100;
+                    contrastSlider.value = 100;
+                    
+                    // Update display values
+                    brightnessValue.textContent = '100%';
+                    saturationValue.textContent = '100%';
+                    contrastValue.textContent = '100%';
+                    
+                    // Apply filters
+                    applyFilters();
+                    
+                    // Update last filter values for smoothing
+                    lastFilterValues = {
+                        brightness: 100,
+                        saturation: 100,
+                        contrast: 100
+                    };
+                    
+                    // Show confirmation
+                    alert('Sensors calibrated! Current position is now neutral.');
+                } else {
+                    alert('Please enable sensors first.');
+                }
+            }
+            
+            // Toggle control inversion
+            function toggleInvertControls() {
+                controlsInverted = !controlsInverted;
+                invertBtn.textContent = controlsInverted ? 'Controls Inverted' : 'Invert Controls';
+                
+                if (controlsInverted) {
+                    invertBtn.style.backgroundColor = '#f44336';
+                } else {
+                    invertBtn.style.backgroundColor = '#555';
+                }
+            }
+            
             // Toggle sensors
             sensorToggle.addEventListener('click', function() {
                 if (sensorsEnabled) {
@@ -1122,6 +1274,69 @@
                 } else {
                     setupDeviceOrientation();
                 }
+            });
+            
+            // Update sensitivity display values
+            alphaSensitivity.addEventListener('input', function() {
+                alphaSensValue.textContent = this.value;
+            });
+            
+            betaSensitivity.addEventListener('input', function() {
+                betaSensValue.textContent = this.value;
+            });
+            
+            gammaSensitivity.addEventListener('input', function() {
+                gammaSensValue.textContent = this.value;
+            });
+            
+            smoothingSlider.addEventListener('input', function() {
+                smoothingValue.textContent = this.value;
+            });
+            
+            // Calibrate button
+            calibrateBtn.addEventListener('click', calibrateSensors);
+            
+            // Invert controls button
+            invertBtn.addEventListener('click', toggleInvertControls);
+            
+            // Fullscreen controls
+            exitFullscreen.addEventListener('click', exitFullscreen);
+            playPauseFullscreen.addEventListener('click', function() {
+                if (videoPlayer.paused || videoPlayer.ended) {
+                    videoPlayer.play();
+                    playPauseFullscreen.textContent = 'Pause';
+                    playPauseBtn.textContent = 'Pause';
+                } else {
+                    videoPlayer.pause();
+                    playPauseFullscreen.textContent = 'Play';
+                    playPauseBtn.textContent = 'Play';
+                }
+            });
+            
+            // Show controls when touching video in fullscreen
+            videoPlayer.addEventListener('touchstart', function() {
+                if (document.querySelector('.video-container.fullscreen')) {
+                    fullscreenControls.classList.add('active');
+                    
+                    // Auto-hide after 3 seconds
+                    setTimeout(() => {
+                        fullscreenControls.classList.remove('active');
+                    }, 3000);
+                }
+            });
+            
+            // Synchronize fullscreen progress bar
+            videoPlayer.addEventListener('timeupdate', function() {
+                const percentage = (videoPlayer.currentTime / videoPlayer.duration) * 100;
+                progressBarFullscreen.style.width = percentage + '%';
+            });
+            
+            // Click on fullscreen progress bar to seek
+            document.querySelector('.controls-overlay .progress-container').addEventListener('click', function(e) {
+                const progressContainerWidth = this.offsetWidth;
+                const clickPosition = e.offsetX;
+                const seekTime = (clickPosition / progressContainerWidth) * videoPlayer.duration;
+                videoPlayer.currentTime = seekTime;
             });
         });
     </script>
