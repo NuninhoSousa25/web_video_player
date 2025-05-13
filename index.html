@@ -3,8 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mobile Video Player with Loop</title>
+    <title>Mobile Video Player with Loop - Enhanced</title>
     <style>
+        :root {
+            --primary-bg: #121212;
+            --secondary-bg: #1e1e1e;
+            --tertiary-bg: #2d2d2d;
+            --accent-color: #2c7be5;
+            --text-color: #f0f0f0;
+            --text-muted-color: #aaa;
+            --slider-track-color: #333;
+            --success-color: #4caf50;
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -14,8 +25,8 @@
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, 
                 Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-            background-color: #121212;
-            color: #f0f0f0;
+            background-color: var(--primary-bg);
+            color: var(--text-color);
             min-height: 100vh;
             display: flex;
             flex-direction: column;
@@ -30,12 +41,12 @@
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
             border-radius: 8px;
             overflow: hidden;
-            background-color: #1e1e1e;
+            background-color: var(--secondary-bg);
         }
         
         .player-header {
             padding: 16px;
-            background-color: #2d2d2d;
+            background-color: var(--tertiary-bg);
             text-align: center;
         }
         
@@ -55,43 +66,21 @@
             display: block;
         }
         
-        /* Fullscreen styling */
-        .video-container.fullscreen {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 9999;
-            background-color: #000;
+        /* Fullscreen styling - applied when native fullscreen is active on .video-container */
+        .video-container.is-fullscreen {
+            /* Browser handles fixed positioning, z-index etc. for native fullscreen */
             display: flex;
             align-items: center;
             justify-content: center;
+            background-color: #000; /* Ensure background */
         }
         
-        .video-container.fullscreen video {
+        .video-container.is-fullscreen video {
             max-width: 100%;
             max-height: 100%;
-            width: auto;
-            height: auto;
+            width: auto; /* Maintain aspect ratio */
+            height: auto; /* Maintain aspect ratio */
             object-fit: contain;
-        }
-        
-        .video-container.fullscreen .controls-overlay {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: linear-gradient(transparent, rgba(0,0,0,0.7));
-            padding: 20px 10px 10px;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-            z-index: 10000;
-        }
-        
-        .video-container.fullscreen:hover .controls-overlay,
-        .video-container.fullscreen .controls-overlay.active {
-            opacity: 1;
         }
         
         .controls {
@@ -111,10 +100,11 @@
             display: flex;
             flex-direction: column;
             gap: 8px;
+            padding: 16px; /* Added padding for consistency */
         }
         
         button {
-            background-color: #2c7be5;
+            background-color: var(--accent-color);
             color: white;
             border: none;
             border-radius: 4px;
@@ -143,7 +133,7 @@
         
         .file-label {
             display: inline-block;
-            background-color: #4caf50;
+            background-color: var(--success-color);
             color: white;
             border-radius: 4px;
             padding: 10px 15px;
@@ -159,7 +149,7 @@
         
         .file-name {
             padding: 5px;
-            color: #aaa;
+            color: var(--text-muted-color);
             font-size: 14px;
             text-align: center;
             word-break: break-all;
@@ -168,15 +158,16 @@
         .progress-container {
             width: 100%;
             height: 5px;
-            background-color: #333;
+            background-color: var(--slider-track-color);
             border-radius: 5px;
             overflow: hidden;
             margin-top: 8px;
+            cursor: pointer;
         }
         
         .progress-bar {
             height: 100%;
-            background-color: #2c7be5;
+            background-color: var(--accent-color);
             width: 0;
             transition: width 0.1s;
         }
@@ -185,7 +176,7 @@
             display: flex;
             justify-content: space-between;
             font-size: 12px;
-            color: #aaa;
+            color: var(--text-muted-color);
             margin-top: 5px;
         }
         
@@ -197,35 +188,40 @@
         }
         
         .volume-icon {
-            color: #aaa;
+            color: var(--text-muted-color);
             width: 20px;
             text-align: center;
         }
         
-        .volume-slider {
+        .volume-slider, .filter-slider, .sensor-adjust-slider {
             flex: 1;
             -webkit-appearance: none;
+            appearance: none;
             height: 5px;
             border-radius: 5px;
-            background: #333;
+            background: var(--slider-track-color);
             outline: none;
         }
         
-        .volume-slider::-webkit-slider-thumb {
+        .volume-slider::-webkit-slider-thumb,
+        .filter-slider::-webkit-slider-thumb,
+        .sensor-adjust-slider::-webkit-slider-thumb {
             -webkit-appearance: none;
             appearance: none;
             width: 15px;
             height: 15px;
             border-radius: 50%;
-            background: #2c7be5;
+            background: var(--accent-color);
             cursor: pointer;
         }
         
-        .volume-slider::-moz-range-thumb {
+        .volume-slider::-moz-range-thumb,
+        .filter-slider::-moz-range-thumb,
+        .sensor-adjust-slider::-moz-range-thumb {
             width: 15px;
             height: 15px;
             border-radius: 50%;
-            background: #2c7be5;
+            background: var(--accent-color);
             cursor: pointer;
         }
         
@@ -237,27 +233,29 @@
         
         .loop-info {
             font-size: 12px;
-            color: #aaa;
+            color: var(--text-muted-color);
             text-align: center;
             margin-top: 5px;
         }
         
-        .filter-controls {
+        .filter-controls, .sensor-adjust-controls {
             padding: 12px 16px;
             background-color: #2a2a2a;
-            border-top: 1px solid #333;
+            border-top: 1px solid var(--slider-track-color);
             margin-top: 10px;
         }
+         .filter-controls h3, .sensor-adjust-controls h3 {
+            font-size: 15px;
+            margin-bottom: 10px;
+            color: var(--text-color);
+         }
         
-        .filter-control {
+        .filter-control, .sensor-adjust-item {
             margin-bottom: 12px;
         }
+        .filter-control:last-child, .sensor-adjust-item:last-child { margin-bottom: 0; }
         
-        .filter-control:last-child {
-            margin-bottom: 0;
-        }
-        
-        .filter-label {
+        .control-label { /* Generic label for filter and sensor sliders/selects */
             display: flex;
             justify-content: space-between;
             margin-bottom: 5px;
@@ -265,57 +263,45 @@
             color: #ddd;
         }
         
-        .filter-value {
-            color: #2c7be5;
+        .control-value { /* Generic value display for sliders */
+            color: var(--accent-color);
             font-weight: 500;
         }
         
-        .filter-slider {
-            width: 100%;
-            -webkit-appearance: none;
-            height: 5px;
-            border-radius: 5px;
-            background: #333;
-            outline: none;
-        }
-        
-        .filter-slider::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 15px;
-            height: 15px;
-            border-radius: 50%;
-            background: #2c7be5;
-            cursor: pointer;
-        }
-        
-        .filter-slider::-moz-range-thumb {
-            width: 15px;
-            height: 15px;
-            border-radius: 50%;
-            background: #2c7be5;
-            cursor: pointer;
-        }
-        
-        .filter-reset {
+        .filter-reset, .sensor-adjust-reset {
             background-color: #555;
             margin-top: 10px;
             width: 100%;
             font-size: 13px;
             padding: 8px;
         }
-        
-        .filter-reset:hover {
-            background-color: #666;
+        .filter-reset:hover, .sensor-adjust-reset:hover { background-color: #666; }
+
+        .sensor-adjust-item label {
+            font-size: 13px;
+            color: #ccc;
+            display: block;
+            margin-bottom: 3px;
         }
+        .sensor-adjust-item select {
+            width: 100%;
+            padding: 6px;
+            background-color: var(--tertiary-bg);
+            color: var(--text-color);
+            border: 1px solid #444;
+            border-radius: 4px;
+            font-size: 13px;
+            margin-bottom: 8px;
+        }
+        .sensor-adjust-slider { width: 100%; }
         
         /* Sensor section styling */
         .sensor-section {
-            background-color: #1e1e1e;
-            border-radius: 8px;
+            background-color: var(--secondary-bg); /* Match container background */
+            border-radius: 0 0 8px 8px; /* Rounded bottom corners if it's the last element */
             padding: 15px;
-            margin-top: 10px;
-            border-top: 1px solid #333;
+            margin-top: 0; /* Removed margin-top as it's part of the container flow */
+            border-top: 1px solid var(--slider-track-color);
         }
         
         .sensor-heading {
@@ -331,7 +317,7 @@
         }
         
         .sensor-toggle {
-            background-color: #2c7be5;
+            background-color: var(--accent-color);
             color: white;
             border: none;
             border-radius: 4px;
@@ -341,7 +327,7 @@
         }
         
         .sensor-toggle.active {
-            background-color: #4caf50;
+            background-color: var(--success-color);
         }
         
         .sensor-values {
@@ -352,7 +338,7 @@
         }
         
         .sensor-value {
-            background-color: #2d2d2d;
+            background-color: var(--tertiary-bg);
             padding: 8px;
             border-radius: 6px;
             text-align: center;
@@ -360,7 +346,7 @@
         
         .value-label {
             font-size: 12px;
-            color: #aaa;
+            color: var(--text-muted-color);
             margin-bottom: 5px;
         }
         
@@ -368,34 +354,34 @@
             font-size: 16px;
             font-weight: 500;
             font-family: monospace;
-            color: #2c7be5;
+            color: var(--accent-color);
         }
         
         .compass {
-            width: 120px;
-            height: 120px;
+            width: 100px; /* Smaller compass */
+            height: 100px;
             margin: 10px auto;
             position: relative;
             border-radius: 50%;
-            background-color: #2d2d2d;
+            background-color: var(--tertiary-bg);
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5) inset;
+            box-shadow: 0 0 8px rgba(0, 0, 0, 0.5) inset;
         }
         
         .compass-needle {
             position: absolute;
-            width: 4px;
-            height: 90px;
+            width: 3px;
+            height: 70px; /* Adjusted for smaller compass */
             background: linear-gradient(to bottom, #f44336 50%, #fff 50%);
             transform-origin: center center;
             transition: transform 0.1s ease;
         }
         
         .compass-center {
-            width: 12px;
-            height: 12px;
+            width: 10px; /* Adjusted */
+            height: 10px;
             background-color: #333;
             border-radius: 50%;
             z-index: 1;
@@ -410,16 +396,17 @@
         
         .compass-marker span {
             position: absolute;
-            width: 20px;
+            width: 18px; /* Adjusted */
+            font-size: 12px; /* Adjusted */
             text-align: center;
             font-weight: bold;
             color: #ddd;
         }
         
-        .compass-marker .north { top: 8px; left: calc(50% - 10px); }
-        .compass-marker .east { right: 8px; top: calc(50% - 10px); }
-        .compass-marker .south { bottom: 8px; left: calc(50% - 10px); }
-        .compass-marker .west { left: 8px; top: calc(50% - 10px); }
+        .compass-marker .north { top: 5px; left: calc(50% - 9px); }
+        .compass-marker .east { right: 5px; top: calc(50% - 9px); }
+        .compass-marker .south { bottom: 5px; left: calc(50% - 9px); }
+        .compass-marker .west { left: 5px; top: calc(50% - 9px); }
         
         .phone-visualization {
             display: flex;
@@ -430,136 +417,33 @@
         
         .mapping-info {
             font-size: 13px;
-            color: #aaa;
+            color: var(--text-muted-color);
             margin: 10px 0;
             text-align: center;
             line-height: 1.4;
         }
         
         .mapping-highlight {
-            color: #2c7be5;
+            color: var(--accent-color);
             font-weight: 500;
-        }
-        
-        .sensor-configuration {
-            margin-top: 15px;
-            border-top: 1px solid #333;
-            padding-top: 15px;
-        }
-        
-        .sensor-config-title {
-            font-size: 14px;
-            font-weight: 600;
-            margin-bottom: 10px;
-            color: #ddd;
-        }
-        
-        .sensor-config-controls {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
-        }
-        
-        .sensor-config-control {
-            background-color: #2d2d2d;
-            padding: 10px;
-            border-radius: 6px;
-        }
-        
-        .config-label {
-            display: flex;
-            justify-content: space-between;
-            font-size: 12px;
-            margin-bottom: 5px;
-        }
-        
-        .config-value {
-            color: #2c7be5;
-            font-weight: 500;
-        }
-        
-        .config-slider {
-            width: 100%;
-            -webkit-appearance: none;
-            height: 5px;
-            border-radius: 5px;
-            background: #333;
-            outline: none;
-        }
-        
-        .config-slider::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 15px;
-            height: 15px;
-            border-radius: 50%;
-            background: #2c7be5;
-            cursor: pointer;
-        }
-        
-        .config-slider::-moz-range-thumb {
-            width: 15px;
-            height: 15px;
-            border-radius: 50%;
-            background: #2c7be5;
-            cursor: pointer;
-        }
-        
-        .sensor-actions {
-            display: flex;
-            gap: 10px;
-            margin-top: 10px;
-        }
-        
-        .sensor-action-btn {
-            flex: 1;
-            padding: 8px;
-            font-size: 13px;
-            background-color: #555;
-        }
-        
-        .sensor-action-btn:hover {
-            background-color: #666;
         }
         
         @media (max-width: 480px) {
-            .controls {
-                padding: 12px;
-            }
-            
-            button {
-                padding: 8px 12px;
-                font-size: 13px;
-            }
-            
-            .toggle-button {
-                min-width: 80px;
-            }
-            
-            .file-label {
-                padding: 8px 12px;
-                font-size: 13px;
-            }
+            .controls { padding: 12px; }
+            button { padding: 8px 12px; font-size: 13px; }
+            .toggle-button { min-width: 80px; }
+            .file-label { padding: 8px 12px; font-size: 13px; }
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="player-header">
-            <h1>Mobile Video Player</h1>
+            <h1>Enhanced Video Player</h1>
         </div>
         
-        <div class="video-container">
+        <div class="video-container" id="videoContainer">
             <video id="videoPlayer"></video>
-            <div class="controls-overlay" id="fullscreenControls">
-                <div class="progress-container">
-                    <div class="progress-bar" id="progressBarFullscreen"></div>
-                </div>
-                <div class="main-controls">
-                    <button id="playPauseFullscreen" class="toggle-button">Play</button>
-                    <button id="exitFullscreen" class="toggle-button">Exit Full</button>
-                </div>
-            </div>
         </div>
         
         <div id="placeholder" class="placeholder-message">
@@ -567,7 +451,7 @@
         </div>
         
         <div class="controls" id="controls" style="display: none;">
-            <div class="progress-container">
+            <div class="progress-container" id="progressContainer">
                 <div class="progress-bar" id="progressBar"></div>
             </div>
             <div class="time-display">
@@ -583,37 +467,38 @@
             
             <div class="volume-container">
                 <div class="volume-icon">🔊</div>
-                <input type="range" min="0" max="1" step="0.1" value="1" class="volume-slider" id="volumeSlider">
+                <input type="range" min="0" max="1" step="0.05" value="1" class="volume-slider" id="volumeSlider">
             </div>
             
             <div class="loop-info" id="loopInfo"></div>
             
             <div class="filter-controls">
+                <h3>Video Filters</h3>
                 <div class="filter-control">
-                    <div class="filter-label">
+                    <div class="control-label">
                         <span>Brightness</span>
-                        <span class="filter-value" id="brightnessValue">100%</span>
+                        <span class="control-value" id="brightnessValue">100%</span>
                     </div>
                     <input type="range" min="25" max="200" value="100" class="filter-slider" id="brightnessSlider">
                 </div>
                 
                 <div class="filter-control">
-                    <div class="filter-label">
+                    <div class="control-label">
                         <span>Saturation</span>
-                        <span class="filter-value" id="saturationValue">100%</span>
+                        <span class="control-value" id="saturationValue">100%</span>
                     </div>
                     <input type="range" min="25" max="200" value="100" class="filter-slider" id="saturationSlider">
                 </div>
                 
                 <div class="filter-control">
-                    <div class="filter-label">
+                    <div class="control-label">
                         <span>Contrast</span>
-                        <span class="filter-value" id="contrastValue">100%</span>
+                        <span class="control-value" id="contrastValue">100%</span>
                     </div>
                     <input type="range" min="25" max="200" value="100" class="filter-slider" id="contrastSlider">
                 </div>
                 
-                <button id="resetFilters" class="filter-reset">Reset All Filters</button>
+                <button id="resetFiltersBtn" class="filter-reset">Reset All Filters</button>
             </div>
         </div>
         
@@ -623,33 +508,32 @@
             <div class="file-name" id="fileName"></div>
         </div>
         
-        <!-- Sensor Controls Section -->
         <div class="sensor-section" id="sensorSection">
             <div class="sensor-heading">
                 <div class="sensor-title">Motion Controls</div>
-                <button id="sensorToggle" class="sensor-toggle">Enable Sensors</button>
+                <button id="sensorToggleBtn" class="sensor-toggle">Enable Sensors</button>
             </div>
             
-            <div class="mapping-info">
-                Tilt your device to control video effects:
+            <div class="mapping-info" id="sensorMappingInfo">
+                Tilt your device to control video effects (default mapping):
                 <br>
-                <span class="mapping-highlight">Rotation</span> → Saturation • 
-                <span class="mapping-highlight">Tilt Forward/Back</span> → Brightness • 
-                <span class="mapping-highlight">Tilt Left/Right</span> → Contrast
+                <span class="mapping-highlight">Rotation (Alpha)</span> → Saturation • 
+                <span class="mapping-highlight">Tilt Left/Right (Gamma)</span> → Brightness • 
+                <span class="mapping-highlight">Tilt Forward/Back (Beta)</span> → Contrast
             </div>
             
             <div class="sensor-values">
                 <div class="sensor-value">
                     <div class="value-label">Alpha (°)</div>
-                    <div id="orientAlpha" class="value-number">0.00</div>
+                    <div id="orientAlphaValue" class="value-number">0.00</div>
                 </div>
                 <div class="sensor-value">
                     <div class="value-label">Beta (°)</div>
-                    <div id="orientBeta" class="value-number">0.00</div>
+                    <div id="orientBetaValue" class="value-number">0.00</div>
                 </div>
                 <div class="sensor-value">
                     <div class="value-label">Gamma (°)</div>
-                    <div id="orientGamma" class="value-number">0.00</div>
+                    <div id="orientGammaValue" class="value-number">0.00</div>
                 </div>
             </div>
             
@@ -658,471 +542,561 @@
                     <div id="compassNeedle" class="compass-needle"></div>
                     <div class="compass-center"></div>
                     <div class="compass-marker">
-                        <span class="north">N</span>
-                        <span class="east">E</span>
-                        <span class="south">S</span>
-                        <span class="west">W</span>
+                        <span class="north">N</span><span class="east">E</span><span class="south">S</span><span class="west">W</span>
                     </div>
                 </div>
             </div>
-            
-            <div class="sensor-configuration">
-                <div class="sensor-config-title">Sensor Sensitivity Settings</div>
-                <div class="sensor-config-controls">
-                    <div class="sensor-config-control">
-                        <div class="config-label">
-                            <span>Alpha Sensitivity</span>
-                            <span class="config-value" id="alphaSensValue">1.0</span>
-                        </div>
-                        <input type="range" min="0.1" max="2" step="0.1" value="1" class="config-slider" id="alphaSensitivity">
+
+            <div class="sensor-adjust-controls" id="sensorAdjustControls">
+                <h3>Sensor Effect Adjustments</h3>
+                <!-- Brightness -->
+                <div class="sensor-adjust-item">
+                    <label for="brightnessAxisSelect">Brightness controlled by:</label>
+                    <select id="brightnessAxisSelect" data-filter="brightness">
+                        <option value="none">None</option>
+                        <option value="alpha">Rotation (Alpha)</option>
+                        <option value="beta">Tilt Fwd/Back (Beta)</option>
+                        <option value="gamma">Tilt L/R (Gamma)</option>
+                    </select>
+                    <div class="control-label">
+                        <span>Sensitivity:</span>
+                        <span class="control-value" id="brightnessSensitivityValue">1.0</span>
                     </div>
-                    <div class="sensor-config-control">
-                        <div class="config-label">
-                            <span>Beta Sensitivity</span>
-                            <span class="config-value" id="betaSensValue">1.0</span>
-                        </div>
-                        <input type="range" min="0.1" max="2" step="0.1" value="1" class="config-slider" id="betaSensitivity">
+                    <input type="range" id="brightnessSensitivitySlider" data-filter="brightness" class="sensor-adjust-slider" min="0.1" max="3" step="0.05" value="1.0">
+                    <div class="control-label">
+                        <span>Neutral Point (°):</span>
+                        <span class="control-value" id="brightnessNeutralValue">0</span>
                     </div>
-                    <div class="sensor-config-control">
-                        <div class="config-label">
-                            <span>Gamma Sensitivity</span>
-                            <span class="config-value" id="gammaSensValue">1.0</span>
-                        </div>
-                        <input type="range" min="0.1" max="2" step="0.1" value="1" class="config-slider" id="gammaSensitivity">
-                    </div>
-                    <div class="sensor-config-control">
-                        <div class="config-label">
-                            <span>Smoothing</span>
-                            <span class="config-value" id="smoothingValue">0.3</span>
-                        </div>
-                        <input type="range" min="0" max="0.9" step="0.1" value="0.3" class="config-slider" id="smoothingSlider">
-                    </div>
+                    <input type="range" id="brightnessNeutralSlider" data-filter="brightness" class="sensor-adjust-slider" min="-180" max="180" step="1" value="0">
                 </div>
-                
-                <div class="sensor-actions">
-                    <button id="calibrateBtn" class="sensor-action-btn">Calibrate</button>
-                    <button id="invertBtn" class="sensor-action-btn">Invert Controls</button>
+                <!-- Saturation -->
+                 <div class="sensor-adjust-item">
+                    <label for="saturationAxisSelect">Saturation controlled by:</label>
+                    <select id="saturationAxisSelect" data-filter="saturation">
+                        <option value="none">None</option>
+                        <option value="alpha">Rotation (Alpha)</option>
+                        <option value="beta">Tilt Fwd/Back (Beta)</option>
+                        <option value="gamma">Tilt L/R (Gamma)</option>
+                    </select>
+                    <div class="control-label">
+                        <span>Sensitivity:</span>
+                        <span class="control-value" id="saturationSensitivityValue">1.0</span>
+                    </div>
+                    <input type="range" id="saturationSensitivitySlider" data-filter="saturation" class="sensor-adjust-slider" min="0.1" max="3" step="0.05" value="1.0">
+                    <div class="control-label">
+                        <span>Neutral Point (°):</span>
+                        <span class="control-value" id="saturationNeutralValue">0</span>
+                    </div>
+                    <input type="range" id="saturationNeutralSlider" data-filter="saturation" class="sensor-adjust-slider" min="-180" max="180" step="1" value="0">
                 </div>
+                <!-- Contrast -->
+                 <div class="sensor-adjust-item">
+                    <label for="contrastAxisSelect">Contrast controlled by:</label>
+                    <select id="contrastAxisSelect" data-filter="contrast">
+                        <option value="none">None</option>
+                        <option value="alpha">Rotation (Alpha)</option>
+                        <option value="beta">Tilt Fwd/Back (Beta)</option>
+                        <option value="gamma">Tilt L/R (Gamma)</option>
+                    </select>
+                    <div class="control-label">
+                        <span>Sensitivity:</span>
+                        <span class="control-value" id="contrastSensitivityValue">1.0</span>
+                    </div>
+                    <input type="range" id="contrastSensitivitySlider" data-filter="contrast" class="sensor-adjust-slider" min="0.1" max="3" step="0.05" value="1.0">
+                    <div class="control-label">
+                        <span>Neutral Point (°):</span>
+                        <span class="control-value" id="contrastNeutralValue">0</span>
+                    </div>
+                    <input type="range" id="contrastNeutralSlider" data-filter="contrast" class="sensor-adjust-slider" min="-180" max="180" step="1" value="0">
+                </div>
+                <button id="resetSensorAdjustmentsBtn" class="sensor-adjust-reset">Reset Sensor Adjustments</button>
             </div>
         </div>
     </div>
     
-    <script>
+       <script>
         document.addEventListener('DOMContentLoaded', function() {
-            const videoPlayer = document.getElementById('videoPlayer');
-            const playPauseBtn = document.getElementById('playPauseBtn');
-            const loopBtn = document.getElementById('loopBtn');
-            const fileInput = document.getElementById('fileInput');
-            const fileName = document.getElementById('fileName');
-            const progressBar = document.getElementById('progressBar');
-            const currentTimeEl = document.getElementById('currentTime');
-            const durationEl = document.getElementById('duration');
-            const volumeSlider = document.getElementById('volumeSlider');
-            const placeholder = document.getElementById('placeholder');
-            const controls = document.getElementById('controls');
-            const loopInfo = document.getElementById('loopInfo');
-            
-            // Filter controls
-            const brightnessSlider = document.getElementById('brightnessSlider');
-            const saturationSlider = document.getElementById('saturationSlider');
-            const contrastSlider = document.getElementById('contrastSlider');
-            const brightnessValue = document.getElementById('brightnessValue');
-            const saturationValue = document.getElementById('saturationValue');
-            const contrastValue = document.getElementById('contrastValue');
-            const resetFilters = document.getElementById('resetFilters');
-            const fullscreenBtn = document.getElementById('fullscreenBtn');
-            
-            let isLooping = false;
-            let loopCount = 0;
-            let sensorsEnabled = false;
-            let deviceOrientationEnabled = false;
-            
-            // Initialize volume from localStorage or set default
-            const savedVolume = localStorage.getItem('videoPlayerVolume');
-            if (savedVolume) {
-                videoPlayer.volume = parseFloat(savedVolume);
-                volumeSlider.value = parseFloat(savedVolume);
-            }
-            
-            // Initialize filters from localStorage or set defaults
-            const savedBrightness = localStorage.getItem('videoPlayerBrightness');
-            const savedSaturation = localStorage.getItem('videoPlayerSaturation');
-            const savedContrast = localStorage.getItem('videoPlayerContrast');
-            
-            if (savedBrightness) {
-                brightnessSlider.value = savedBrightness;
-                brightnessValue.textContent = `${savedBrightness}%`;
-            }
-            
-            if (savedSaturation) {
-                saturationSlider.value = savedSaturation;
-                saturationValue.textContent = `${savedSaturation}%`;
-            }
-            
-            if (savedContrast) {
-                contrastSlider.value = savedContrast;
-                contrastValue.textContent = `${savedContrast}%`;
-            }
-            
-            // Apply initial filters
-            applyFilters();
-            
-            // Handle file selection
-            fileInput.addEventListener('change', function() {
-                const file = this.files[0];
-                if (file) {
-                    const videoURL = URL.createObjectURL(file);
-                    videoPlayer.src = videoURL;
-                    fileName.textContent = file.name;
-                    placeholder.style.display = 'none';
-                    controls.style.display = 'flex';
-                    
-                    // Reset looping stats when a new video is loaded
-                    loopCount = 0;
-                    updateLoopInfo();
-                }
-            });
-            
-            // Play/Pause toggle
-            playPauseBtn.addEventListener('click', function() {
-                if (videoPlayer.paused || videoPlayer.ended) {
-                    videoPlayer.play();
-                    playPauseBtn.textContent = 'Pause';
-                } else {
-                    videoPlayer.pause();
-                    playPauseBtn.textContent = 'Play';
-                }
-            });
-            
-            // Loop toggle
-            loopBtn.addEventListener('click', function() {
-                isLooping = !isLooping;
-                videoPlayer.loop = isLooping;
-                loopBtn.textContent = isLooping ? 'Loop: ON' : 'Loop: OFF';
-                updateLoopInfo();
-            });
-            
-            // Update progress bar
-            videoPlayer.addEventListener('timeupdate', function() {
-                const percentage = (videoPlayer.currentTime / videoPlayer.duration) * 100;
-                progressBar.style.width = percentage + '%';
-                
-                // Update current time display
-                currentTimeEl.textContent = formatTime(videoPlayer.currentTime);
-            });
-            
-            // Click on progress bar to seek
-            document.querySelector('.progress-container').addEventListener('click', function(e) {
-                const progressContainerWidth = this.offsetWidth;
-                const clickPosition = e.offsetX;
-                const seekTime = (clickPosition / progressContainerWidth) * videoPlayer.duration;
-                videoPlayer.currentTime = seekTime;
-            });
-            
-            // Update duration display when metadata is loaded
-            videoPlayer.addEventListener('loadedmetadata', function() {
-                durationEl.textContent = formatTime(videoPlayer.duration);
-            });
-            
-            // Handle volume change
-            volumeSlider.addEventListener('input', function() {
-                videoPlayer.volume = this.value;
-                localStorage.setItem('videoPlayerVolume', this.value);
-            });
-            
-            // Update button state when video ends
-            videoPlayer.addEventListener('ended', function() {
-                if (isLooping) {
-                    loopCount++;
-                    updateLoopInfo();
-                } else {
-                    playPauseBtn.textContent = 'Play';
-                }
-            });
-            
-            // Handle play/pause state changes
-            videoPlayer.addEventListener('play', function() {
-                playPauseBtn.textContent = 'Pause';
-            });
-            
-            videoPlayer.addEventListener('pause', function() {
-                playPauseBtn.textContent = 'Play';
-            });
-            
-            // Handle filter changes
-            brightnessSlider.addEventListener('input', function() {
-                brightnessValue.textContent = `${this.value}%`;
-                localStorage.setItem('videoPlayerBrightness', this.value);
-                applyFilters();
-            });
-            
-            saturationSlider.addEventListener('input', function() {
-                saturationValue.textContent = `${this.value}%`;
-                localStorage.setItem('videoPlayerSaturation', this.value);
-                applyFilters();
-            });
-            
-            contrastSlider.addEventListener('input', function() {
-                contrastValue.textContent = `${this.value}%`;
-                localStorage.setItem('videoPlayerContrast', this.value);
-                applyFilters();
-            });
-            
-            // Reset filters
-            resetFilters.addEventListener('click', function() {
-                brightnessSlider.value = 100;
-                saturationSlider.value = 100;
-                contrastSlider.value = 100;
-                
-                brightnessValue.textContent = '100%';
-                saturationValue.textContent = '100%';
-                contrastValue.textContent = '100%';
-                
-                localStorage.setItem('videoPlayerBrightness', 100);
-                localStorage.setItem('videoPlayerSaturation', 100);
-                localStorage.setItem('videoPlayerContrast', 100);
-                
-                applyFilters();
-            });
-            
-            // Apply CSS filters to video
-            function applyFilters() {
-                const brightness = brightnessSlider.value;
-                const saturation = saturationSlider.value;
-                const contrast = contrastSlider.value;
-                
-                videoPlayer.style.filter = `brightness(${brightness}%) saturate(${saturation}%) contrast(${contrast}%)`;
-            }
-            
-            // Format time in MM:SS
+            // --- DOM Elements ---
+            const DOMElements = {
+                videoPlayer: document.getElementById('videoPlayer'),
+                videoContainer: document.getElementById('videoContainer'),
+                playPauseBtn: document.getElementById('playPauseBtn'),
+                loopBtn: document.getElementById('loopBtn'),
+                fullscreenBtn: document.getElementById('fullscreenBtn'),
+                fileInput: document.getElementById('fileInput'),
+                fileName: document.getElementById('fileName'),
+                progressContainer: document.getElementById('progressContainer'),
+                progressBar: document.getElementById('progressBar'),
+                currentTime: document.getElementById('currentTime'),
+                duration: document.getElementById('duration'),
+                volumeSlider: document.getElementById('volumeSlider'),
+                placeholder: document.getElementById('placeholder'),
+                controls: document.getElementById('controls'),
+                loopInfo: document.getElementById('loopInfo'),
+                // Filters
+                brightnessSlider: document.getElementById('brightnessSlider'),
+                saturationSlider: document.getElementById('saturationSlider'),
+                contrastSlider: document.getElementById('contrastSlider'),
+                brightnessValue: document.getElementById('brightnessValue'),
+                saturationValue: document.getElementById('saturationValue'),
+                contrastValue: document.getElementById('contrastValue'),
+                resetFiltersBtn: document.getElementById('resetFiltersBtn'),
+                // Sensors UI
+                sensorToggleBtn: document.getElementById('sensorToggleBtn'),
+                orientAlphaValue: document.getElementById('orientAlphaValue'),
+                orientBetaValue: document.getElementById('orientBetaValue'),
+                orientGammaValue: document.getElementById('orientGammaValue'),
+                compassNeedle: document.getElementById('compassNeedle'),
+                // Sensor Adjustment UI
+                brightnessAxisSelect: document.getElementById('brightnessAxisSelect'),
+                brightnessSensitivitySlider: document.getElementById('brightnessSensitivitySlider'),
+                brightnessSensitivityValue: document.getElementById('brightnessSensitivityValue'),
+                brightnessNeutralSlider: document.getElementById('brightnessNeutralSlider'),
+                brightnessNeutralValue: document.getElementById('brightnessNeutralValue'),
+                saturationAxisSelect: document.getElementById('saturationAxisSelect'),
+                saturationSensitivitySlider: document.getElementById('saturationSensitivitySlider'),
+                saturationSensitivityValue: document.getElementById('saturationSensitivityValue'),
+                saturationNeutralSlider: document.getElementById('saturationNeutralSlider'),
+                saturationNeutralValue: document.getElementById('saturationNeutralValue'),
+                contrastAxisSelect: document.getElementById('contrastAxisSelect'),
+                contrastSensitivitySlider: document.getElementById('contrastSensitivitySlider'),
+                contrastSensitivityValue: document.getElementById('contrastSensitivityValue'),
+                contrastNeutralSlider: document.getElementById('contrastNeutralSlider'),
+                contrastNeutralValue: document.getElementById('contrastNeutralValue'),
+                resetSensorAdjustmentsBtn: document.getElementById('resetSensorAdjustmentsBtn'),
+            };
+
+            // --- Player State ---
+            let playerState = {
+                isLooping: false,
+                loopCount: 0,
+                sensorsEnabled: false,
+                deviceOrientationHandler: null,
+                lastTapTime: 0,
+                currentSensorReadings: { alpha: 0, beta: 0, gamma: 0 } // Store last readings
+            };
+
+            // --- Default Sensor Control Settings ---
+            const defaultSensorControlSettings = {
+                brightness: { axis: 'gamma', sensitivity: 0.833, neutral: 0 }, // Approx 75 filter units per 90 degrees
+                saturation: { axis: 'alpha', sensitivity: 0.555, neutral: 0 }, // Approx 100 filter units per 180 degrees
+                contrast: { axis: 'beta', sensitivity: 0.833, neutral: 0 }     // Approx 75 filter units per 90 degrees
+            };
+            let sensorControlSettings = JSON.parse(JSON.stringify(defaultSensorControlSettings));
+
+
+            // --- Utility Functions ---
             function formatTime(seconds) {
+                if (isNaN(seconds) || seconds < 0) return '0:00';
                 const minutes = Math.floor(seconds / 60);
                 const remainingSeconds = Math.floor(seconds % 60);
                 return `${minutes}:${remainingSeconds < 10 ? '0' : ''}${remainingSeconds}`;
             }
-            
-            // Update loop info text
-            function updateLoopInfo() {
-                if (isLooping) {
-                    loopInfo.textContent = `Video has looped ${loopCount} time${loopCount === 1 ? '' : 's'}`;
-                } else {
-                    loopInfo.textContent = '';
-                }
+
+            function clamp(value, min, max) {
+                return Math.max(min, Math.min(max, value));
+            }
+
+            function formatNumber(num) {
+                return num != null ? num.toFixed(2) : '0.00';
             }
             
-            // Touch-friendly double tap to fullscreen
-            let lastTap = 0;
-            videoPlayer.addEventListener('touchend', function(e) {
-                const currentTime = new Date().getTime();
-                const tapLength = currentTime - lastTap;
+            // --- Load & Save Settings ---
+            function loadSettings() {
+                const savedVolume = localStorage.getItem('videoPlayerVolume');
+                if (savedVolume) {
+                    DOMElements.videoPlayer.volume = parseFloat(savedVolume);
+                    DOMElements.volumeSlider.value = parseFloat(savedVolume);
+                }
+                DOMElements.brightnessSlider.value = localStorage.getItem('videoPlayerBrightness') || 100;
+                DOMElements.saturationSlider.value = localStorage.getItem('videoPlayerSaturation') || 100;
+                DOMElements.contrastSlider.value = localStorage.getItem('videoPlayerContrast') || 100;
+                updateFilterUI(); // Update text displays
+                applyFilters();   // Apply initial filters from sliders
+
+                const savedSensorSettings = localStorage.getItem('videoPlayerSensorControls');
+                if (savedSensorSettings) {
+                    try {
+                        const parsedSettings = JSON.parse(savedSensorSettings);
+                        // Basic validation or merge with defaults
+                        Object.keys(defaultSensorControlSettings).forEach(filterType => {
+                            if (parsedSettings[filterType]) {
+                                sensorControlSettings[filterType] = { ...defaultSensorControlSettings[filterType], ...parsedSettings[filterType] };
+                            }
+                        });
+                    } catch (e) {
+                        console.error("Error parsing sensor settings from localStorage", e);
+                        sensorControlSettings = JSON.parse(JSON.stringify(defaultSensorControlSettings));
+                    }
+                }
+                updateSensorAdjustmentUI();
+            }
+
+            function saveSensorControlSettings() {
+                localStorage.setItem('videoPlayerSensorControls', JSON.stringify(sensorControlSettings));
+            }
+
+            // --- Core Player Logic ---
+            function handleFileSelect() {
+                const file = DOMElements.fileInput.files[0];
+                if (file) {
+                    const videoURL = URL.createObjectURL(file);
+                    DOMElements.videoPlayer.src = videoURL;
+                    DOMElements.fileName.textContent = file.name;
+                    DOMElements.placeholder.style.display = 'none';
+                    DOMElements.controls.style.display = 'flex';
+                    playerState.loopCount = 0;
+                    updateLoopInfo();
+                    DOMElements.playPauseBtn.textContent = 'Play';
+                }
+            }
+
+            function togglePlayPause() {
+                if (DOMElements.videoPlayer.paused || DOMElements.videoPlayer.ended) {
+                    DOMElements.videoPlayer.play();
+                } else {
+                    DOMElements.videoPlayer.pause();
+                }
+            }
+
+            function updatePlayPauseButton() {
+                DOMElements.playPauseBtn.textContent = (DOMElements.videoPlayer.paused || DOMElements.videoPlayer.ended) ? 'Play' : 'Pause';
+            }
+
+            function toggleLoop() {
+                playerState.isLooping = !playerState.isLooping;
+                DOMElements.videoPlayer.loop = playerState.isLooping;
+                DOMElements.loopBtn.textContent = playerState.isLooping ? 'Loop: ON' : 'Loop: OFF';
+                updateLoopInfo();
+            }
+
+            function updateLoopInfo() {
+                DOMElements.loopInfo.textContent = playerState.isLooping ? `Video has looped ${playerState.loopCount} time${playerState.loopCount === 1 ? '' : 's'}` : '';
+            }
+
+            function handleTimeUpdate() {
+                const { currentTime, duration } = DOMElements.videoPlayer;
+                if (duration > 0) {
+                    DOMElements.progressBar.style.width = ((currentTime / duration) * 100) + '%';
+                }
+                DOMElements.currentTime.textContent = formatTime(currentTime);
+            }
+
+            function handleLoadedMetadata() {
+                DOMElements.duration.textContent = formatTime(DOMElements.videoPlayer.duration);
+            }
+
+            function handleProgressBarClick(e) {
+                const progressContainerWidth = DOMElements.progressContainer.offsetWidth;
+                const clickPosition = e.offsetX;
+                DOMElements.videoPlayer.currentTime = (clickPosition / progressContainerWidth) * DOMElements.videoPlayer.duration;
+            }
+
+            function handleVolumeChange() {
+                DOMElements.videoPlayer.volume = DOMElements.volumeSlider.value;
+                localStorage.setItem('videoPlayerVolume', DOMElements.volumeSlider.value);
+            }
+
+            function handleVideoEnd() {
+                if (playerState.isLooping) playerState.loopCount++;
+                updateLoopInfo();
+                updatePlayPauseButton();
+            }
+
+            // --- Filter Logic ---
+            /**
+             * Applies filters to the video.
+             * If b, s, c are provided, they are used directly (typically from sensor updates).
+             * Otherwise, values are taken from the current state of the filter sliders (manual adjustments).
+             */
+            function applyFilters(b, s, c) {
+                const useDirectValues = arguments.length === 3 && b !== undefined && s !== undefined && c !== undefined;
+
+                const brightnessVal = useDirectValues ? b : DOMElements.brightnessSlider.value;
+                const saturationVal = useDirectValues ? s : DOMElements.saturationSlider.value;
+                const contrastVal = useDirectValues ? c : DOMElements.contrastSlider.value;
                 
-                if (tapLength < 500 && tapLength > 0) {
-                    // Double tap detected
+                const filterString = `brightness(${parseFloat(brightnessVal).toFixed(2)}%) saturate(${parseFloat(saturationVal).toFixed(2)}%) contrast(${parseFloat(contrastVal).toFixed(2)}%)`;
+                
+                // console.log('Applying Filters:', filterString, 'Direct:', useDirectValues);
+                DOMElements.videoPlayer.style.filter = filterString;
+            }
+
+
+            function updateFilterUI() { // Only updates the text labels
+                DOMElements.brightnessValue.textContent = `${parseFloat(DOMElements.brightnessSlider.value).toFixed(0)}%`;
+                DOMElements.saturationValue.textContent = `${parseFloat(DOMElements.saturationSlider.value).toFixed(0)}%`;
+                DOMElements.contrastValue.textContent = `${parseFloat(DOMElements.contrastSlider.value).toFixed(0)}%`;
+            }
+            
+            function handleFilterSliderChange(event) { // Called by manual slider input
+                // Update the UI text for the specific slider that changed
+                if (event.target === DOMElements.brightnessSlider) DOMElements.brightnessValue.textContent = `${event.target.value}%`;
+                if (event.target === DOMElements.saturationSlider) DOMElements.saturationValue.textContent = `${event.target.value}%`;
+                if (event.target === DOMElements.contrastSlider) DOMElements.contrastValue.textContent = `${event.target.value}%`;
+                
+                applyFilters(); // Apply using current slider values
+
+                // Save individual filter to localStorage
+                if (event.target === DOMElements.brightnessSlider) localStorage.setItem('videoPlayerBrightness', event.target.value);
+                if (event.target === DOMElements.saturationSlider) localStorage.setItem('videoPlayerSaturation', event.target.value);
+                if (event.target === DOMElements.contrastSlider) localStorage.setItem('videoPlayerContrast', event.target.value);
+            }
+
+            function resetFilters() {
+                DOMElements.brightnessSlider.value = 100;
+                DOMElements.saturationSlider.value = 100;
+                DOMElements.contrastSlider.value = 100;
+                localStorage.setItem('videoPlayerBrightness', 100);
+                localStorage.setItem('videoPlayerSaturation', 100);
+                localStorage.setItem('videoPlayerContrast', 100);
+                updateFilterUI(); // Update all text labels
+                applyFilters();   // Apply reset values
+            }
+
+            // --- Fullscreen Logic ---
+            function toggleFullscreen() {
+                const elem = DOMElements.videoContainer;
+                if (!document.fullscreenElement) {
+                    if (elem.requestFullscreen) elem.requestFullscreen().catch(err => console.error(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`));
+                    else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen();
+                    else if (elem.mozRequestFullScreen) elem.mozRequestFullScreen();
+                    else if (elem.msRequestFullscreen) elem.msRequestFullscreen();
+                } else {
+                    if (document.exitFullscreen) document.exitFullscreen().catch(err => console.error(err));
+                    else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+                    else if (document.mozCancelFullScreen) document.mozCancelFullScreen();
+                    else if (document.msExitFullscreen) document.msExitFullscreen();
+                }
+            }
+
+            function handleFullscreenChange() {
+                const isFs = !!document.fullscreenElement;
+                DOMElements.videoContainer.classList.toggle('is-fullscreen', isFs);
+                DOMElements.fullscreenBtn.textContent = isFs ? 'Exit Full' : 'Fullscreen';
+            }
+
+            function handleVideoDoubleTap(e) {
+                const currentTime = new Date().getTime();
+                if ((currentTime - playerState.lastTapTime) < 500) {
                     toggleFullscreen();
                     e.preventDefault();
                 }
-                lastTap = currentTime;
-            });
-            
-            // Fullscreen button
-            fullscreenBtn.addEventListener('click', toggleFullscreen);
-            
-            // Toggle fullscreen function
-            function toggleFullscreen() {
-                const videoContainer = document.querySelector('.video-container');
-                
-                if (!document.fullscreenElement && 
-                    !document.mozFullScreenElement && 
-                    !document.webkitFullscreenElement && 
-                    !document.msFullscreenElement) {
-                    
-                    // Enter custom fullscreen mode
-                    videoContainer.classList.add('fullscreen');
-                    document.body.style.overflow = 'hidden'; // Prevent scrolling
-                    fullscreenBtn.textContent = 'Exit Full';
-                    
-                    // Set video to maintain aspect ratio
-                    videoPlayer.style.objectFit = 'contain';
-                    
-                    // Listen for escape key
-                    document.addEventListener('keydown', exitOnEscape);
-                } else {
-                    // Exit fullscreen
-                    exitFullscreen();
+                playerState.lastTapTime = currentTime;
+            }
+
+            // --- Sensor Logic ---
+            function updateSensorDisplay(alpha, beta, gamma) {
+                DOMElements.orientAlphaValue.textContent = formatNumber(alpha);
+                DOMElements.orientBetaValue.textContent = formatNumber(beta);
+                DOMElements.orientGammaValue.textContent = formatNumber(gamma);
+                if (DOMElements.compassNeedle) {
+                    DOMElements.compassNeedle.style.transform = `rotate(${alpha || 0}deg)`;
                 }
             }
-            
-            // Exit fullscreen function
-            function exitFullscreen() {
-                const videoContainer = document.querySelector('.video-container');
-                
-                // Remove custom fullscreen
-                videoContainer.classList.remove('fullscreen');
-                document.body.style.overflow = ''; // Restore scrolling
-                fullscreenBtn.textContent = 'Fullscreen';
-                
-                // Reset video style
-                videoPlayer.style.objectFit = '';
-                
-                // Remove escape listener
-                document.removeEventListener('keydown', exitOnEscape);
-                
-                // Exit browser fullscreen if active
-                if (document.exitFullscreen) {
-                    document.exitFullscreen();
-                } else if (document.mozCancelFullScreen) {
-                    document.mozCancelFullScreen();
-                } else if (document.webkitExitFullscreen) {
-                    document.webkitExitFullscreen();
-                } else if (document.msExitFullscreen) {
-                    document.msExitFullscreen();
-                }
-            }
-            
-            // Exit fullscreen on escape key
-            function exitOnEscape(e) {
-                if (e.key === 'Escape') {
-                    exitFullscreen();
-                }
-            }
-            
-            // Handle clicks outside video in fullscreen mode
-            document.addEventListener('click', function(e) {
-                const videoContainer = document.querySelector('.video-container');
-                
-                // If we're in custom fullscreen mode and click is outside the video
-                if (videoContainer.classList.contains('fullscreen') && 
-                    !videoPlayer.contains(e.target) && 
-                    !e.target.closest('.controls')) {
-                    exitFullscreen();
-                }
-            });
-            
-            // Update fullscreen button text when native fullscreen state changes
-            document.addEventListener('fullscreenchange', function() {
-                if (!document.fullscreenElement) {
-                    const videoContainer = document.querySelector('.video-container');
-                    if (videoContainer.classList.contains('fullscreen')) {
-                        exitFullscreen();
-                    }
-                }
-            });
-            
-            // Sensor functionalities
-            
-            // Format number for display
-            function formatNumber(num) {
-                return num ? num.toFixed(2) : '0.00';
-            }
-            
-            // Map orientation values to filter values
+
             function mapOrientationToFilters(alpha, beta, gamma) {
-                if (!sensorsEnabled) return;
+                if (!playerState.sensorsEnabled) return;
+
+                // Store current readings for potential use elsewhere if needed
+                playerState.currentSensorReadings = { alpha: alpha || 0, beta: beta || 0, gamma: gamma || 0 };
+                const sensorValues = playerState.currentSensorReadings;
                 
-                // Tilt forward/backward (gamma) maps to brightness (25-200%)
-                const newBrightness = 100 + Math.round(gamma / 90 * 75);
-                const brightnessValue = Math.max(25, Math.min(200, newBrightness));
-                brightnessSlider.value = brightnessValue;
-                
-                // Rotation (alpha) maps to saturation (25-200%)
-                const alphaNormalized = ((alpha + 180) % 360) - 180; // Normalize -180 to 180
-                const newSaturation = 100 + Math.round(alphaNormalized / 180 * 100);
-                const saturationValue = Math.max(25, Math.min(200, newSaturation));
-                saturationSlider.value = saturationValue;
-                
-                // Tilt left/right (beta) maps to contrast (25-200%)
-                const newContrast = 100 + Math.round(beta / 90 * 75);
-                const contrastValue = Math.max(25, Math.min(200, newContrast));
-                contrastSlider.value = contrastValue;
-                
-                // Update filter values and apply them
-                brightnessValue.textContent = `${brightnessValue}%`;
-                saturationValue.textContent = `${saturationValue}%`;
-                contrastValue.textContent = `${contrastValue}%`;
-                
-                applyFilters();
-            }
-            
-            // Handle device orientation event
-            function handleOrientation(event) {
-                if (!sensorsEnabled) return;
-                
-                const alpha = event.alpha; // Z-axis rotation [0,360)
-                const beta = event.beta;   // X-axis rotation [-180,180)
-                const gamma = event.gamma; // Y-axis rotation [-90,90)
-                
-                // Update sensor display values
-                orientAlpha.textContent = formatNumber(alpha);
-                orientBeta.textContent = formatNumber(beta);
-                orientGamma.textContent = formatNumber(gamma);
-                
-                // Update compass
-                if (compassNeedle) {
-                    compassNeedle.style.transform = `rotate(${alpha}deg)`;
-                }
-                
-                // Map orientation to video filters
-                mapOrientationToFilters(alpha, beta, gamma);
-            }
-            
-            // Setup device orientation event
-            function setupDeviceOrientation() {
-                if (window.DeviceOrientationEvent) {
-                    if (DeviceOrientationEvent.requestPermission) {
-                        // iOS 13+ requires user gesture to request permission
-                        DeviceOrientationEvent.requestPermission()
-                            .then(permissionState => {
-                                if (permissionState === 'granted') {
-                                    window.addEventListener('deviceorientation', handleOrientation);
-                                    deviceOrientationEnabled = true;
-                                    sensorsEnabled = true;
-                                    sensorToggle.textContent = 'Disable Sensors';
-                                    sensorToggle.classList.add('active');
-                                } else {
-                                    alert('Motion sensor permission denied');
-                                    sensorToggle.textContent = 'Enable Sensors';
-                                    sensorToggle.classList.remove('active');
-                                }
-                            })
-                            .catch(error => {
-                                console.error(`Error requesting device orientation: ${error.message}`);
-                                alert('Error requesting sensor permissions');
-                                sensorToggle.textContent = 'Enable Sensors';
-                                sensorToggle.classList.remove('active');
-                            });
+                const calculatedFilterValues = {};
+
+                ['brightness', 'saturation', 'contrast'].forEach(filterType => {
+                    const config = sensorControlSettings[filterType];
+                    
+                    if (config.axis !== 'none') {
+                        let sensorVal = sensorValues[config.axis];
+                        let deviation;
+
+                        if (config.axis === 'alpha') { // Cyclic value
+                            deviation = (sensorVal - config.neutral + 540) % 360 - 180; // Shortest angle
+                        } else { // Non-cyclic (beta, gamma)
+                            deviation = sensorVal - config.neutral;
+                        }
+                        
+                        const change = deviation * config.sensitivity; 
+                        const newFilterVal = clamp(100 + change, 25, 200);
+                        
+                        DOMElements[filterType + 'Slider'].value = newFilterVal; // Update slider position
+                        calculatedFilterValues[filterType] = newFilterVal;      // Store for direct application
                     } else {
-                        // Non-iOS devices don't need permission
-                        window.addEventListener('deviceorientation', handleOrientation);
-                        deviceOrientationEnabled = true;
-                        sensorsEnabled = true;
-                        sensorToggle.textContent = 'Disable Sensors';
-                        sensorToggle.classList.add('active');
+                        // If axis is 'none', this filter is not controlled by sensors.
+                        // It will retain its value from the slider (manual setting).
+                        // So, we ensure applyFilters uses the slider value for this one.
+                        calculatedFilterValues[filterType] = undefined; // Signal applyFilters to use slider value
                     }
+                });
+                
+                updateFilterUI(); // Update text labels based on (potentially new) slider values
+
+                // Apply filters using the calculated values for sensor-controlled axes,
+                // and slider values for axes set to 'none'.
+                applyFilters(
+                    calculatedFilterValues.brightness, 
+                    calculatedFilterValues.saturation, 
+                    calculatedFilterValues.contrast
+                ); 
+            }
+            
+            playerState.deviceOrientationHandler = (event) => {
+                if (!playerState.sensorsEnabled) return;
+                // console.log(`Raw Sensor: a=${event.alpha}, b=${event.beta}, g=${event.gamma}`);
+                updateSensorDisplay(event.alpha, event.beta, event.gamma);
+                mapOrientationToFilters(event.alpha, event.beta, event.gamma);
+            };
+
+            function enableSensors() {
+                const requestAndEnable = () => {
+                    window.addEventListener('deviceorientation', playerState.deviceOrientationHandler);
+                    playerState.sensorsEnabled = true;
+                    DOMElements.sensorToggleBtn.textContent = 'Disable Sensors';
+                    DOMElements.sensorToggleBtn.classList.add('active');
+                    // Apply current sensor readings immediately if any
+                    mapOrientationToFilters(
+                        playerState.currentSensorReadings.alpha,
+                        playerState.currentSensorReadings.beta,
+                        playerState.currentSensorReadings.gamma
+                    );
+                };
+
+                if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+                    DeviceOrientationEvent.requestPermission()
+                        .then(permissionState => {
+                            if (permissionState === 'granted') {
+                                requestAndEnable();
+                            } else {
+                                alert('Motion sensor permission denied.');
+                                disableSensors(); // Ensure state is correct
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error requesting device orientation permission:', error);
+                            alert('Could not request sensor permissions.');
+                            disableSensors();
+                        });
+                } else if ('DeviceOrientationEvent' in window) {
+                    requestAndEnable();
                 } else {
-                    alert('Device orientation not supported on your device');
-                    sensorToggle.textContent = 'Not Supported';
-                    sensorToggle.disabled = true;
+                    alert('Device orientation not supported on this device/browser.');
+                    DOMElements.sensorToggleBtn.textContent = 'Not Supported';
+                    DOMElements.sensorToggleBtn.disabled = true;
+                }
+            }
+
+            function disableSensors() {
+                if (playerState.deviceOrientationHandler) {
+                    window.removeEventListener('deviceorientation', playerState.deviceOrientationHandler);
+                }
+                playerState.sensorsEnabled = false;
+                DOMElements.sensorToggleBtn.textContent = 'Enable Sensors';
+                DOMElements.sensorToggleBtn.classList.remove('active');
+                // When sensors are disabled, filters should revert to their manual slider settings.
+                // Call applyFilters without arguments to use current slider values.
+                applyFilters(); 
+            }
+
+            function toggleSensors() {
+                if (playerState.sensorsEnabled) {
+                    disableSensors();
+                } else {
+                    enableSensors();
+                }
+            }
+
+            // --- Sensor Adjustment UI Logic ---
+            function updateSensorAdjustmentUI() {
+                ['brightness', 'saturation', 'contrast'].forEach(filterType => {
+                    const config = sensorControlSettings[filterType];
+                    DOMElements[filterType + 'AxisSelect'].value = config.axis;
+                    DOMElements[filterType + 'SensitivitySlider'].value = config.sensitivity;
+                    DOMElements[filterType + 'SensitivityValue'].textContent = parseFloat(config.sensitivity).toFixed(2);
+                    DOMElements[filterType + 'NeutralSlider'].value = config.neutral;
+                    DOMElements[filterType + 'NeutralValue'].textContent = config.neutral;
+                });
+            }
+
+            function handleSensorAdjustmentChange(event) {
+                const filterType = event.target.dataset.filter;
+                if (!filterType) return;
+
+                sensorControlSettings[filterType].axis = DOMElements[filterType + 'AxisSelect'].value;
+                sensorControlSettings[filterType].sensitivity = parseFloat(DOMElements[filterType + 'SensitivitySlider'].value);
+                sensorControlSettings[filterType].neutral = parseInt(DOMElements[filterType + 'NeutralSlider'].value);
+                
+                updateSensorAdjustmentUI();
+                saveSensorControlSettings();
+
+                // If sensors are active, immediately apply changes based on current sensor readings
+                if (playerState.sensorsEnabled) {
+                    mapOrientationToFilters(
+                        playerState.currentSensorReadings.alpha,
+                        playerState.currentSensorReadings.beta,
+                        playerState.currentSensorReadings.gamma
+                    );
                 }
             }
             
-            // Disable device orientation
-            function disableDeviceOrientation() {
-                if (window.DeviceOrientationEvent) {
-                    window.removeEventListener('deviceorientation', handleOrientation);
-                    sensorsEnabled = false;
-                    sensorToggle.textContent = 'Enable Sensors';
-                    sensorToggle.classList.remove('active');
+            function resetSensorAdjustments() {
+                sensorControlSettings = JSON.parse(JSON.stringify(defaultSensorControlSettings));
+                updateSensorAdjustmentUI();
+                saveSensorControlSettings();
+                if (playerState.sensorsEnabled) {
+                     mapOrientationToFilters(
+                        playerState.currentSensorReadings.alpha,
+                        playerState.currentSensorReadings.beta,
+                        playerState.currentSensorReadings.gamma
+                    );
                 }
             }
-            
-            // Toggle sensors
-            sensorToggle.addEventListener('click', function() {
-                if (sensorsEnabled) {
-                    disableDeviceOrientation();
-                } else {
-                    setupDeviceOrientation();
-                }
-            });
+
+            // --- Event Listeners ---
+            function setupEventListeners() {
+                DOMElements.fileInput.addEventListener('change', handleFileSelect);
+                DOMElements.playPauseBtn.addEventListener('click', togglePlayPause);
+                DOMElements.loopBtn.addEventListener('click', toggleLoop);
+                DOMElements.fullscreenBtn.addEventListener('click', toggleFullscreen);
+                
+                DOMElements.videoPlayer.addEventListener('play', updatePlayPauseButton);
+                DOMElements.videoPlayer.addEventListener('pause', updatePlayPauseButton);
+                DOMElements.videoPlayer.addEventListener('ended', handleVideoEnd);
+                DOMElements.videoPlayer.addEventListener('timeupdate', handleTimeUpdate);
+                DOMElements.videoPlayer.addEventListener('loadedmetadata', handleLoadedMetadata);
+                DOMElements.videoPlayer.addEventListener('touchend', handleVideoDoubleTap);
+
+                DOMElements.progressContainer.addEventListener('click', handleProgressBarClick);
+                DOMElements.volumeSlider.addEventListener('input', handleVolumeChange);
+
+                [DOMElements.brightnessSlider, DOMElements.saturationSlider, DOMElements.contrastSlider].forEach(slider => {
+                    slider.addEventListener('input', handleFilterSliderChange);
+                });
+                DOMElements.resetFiltersBtn.addEventListener('click', resetFilters);
+
+                document.addEventListener('fullscreenchange', handleFullscreenChange);
+                document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+                document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+                document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+
+                DOMElements.sensorToggleBtn.addEventListener('click', toggleSensors);
+
+                [DOMElements.brightnessAxisSelect, DOMElements.brightnessSensitivitySlider, DOMElements.brightnessNeutralSlider,
+                 DOMElements.saturationAxisSelect, DOMElements.saturationSensitivitySlider, DOMElements.saturationNeutralSlider,
+                 DOMElements.contrastAxisSelect, DOMElements.contrastSensitivitySlider, DOMElements.contrastNeutralSlider]
+                 .forEach(el => el.addEventListener('input', handleSensorAdjustmentChange));
+                
+                DOMElements.resetSensorAdjustmentsBtn.addEventListener('click', resetSensorAdjustments);
+            }
+
+            // --- Initialization ---
+            function init() {
+                loadSettings();
+                setupEventListeners();
+                updateSensorDisplay(null, null, null);
+            }
+
+            init();
         });
     </script>
 </body>
