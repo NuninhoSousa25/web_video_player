@@ -293,56 +293,20 @@
             background-color: #666;
         }
         
-        /* Sensor debug panel */
-        .sensor-toggle {
-            background-color: #2d2d2d;
-            color: #fff;
-            border: none;
-            border-radius: 4px;
-            padding: 8px 12px;
-            font-size: 14px;
-            cursor: pointer;
-            margin-top: 10px;
-            width: 100%;
-            text-align: center;
-            position: relative;
-        }
-        
-        .sensor-toggle::after {
-            content: '▼';
-            position: absolute;
-            right: 12px;
-            transition: transform 0.3s;
-        }
-        
-        .sensor-toggle.active::after {
-            transform: rotate(180deg);
-        }
-        
-        .sensor-debug-panel {
+        /* Sensor section styling */
+        .sensor-section {
             background-color: #1e1e1e;
             border-radius: 8px;
+            padding: 15px;
             margin-top: 10px;
-            overflow: hidden;
-            max-height: 0;
-            transition: max-height 0.3s ease-out;
-        }
-        
-        .sensor-debug-panel.active {
-            max-height: 800px;
-            transition: max-height 0.5s ease-in;
-        }
-        
-        .sensor-section {
-            padding: 12px;
-            border-bottom: 1px solid #333;
+            border-top: 1px solid #333;
         }
         
         .sensor-heading {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 10px;
+            margin-bottom: 15px;
         }
         
         .sensor-title {
@@ -350,137 +314,115 @@
             font-weight: 600;
         }
         
-        .sensor-status {
-            font-size: 12px;
-            padding: 3px 6px;
+        .sensor-toggle {
+            background-color: #2c7be5;
+            color: white;
+            border: none;
             border-radius: 4px;
-            background-color: #333;
+            padding: 6px 12px;
+            font-size: 14px;
+            cursor: pointer;
         }
         
-        .sensor-status.available {
+        .sensor-toggle.active {
             background-color: #4caf50;
-        }
-        
-        .sensor-status.unavailable {
-            background-color: #f44336;
         }
         
         .sensor-values {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            gap: 8px;
+            gap: 10px;
+            margin-bottom: 10px;
         }
         
         .sensor-value {
             background-color: #2d2d2d;
             padding: 8px;
-            border-radius: 4px;
+            border-radius: 6px;
             text-align: center;
         }
         
         .value-label {
-            font-size: 11px;
+            font-size: 12px;
             color: #aaa;
-            margin-bottom: 3px;
+            margin-bottom: 5px;
         }
         
         .value-number {
             font-size: 16px;
             font-weight: 500;
             font-family: monospace;
+            color: #2c7be5;
         }
         
-        .debug-log {
-            padding: 12px;
-            max-height: 150px;
-            overflow-y: auto;
-            font-family: monospace;
-            font-size: 12px;
-            line-height: 1.4;
-            color: #87e8de;
-            background-color: #0d1117;
+        .compass {
+            width: 120px;
+            height: 120px;
+            margin: 10px auto;
+            position: relative;
+            border-radius: 50%;
+            background-color: #2d2d2d;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5) inset;
         }
         
-        .debug-log p {
-            margin-bottom: 4px;
-            word-break: break-all;
+        .compass-needle {
+            position: absolute;
+            width: 4px;
+            height: 90px;
+            background: linear-gradient(to bottom, #f44336 50%, #fff 50%);
+            transform-origin: center center;
+            transition: transform 0.1s ease;
         }
         
-        .mapping-diagram {
-            padding: 12px;
+        .compass-center {
+            width: 12px;
+            height: 12px;
+            background-color: #333;
+            border-radius: 50%;
+            z-index: 1;
+        }
+        
+        .compass-marker {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+        }
+        
+        .compass-marker span {
+            position: absolute;
+            width: 20px;
             text-align: center;
-        }
-        
-        .mapping-title {
-            font-size: 14px;
-            margin-bottom: 8px;
+            font-weight: bold;
             color: #ddd;
         }
         
-        .mapping-illustration {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 12px;
-        }
+        .compass-marker .north { top: 8px; left: calc(50% - 10px); }
+        .compass-marker .east { right: 8px; top: calc(50% - 10px); }
+        .compass-marker .south { bottom: 8px; left: calc(50% - 10px); }
+        .compass-marker .west { left: 8px; top: calc(50% - 10px); }
         
-        .mapping-device, .mapping-arrow, .mapping-filter {
+        .phone-visualization {
             display: flex;
-            flex-direction: column;
+            justify-content: space-around;
             align-items: center;
-            justify-content: center;
+            margin: 15px 0;
         }
         
-        .device-motion {
-            font-size: 24px;
-            margin-bottom: 5px;
-            transform-origin: center;
-            transition: transform 0.2s;
-        }
-        
-        .device-label {
-            font-size: 12px;
+        .mapping-info {
+            font-size: 13px;
             color: #aaa;
-        }
-        
-        .mapping-arrow {
-            color: #555;
-            font-size: 20px;
-        }
-        
-        .filter-icon {
-            width: 40px;
-            height: 40px;
-            background-color: #333;
-            border-radius: 4px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 5px;
-            font-size: 14px;
-        }
-        
-        .sensor-mode-toggle {
-            display: flex;
-            background-color: #2a2a2a;
-            border-radius: 4px;
-            overflow: hidden;
-            margin: 12px;
-        }
-        
-        .sensor-mode-option {
-            flex: 1;
+            margin: 10px 0;
             text-align: center;
-            padding: 8px;
-            font-size: 14px;
-            background-color: transparent;
-            border: none;
-            color: #aaa;
-            cursor: pointer;
+            line-height: 1.4;
         }
         
-        .sensor-mode-option.active {
-            background-color: #2c7be5;
-            color: white;
+        .mapping-highlight {
+            color: #2c7be5;
+            font-weight: 500;
         }
         
         @media (max-width: 480px) {
@@ -574,6 +516,50 @@
             <label for="fileInput" class="file-label">Choose Video File</label>
             <div class="file-name" id="fileName"></div>
         </div>
+        
+        <!-- Sensor Controls Section -->
+        <div class="sensor-section" id="sensorSection">
+            <div class="sensor-heading">
+                <div class="sensor-title">Motion Controls</div>
+                <button id="sensorToggle" class="sensor-toggle">Enable Sensors</button>
+            </div>
+            
+            <div class="mapping-info">
+                Tilt your device to control video effects:
+                <br>
+                <span class="mapping-highlight">Rotation</span> → Saturation • 
+                <span class="mapping-highlight">Tilt Forward/Back</span> → Brightness • 
+                <span class="mapping-highlight">Tilt Left/Right</span> → Contrast
+            </div>
+            
+            <div class="sensor-values">
+                <div class="sensor-value">
+                    <div class="value-label">Alpha (°)</div>
+                    <div id="orientAlpha" class="value-number">0.00</div>
+                </div>
+                <div class="sensor-value">
+                    <div class="value-label">Beta (°)</div>
+                    <div id="orientBeta" class="value-number">0.00</div>
+                </div>
+                <div class="sensor-value">
+                    <div class="value-label">Gamma (°)</div>
+                    <div id="orientGamma" class="value-number">0.00</div>
+                </div>
+            </div>
+            
+            <div class="phone-visualization">
+                <div class="compass">
+                    <div id="compassNeedle" class="compass-needle"></div>
+                    <div class="compass-center"></div>
+                    <div class="compass-marker">
+                        <span class="north">N</span>
+                        <span class="east">E</span>
+                        <span class="south">S</span>
+                        <span class="west">W</span>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
     
     <script>
@@ -603,6 +589,8 @@
             
             let isLooping = false;
             let loopCount = 0;
+            let sensorsEnabled = false;
+            let deviceOrientationEnabled = false;
             
             // Initialize volume from localStorage or set default
             const savedVolume = localStorage.getItem('videoPlayerVolume');
@@ -791,6 +779,9 @@
                 lastTap = currentTime;
             });
             
+            // Fullscreen button
+            fullscreenBtn.addEventListener('click', toggleFullscreen);
+            
             // Toggle fullscreen function
             function toggleFullscreen() {
                 const videoContainer = document.querySelector('.video-container');
@@ -869,6 +860,122 @@
                     if (videoContainer.classList.contains('fullscreen')) {
                         exitFullscreen();
                     }
+                }
+            });
+            
+            // Sensor functionalities
+            
+            // Format number for display
+            function formatNumber(num) {
+                return num ? num.toFixed(2) : '0.00';
+            }
+            
+            // Map orientation values to filter values
+            function mapOrientationToFilters(alpha, beta, gamma) {
+                if (!sensorsEnabled) return;
+                
+                // Tilt forward/backward (gamma) maps to brightness (25-200%)
+                const newBrightness = 100 + Math.round(gamma / 90 * 75);
+                const brightnessValue = Math.max(25, Math.min(200, newBrightness));
+                brightnessSlider.value = brightnessValue;
+                
+                // Rotation (alpha) maps to saturation (25-200%)
+                const alphaNormalized = ((alpha + 180) % 360) - 180; // Normalize -180 to 180
+                const newSaturation = 100 + Math.round(alphaNormalized / 180 * 100);
+                const saturationValue = Math.max(25, Math.min(200, newSaturation));
+                saturationSlider.value = saturationValue;
+                
+                // Tilt left/right (beta) maps to contrast (25-200%)
+                const newContrast = 100 + Math.round(beta / 90 * 75);
+                const contrastValue = Math.max(25, Math.min(200, newContrast));
+                contrastSlider.value = contrastValue;
+                
+                // Update filter values and apply them
+                brightnessValue.textContent = `${brightnessValue}%`;
+                saturationValue.textContent = `${saturationValue}%`;
+                contrastValue.textContent = `${contrastValue}%`;
+                
+                applyFilters();
+            }
+            
+            // Handle device orientation event
+            function handleOrientation(event) {
+                if (!sensorsEnabled) return;
+                
+                const alpha = event.alpha; // Z-axis rotation [0,360)
+                const beta = event.beta;   // X-axis rotation [-180,180)
+                const gamma = event.gamma; // Y-axis rotation [-90,90)
+                
+                // Update sensor display values
+                orientAlpha.textContent = formatNumber(alpha);
+                orientBeta.textContent = formatNumber(beta);
+                orientGamma.textContent = formatNumber(gamma);
+                
+                // Update compass
+                if (compassNeedle) {
+                    compassNeedle.style.transform = `rotate(${alpha}deg)`;
+                }
+                
+                // Map orientation to video filters
+                mapOrientationToFilters(alpha, beta, gamma);
+            }
+            
+            // Setup device orientation event
+            function setupDeviceOrientation() {
+                if (window.DeviceOrientationEvent) {
+                    if (DeviceOrientationEvent.requestPermission) {
+                        // iOS 13+ requires user gesture to request permission
+                        DeviceOrientationEvent.requestPermission()
+                            .then(permissionState => {
+                                if (permissionState === 'granted') {
+                                    window.addEventListener('deviceorientation', handleOrientation);
+                                    deviceOrientationEnabled = true;
+                                    sensorsEnabled = true;
+                                    sensorToggle.textContent = 'Disable Sensors';
+                                    sensorToggle.classList.add('active');
+                                } else {
+                                    alert('Motion sensor permission denied');
+                                    sensorToggle.textContent = 'Enable Sensors';
+                                    sensorToggle.classList.remove('active');
+                                }
+                            })
+                            .catch(error => {
+                                console.error(`Error requesting device orientation: ${error.message}`);
+                                alert('Error requesting sensor permissions');
+                                sensorToggle.textContent = 'Enable Sensors';
+                                sensorToggle.classList.remove('active');
+                            });
+                    } else {
+                        // Non-iOS devices don't need permission
+                        window.addEventListener('deviceorientation', handleOrientation);
+                        deviceOrientationEnabled = true;
+                        sensorsEnabled = true;
+                        sensorToggle.textContent = 'Disable Sensors';
+                        sensorToggle.classList.add('active');
+                    }
+                } else {
+                    alert('Device orientation not supported on your device');
+                    sensorToggle.textContent = 'Not Supported';
+                    sensorToggle.disabled = true;
+                }
+            }
+            
+            // Disable device orientation
+            function disableDeviceOrientation() {
+                if (window.DeviceOrientationEvent) {
+                    window.removeEventListener('deviceorientation', handleOrientation);
+                    sensorsEnabled = false;
+                    sensorToggle.textContent = 'Enable Sensors';
+                    sensorToggle.classList.remove('active');
+                }
+            }
+            
+            // Toggle sensors
+            sensorToggle.addEventListener('click', function() {
+                if (sensorsEnabled) {
+                    disableDeviceOrientation();
+                } else {
+                    setupDeviceOrientation();
                 }
             });
         });
