@@ -1,10 +1,9 @@
-// Fullscreen button
-            fullscreenBtn.addEventListener('click', toggleFullscreen);<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mobile Video Player with Loop</title>
+    <title>Mobile Video Player with Loop & Point Cloud</title>
     <style>
         * {
             margin: 0;
@@ -112,6 +111,8 @@
             display: flex;
             flex-direction: column;
             gap: 8px;
+            padding: 16px; /* Added padding for consistency */
+            background-color: #1e1e1e; /* Added background for consistency */
         }
         
         button {
@@ -173,6 +174,7 @@
             border-radius: 5px;
             overflow: hidden;
             margin-top: 8px;
+            cursor: pointer; /* Make it clear it's clickable */
         }
         
         .progress-bar {
@@ -313,9 +315,9 @@
         /* Sensor section styling */
         .sensor-section {
             background-color: #1e1e1e;
-            border-radius: 8px;
+            border-radius: 0 0 8px 8px; /* Adjust if sections are reordered */
             padding: 15px;
-            margin-top: 10px;
+            margin-top: 0px; /* Adjust if sections are reordered */
             border-top: 1px solid #333;
         }
         
@@ -522,6 +524,21 @@
         .sensor-action-btn:hover {
             background-color: #666;
         }
+
+        /* Point Cloud Specific Styles */
+        .point-cloud-controls {
+            padding: 12px 16px;
+            background-color: #2a2a2a;
+            border-top: 1px solid #333;
+        }
+
+        #pointCloudCanvas {
+            width: 100%;
+            background-color: #050505;
+            margin-top: 10px;
+            display: none;
+            border: 1px solid #333;
+        }
         
         @media (max-width: 480px) {
             .controls {
@@ -551,7 +568,7 @@
         </div>
         
         <div class="video-container">
-            <video id="videoPlayer"></video>
+            <video id="videoPlayer" playsinline webkit-playsinline></video> <!-- playsinline for iOS -->
             <div class="controls-overlay" id="fullscreenControls">
                 <div class="progress-container">
                     <div class="progress-bar" id="progressBarFullscreen"></div>
@@ -568,7 +585,7 @@
         </div>
         
         <div class="controls" id="controls" style="display: none;">
-            <div class="progress-container">
+            <div class="progress-container" id="mainProgressContainer">
                 <div class="progress-bar" id="progressBar"></div>
             </div>
             <div class="time-display">
@@ -623,6 +640,43 @@
             <label for="fileInput" class="file-label">Choose Video File</label>
             <div class="file-name" id="fileName"></div>
         </div>
+
+        <!-- Point Cloud Section -->
+        <div class="point-cloud-controls">
+            <button id="togglePointCloudBtn" class="toggle-button" style="width: 100%; margin-bottom: 10px;">Show Point Cloud</button>
+            <canvas id="pointCloudCanvas"></canvas>
+            <div id="pointCloudParams" style="display: none; margin-top: 10px;">
+                <div class="filter-control">
+                    <div class="filter-label">
+                        <span>Point Density</span>
+                        <span class="filter-value" id="densityValue">32</span>
+                    </div>
+                    <input type="range" min="8" max="128" value="32" step="1" class="filter-slider" id="densitySlider">
+                </div>
+                <div class="filter-control">
+                    <div class="filter-label">
+                        <span>Displacement Scale</span>
+                        <span class="filter-value" id="displacementValue">50</span>
+                    </div>
+                    <input type="range" min="0" max="200" value="50" step="1" class="filter-slider" id="displacementSlider">
+                </div>
+                 <div class="filter-control">
+                    <div class="filter-label">
+                        <span>Point Size</span>
+                        <span class="filter-value" id="pointSizeValue">3</span>
+                    </div>
+                    <input type="range" min="1" max="10" value="3" step="1" class="filter-slider" id="pointSizeSlider">
+                </div>
+                <div class="filter-control"> <!-- New Tilt Sensitivity Slider -->
+                    <div class="filter-label">
+                        <span>Tilt Sensitivity</span>
+                        <span class="filter-value" id="tiltSensitivityValue">10</span>
+                    </div>
+                    <input type="range" min="0" max="50" value="10" step="1" class="filter-slider" id="tiltSensitivitySlider">
+                </div>
+            </div>
+        </div>
+        <!-- End of Point Cloud Section -->
         
         <!-- Sensor Controls Section -->
         <div class="sensor-section" id="sensorSection">
@@ -632,11 +686,11 @@
             </div>
             
             <div class="mapping-info">
-                Tilt your device to control video effects:
+                Tilt your device to control video effects or point cloud view:
                 <br>
                 <span class="mapping-highlight">Rotation</span> → Saturation • 
-                <span class="mapping-highlight">Tilt Forward/Back</span> → Brightness • 
-                <span class="mapping-highlight">Tilt Left/Right</span> → Contrast
+                <span class="mapping-highlight">Tilt Forward/Back</span> → Brightness / PC Tilt Y • 
+                <span class="mapping-highlight">Tilt Left/Right</span> → Contrast / PC Tilt X
             </div>
             
             <div class="sensor-values">
@@ -741,6 +795,7 @@
             const fileInput = document.getElementById('fileInput');
             const fileName = document.getElementById('fileName');
             const progressBar = document.getElementById('progressBar');
+            const mainProgressContainer = document.getElementById('mainProgressContainer'); 
             const currentTimeEl = document.getElementById('currentTime');
             const durationEl = document.getElementById('duration');
             const volumeSlider = document.getElementById('volumeSlider');
@@ -748,7 +803,6 @@
             const controls = document.getElementById('controls');
             const loopInfo = document.getElementById('loopInfo');
             
-            // Filter controls
             const brightnessSlider = document.getElementById('brightnessSlider');
             const saturationSlider = document.getElementById('saturationSlider');
             const contrastSlider = document.getElementById('contrastSlider');
@@ -758,57 +812,87 @@
             const resetFilters = document.getElementById('resetFilters');
             const fullscreenBtn = document.getElementById('fullscreenBtn');
             
+            const sensorToggle = document.getElementById('sensorToggle');
+            const orientAlpha = document.getElementById('orientAlpha');
+            const orientBeta = document.getElementById('orientBeta');
+            const orientGamma = document.getElementById('orientGamma');
+            const compassNeedle = document.getElementById('compassNeedle');
+            const alphaSensitivity = document.getElementById('alphaSensitivity');
+            const betaSensitivity = document.getElementById('betaSensitivity');
+            const gammaSensitivity = document.getElementById('gammaSensitivity');
+            const smoothingSlider = document.getElementById('smoothingSlider');
+            const alphaSensValue = document.getElementById('alphaSensValue');
+            const betaSensValue = document.getElementById('betaSensValue');
+            const gammaSensValue = document.getElementById('gammaSensValue');
+            const smoothingValue = document.getElementById('smoothingValue');
+            const calibrateBtn = document.getElementById('calibrateBtn');
+            const invertBtn = document.getElementById('invertBtn');
+            const alphaOffset = document.getElementById('alphaOffset'); 
+            const betaOffset = document.getElementById('betaOffset');   
+            const gammaOffset = document.getElementById('gammaOffset'); 
+            const alphaOffsetValue = document.getElementById('alphaOffsetValue'); 
+            const betaOffsetValue = document.getElementById('betaOffsetValue');   
+            const gammaOffsetValue = document.getElementById('gammaOffsetValue'); 
+
+            const fullscreenControls = document.getElementById('fullscreenControls');
+            const progressBarFullscreen = document.getElementById('progressBarFullscreen');
+            const playPauseFullscreen = document.getElementById('playPauseFullscreen');
+            const exitFullscreen = document.getElementById('exitFullscreen');
+            const fullscreenProgressContainer = document.querySelector('.controls-overlay .progress-container');
+
+            const togglePointCloudBtn = document.getElementById('togglePointCloudBtn');
+            const pointCloudCanvas = document.getElementById('pointCloudCanvas');
+            const pointCloudParams = document.getElementById('pointCloudParams');
+            const densitySlider = document.getElementById('densitySlider');
+            const densityValue = document.getElementById('densityValue');
+            const displacementSlider = document.getElementById('displacementSlider');
+            const displacementValue = document.getElementById('displacementValue');
+            const pointSizeSlider = document.getElementById('pointSizeSlider');
+            const pointSizeValue = document.getElementById('pointSizeValue');
+            const tiltSensitivitySlider = document.getElementById('tiltSensitivitySlider'); // New
+            const tiltSensitivityValue = document.getElementById('tiltSensitivityValue'); // New
+
+
+            let pointCloudCtx;
+            let isPointCloudViewActive = false;
+            let pointCloudAnimationFrameId;
+            const tempCanvas = document.createElement('canvas'); 
+            const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true }); 
+
+            let pointCloudDensity = 32;
+            let pointCloudDisplacementScale = 50;
+            let currentPointSize = 3;
+            let pointCloudTiltSensitivity = 10; // New
+            let pointCloudTiltAngles = { beta: 0, gamma: 0 }; // For point cloud tilt
+
+
             let isLooping = false;
             let loopCount = 0;
             let sensorsEnabled = false;
             let deviceOrientationEnabled = false;
             let controlsInverted = false;
             
-            // Sensor calibration values
-            let calibrationValues = {
-                alpha: 0,
-                beta: 0,
-                gamma: 0
-            };
+            let calibrationValues = { alpha: 0, beta: 0, gamma: 0 };
+            let manualOffsets = { alpha: 0, beta: 0, gamma: 0 }; 
             
-            // Smoothing variables
-            let lastFilterValues = {
-                brightness: 100,
-                saturation: 100,
-                contrast: 100
-            };
+            let lastFilterValues = { brightness: 100, saturation: 100, contrast: 100 };
             
-            // Initialize volume from localStorage or set default
             const savedVolume = localStorage.getItem('videoPlayerVolume');
             if (savedVolume) {
                 videoPlayer.volume = parseFloat(savedVolume);
                 volumeSlider.value = parseFloat(savedVolume);
             }
             
-            // Initialize filters from localStorage or set defaults
             const savedBrightness = localStorage.getItem('videoPlayerBrightness');
             const savedSaturation = localStorage.getItem('videoPlayerSaturation');
             const savedContrast = localStorage.getItem('videoPlayerContrast');
             
-            if (savedBrightness) {
-                brightnessSlider.value = savedBrightness;
-                brightnessValue.textContent = `${savedBrightness}%`;
-            }
-            
-            if (savedSaturation) {
-                saturationSlider.value = savedSaturation;
-                saturationValue.textContent = `${savedSaturation}%`;
-            }
-            
-            if (savedContrast) {
-                contrastSlider.value = savedContrast;
-                contrastValue.textContent = `${savedContrast}%`;
-            }
-            
-            // Apply initial filters
+            if (savedBrightness) brightnessSlider.value = savedBrightness;
+            if (savedSaturation) saturationSlider.value = savedSaturation;
+            if (savedContrast) contrastSlider.value = savedContrast;
+            updateFilterDisplayValues(); 
             applyFilters();
             
-            // Handle file selection
             fileInput.addEventListener('change', function() {
                 const file = this.files[0];
                 if (file) {
@@ -817,25 +901,22 @@
                     fileName.textContent = file.name;
                     placeholder.style.display = 'none';
                     controls.style.display = 'flex';
-                    
-                    // Reset looping stats when a new video is loaded
                     loopCount = 0;
                     updateLoopInfo();
+                     // If point cloud was active, reset its dimensions for the new video
+                    if (isPointCloudViewActive && videoPlayer.readyState >= videoPlayer.HAVE_METADATA) {
+                         setTimeout(setupPointCloudCanvasDimensions, 100); // Allow video metadata to load
+                    } else if (isPointCloudViewActive) {
+                        videoPlayer.onloadedmetadata = () => {
+                            setupPointCloudCanvasDimensions();
+                            videoPlayer.onloadedmetadata = null; // Remove listener
+                        };
+                    }
                 }
             });
             
-            // Play/Pause toggle
-            playPauseBtn.addEventListener('click', function() {
-                if (videoPlayer.paused || videoPlayer.ended) {
-                    videoPlayer.play();
-                    playPauseBtn.textContent = 'Pause';
-                } else {
-                    videoPlayer.pause();
-                    playPauseBtn.textContent = 'Play';
-                }
-            });
+            playPauseBtn.addEventListener('click', togglePlayPause);
             
-            // Loop toggle
             loopBtn.addEventListener('click', function() {
                 isLooping = !isLooping;
                 videoPlayer.loop = isLooping;
@@ -843,501 +924,518 @@
                 updateLoopInfo();
             });
             
-            // Update progress bar
             videoPlayer.addEventListener('timeupdate', function() {
                 const percentage = (videoPlayer.currentTime / videoPlayer.duration) * 100;
                 progressBar.style.width = percentage + '%';
-                
-                // Update current time display
+                progressBarFullscreen.style.width = percentage + '%';
                 currentTimeEl.textContent = formatTime(videoPlayer.currentTime);
             });
             
-            // Click on progress bar to seek
-            document.querySelector('.progress-container').addEventListener('click', function(e) {
-                const progressContainerWidth = this.offsetWidth;
-                const clickPosition = e.offsetX;
+            function seek(event, progressContainerElement) {
+                 if (!videoPlayer.duration) return;
+                const progressContainerWidth = progressContainerElement.offsetWidth;
+                const clickPosition = event.offsetX;
                 const seekTime = (clickPosition / progressContainerWidth) * videoPlayer.duration;
                 videoPlayer.currentTime = seekTime;
-            });
+            }
+
+            mainProgressContainer.addEventListener('click', (e) => seek(e, mainProgressContainer));
+            if(fullscreenProgressContainer) { 
+                 fullscreenProgressContainer.addEventListener('click', (e) => seek(e, fullscreenProgressContainer));
+            }
             
-            // Update duration display when metadata is loaded
             videoPlayer.addEventListener('loadedmetadata', function() {
                 durationEl.textContent = formatTime(videoPlayer.duration);
+                 if (isPointCloudViewActive) { 
+                    setupPointCloudCanvasDimensions();
+                }
             });
             
-            // Handle volume change
             volumeSlider.addEventListener('input', function() {
                 videoPlayer.volume = this.value;
                 localStorage.setItem('videoPlayerVolume', this.value);
             });
             
-            // Update button state when video ends
             videoPlayer.addEventListener('ended', function() {
                 if (isLooping) {
                     loopCount++;
                     updateLoopInfo();
                 } else {
                     playPauseBtn.textContent = 'Play';
+                    playPauseFullscreen.textContent = 'Play';
                 }
             });
             
-            // Handle play/pause state changes
             videoPlayer.addEventListener('play', function() {
                 playPauseBtn.textContent = 'Pause';
+                playPauseFullscreen.textContent = 'Pause';
+                 if (isPointCloudViewActive) { // Kickstart rendering if paused
+                    renderPointCloudFrame();
+                }
             });
             
             videoPlayer.addEventListener('pause', function() {
                 playPauseBtn.textContent = 'Play';
+                playPauseFullscreen.textContent = 'Play';
             });
             
-            // Handle filter changes
-            brightnessSlider.addEventListener('input', function() {
-                brightnessValue.textContent = `${this.value}%`;
-                localStorage.setItem('videoPlayerBrightness', this.value);
-                applyFilters();
+            [brightnessSlider, saturationSlider, contrastSlider].forEach(slider => {
+                slider.addEventListener('input', () => {
+                    updateFilterDisplayValues();
+                    saveFilters();
+                    applyFilters();
+                });
             });
             
-            saturationSlider.addEventListener('input', function() {
-                saturationValue.textContent = `${this.value}%`;
-                localStorage.setItem('videoPlayerSaturation', this.value);
-                applyFilters();
-            });
-            
-            contrastSlider.addEventListener('input', function() {
-                contrastValue.textContent = `${this.value}%`;
-                localStorage.setItem('videoPlayerContrast', this.value);
-                applyFilters();
-            });
-            
-            // Reset filters
             resetFilters.addEventListener('click', function() {
                 brightnessSlider.value = 100;
                 saturationSlider.value = 100;
                 contrastSlider.value = 100;
-                
-                brightnessValue.textContent = '100%';
-                saturationValue.textContent = '100%';
-                contrastValue.textContent = '100%';
-                
-                localStorage.setItem('videoPlayerBrightness', 100);
-                localStorage.setItem('videoPlayerSaturation', 100);
-                localStorage.setItem('videoPlayerContrast', 100);
-                
+                updateFilterDisplayValues();
+                saveFilters();
                 applyFilters();
             });
+
+            function updateFilterDisplayValues() {
+                brightnessValue.textContent = `${brightnessSlider.value}%`;
+                saturationValue.textContent = `${saturationSlider.value}%`;
+                contrastValue.textContent = `${contrastSlider.value}%`;
+            }
+
+            function saveFilters() {
+                 localStorage.setItem('videoPlayerBrightness', brightnessSlider.value);
+                 localStorage.setItem('videoPlayerSaturation', saturationSlider.value);
+                 localStorage.setItem('videoPlayerContrast', contrastSlider.value);
+            }
             
-            // Apply CSS filters to video
             function applyFilters() {
                 const brightness = brightnessSlider.value;
                 const saturation = saturationSlider.value;
                 const contrast = contrastSlider.value;
-                
                 videoPlayer.style.filter = `brightness(${brightness}%) saturate(${saturation}%) contrast(${contrast}%)`;
             }
             
-            // Format time in MM:SS
             function formatTime(seconds) {
                 const minutes = Math.floor(seconds / 60);
                 const remainingSeconds = Math.floor(seconds % 60);
                 return `${minutes}:${remainingSeconds < 10 ? '0' : ''}${remainingSeconds}`;
             }
             
-            // Update loop info text
             function updateLoopInfo() {
-                if (isLooping) {
-                    loopInfo.textContent = `Video has looped ${loopCount} time${loopCount === 1 ? '' : 's'}`;
+                loopInfo.textContent = isLooping ? `Looped ${loopCount} time${loopCount === 1 ? '' : 's'}` : '';
+            }
+
+            function togglePlayPause() {
+                if (videoPlayer.paused || videoPlayer.ended) {
+                    videoPlayer.play().catch(e => console.error("Play error:", e));
                 } else {
-                    loopInfo.textContent = '';
+                    videoPlayer.pause();
                 }
             }
             
-            // Touch-friendly double tap to fullscreen
             let lastTap = 0;
             videoPlayer.addEventListener('touchend', function(e) {
                 const currentTime = new Date().getTime();
-                const tapLength = currentTime - lastTap;
-                
-                if (tapLength < 500 && tapLength > 0) {
-                    // Double tap detected
+                if (currentTime - lastTap < 500) {
                     toggleFullscreen();
                     e.preventDefault();
                 }
                 lastTap = currentTime;
             });
-            
-            // Double-click to toggle fullscreen
-            videoPlayer.addEventListener('dblclick', function(e) {
-                toggleFullscreen();
-                e.preventDefault();
-            });
-            
-            // Fullscreen button
+            videoPlayer.addEventListener('dblclick', toggleFullscreen);
             fullscreenBtn.addEventListener('click', toggleFullscreen);
-            
-            // Toggle fullscreen function
+            exitFullscreen.addEventListener('click', exitFullscreenMode);
+
             function toggleFullscreen() {
                 const videoContainer = document.querySelector('.video-container');
-                
-                if (!document.fullscreenElement && 
-                    !document.mozFullScreenElement && 
-                    !document.webkitFullscreenElement && 
-                    !document.msFullscreenElement) {
-                    
-                    // Enter custom fullscreen mode
-                    videoContainer.classList.add('fullscreen');
-                    document.body.style.overflow = 'hidden'; // Prevent scrolling
-                    fullscreenBtn.textContent = 'Exit Full';
-                    
-                    // Set video to maintain aspect ratio
-                    videoPlayer.style.objectFit = 'contain';
-                    
-                    // Show fullscreen controls briefly
-                    fullscreenControls.classList.add('active');
-                    setTimeout(() => {
-                        fullscreenControls.classList.remove('active');
-                    }, 3000);
-                    
-                    // Listen for escape key
-                    document.addEventListener('keydown', exitOnEscape);
+                if (!videoContainer.classList.contains('fullscreen')) {
+                    enterFullscreenMode();
                 } else {
-                    // Exit fullscreen
-                    exitFullscreen();
+                    exitFullscreenMode();
                 }
             }
-            
-            // Exit fullscreen function
-            function exitFullscreen() {
+
+            function enterFullscreenMode() {
                 const videoContainer = document.querySelector('.video-container');
-                
-                // Remove custom fullscreen
+                videoContainer.classList.add('fullscreen');
+                document.body.style.overflow = 'hidden';
+                fullscreenBtn.textContent = 'Exit Full';
+                showFullscreenControlsBriefly();
+                document.addEventListener('keydown', exitOnEscape);
+
+                if (videoContainer.requestFullscreen) videoContainer.requestFullscreen().catch(err => console.error("FS Error:", err));
+                else if (videoContainer.mozRequestFullScreen) videoContainer.mozRequestFullScreen();
+                else if (videoContainer.webkitRequestFullscreen) videoContainer.webkitRequestFullscreen();
+                else if (videoContainer.msRequestFullscreen) videoContainer.msRequestFullscreen();
+            }
+
+            function exitFullscreenMode() {
+                const videoContainer = document.querySelector('.video-container');
                 videoContainer.classList.remove('fullscreen');
-                document.body.style.overflow = ''; // Restore scrolling
+                document.body.style.overflow = '';
                 fullscreenBtn.textContent = 'Fullscreen';
-                
-                // Reset video style
-                videoPlayer.style.objectFit = '';
-                
-                // Hide fullscreen controls
                 fullscreenControls.classList.remove('active');
-                
-                // Remove escape listener
                 document.removeEventListener('keydown', exitOnEscape);
-                
-                // Exit browser fullscreen if active
-                if (document.exitFullscreen) {
-                    document.exitFullscreen();
-                } else if (document.mozCancelFullScreen) {
-                    document.mozCancelFullScreen();
-                } else if (document.webkitExitFullscreen) {
-                    document.webkitExitFullscreen();
-                } else if (document.msExitFullscreen) {
-                    document.msExitFullscreen();
-                }
-                
-                // Synchronize both progress bars
-                progressBar.style.width = progressBarFullscreen.style.width;
+
+                if (document.exitFullscreen) document.exitFullscreen().catch(err => console.error("Exit FS Error:", err));
+                else if (document.mozCancelFullScreen) document.mozCancelFullScreen();
+                else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+                else if (document.msExitFullscreen) document.msExitFullscreen();
             }
             
-            // Exit fullscreen on escape key
             function exitOnEscape(e) {
-                if (e.key === 'Escape') {
-                    exitFullscreen();
+                if (e.key === 'Escape' && document.querySelector('.video-container.fullscreen')) {
+                    exitFullscreenMode();
                 }
             }
-            
-            // Handle clicks outside video in fullscreen mode
-            document.addEventListener('click', function(e) {
-                const videoContainer = document.querySelector('.video-container');
-                
-                // If we're in custom fullscreen mode and click is outside the video
-                if (videoContainer.classList.contains('fullscreen') && 
-                    !videoPlayer.contains(e.target) && 
-                    !e.target.closest('.controls')) {
-                    exitFullscreen();
+             document.addEventListener('fullscreenchange', () => {
+                if (!document.fullscreenElement && !document.webkitIsFullScreen && !document.mozFullScreen && !document.msFullscreenElement) {
+                     if(document.querySelector('.video-container.fullscreen')) exitFullscreenMode();
                 }
             });
-            
-            // Update fullscreen button text when native fullscreen state changes
-            document.addEventListener('fullscreenchange', function() {
-                if (!document.fullscreenElement) {
-                    const videoContainer = document.querySelector('.video-container');
-                    if (videoContainer.classList.contains('fullscreen')) {
-                        exitFullscreen();
-                    }
-                }
-            });
-            
-            // Sensor functionalities
-            
-            // Format number for display
-            function formatNumber(num) {
-                return num ? num.toFixed(2) : '0.00';
+
+            function showFullscreenControlsBriefly() {
+                fullscreenControls.classList.add('active');
+                setTimeout(() => fullscreenControls.classList.remove('active'), 3000);
             }
-            
-            // Map orientation values to filter values
+            videoPlayer.addEventListener('touchstart', () => {
+                if (document.querySelector('.video-container.fullscreen')) showFullscreenControlsBriefly();
+            });
+             playPauseFullscreen.addEventListener('click', togglePlayPause);
+
+
+            function formatSensorNumber(num) { return num != null ? num.toFixed(2) : '0.00'; }
+
             function mapOrientationToFilters(alpha, beta, gamma) {
                 if (!sensorsEnabled) return;
+
+                const effectiveAlpha = ((alpha - calibrationValues.alpha - manualOffsets.alpha + 360) % 360);
+                const effectiveBeta = beta - calibrationValues.beta - manualOffsets.beta;
+                const effectiveGamma = gamma - calibrationValues.gamma - manualOffsets.gamma;
+
+                const finalAlpha = controlsInverted ? (360 - effectiveAlpha + 360) % 360 : effectiveAlpha;
+                let finalBeta = controlsInverted ? -effectiveBeta : effectiveBeta;
+                let finalGamma = controlsInverted ? -effectiveGamma : effectiveGamma;
                 
-                // Apply calibration offset
-                const calibratedAlpha = ((alpha - calibrationValues.alpha + 360) % 360);
-                const calibratedBeta = beta - calibrationValues.beta;
-                const calibratedGamma = gamma - calibrationValues.gamma;
-                
-                // Apply inversion if enabled
-                const finalAlpha = controlsInverted ? (360 - calibratedAlpha) % 360 : calibratedAlpha;
-                const finalBeta = controlsInverted ? -calibratedBeta : calibratedBeta;
-                const finalGamma = controlsInverted ? -calibratedGamma : calibratedGamma;
-                
-                // Get sensitivity values
+                // Update point cloud tilt angles if point cloud view is active
+                if (isPointCloudViewActive) {
+                    pointCloudTiltAngles.beta = finalBeta;
+                    pointCloudTiltAngles.gamma = finalGamma;
+                }
+
                 const alphaSens = parseFloat(alphaSensitivity.value);
                 const betaSens = parseFloat(betaSensitivity.value);
                 const gammaSens = parseFloat(gammaSensitivity.value);
                 
-                // Calculate new filter values
-                // Rotation (alpha) maps to saturation (25-200%)
-                // Normalize alpha to -180 to 180 for more intuitive control
                 const alphaNormalized = ((finalAlpha + 180) % 360) - 180;
-                let newSaturation = 100 + Math.round((alphaNormalized * alphaSens) / 180 * 100);
+                let newSaturation = 100 + Math.round((alphaNormalized * alphaSens) / 180 * 75); 
+                let newBrightness = 100 + Math.round((finalBeta * betaSens) / 90 * 75); 
+                let newContrast = 100 + Math.round((finalGamma * gammaSens) / 90 * 75);    
+
                 newSaturation = Math.max(25, Math.min(200, newSaturation));
-                
-                // Tilt forward/backward (gamma) maps to brightness (25-200%)
-                // Gamma typically ranges from -90 to 90
-                let newBrightness = 100 + Math.round((finalGamma * gammaSens) / 90 * 75);
                 newBrightness = Math.max(25, Math.min(200, newBrightness));
-                
-                // Tilt left/right (beta) maps to contrast (25-200%)
-                // Beta typically ranges from -180 to 180, but we'll use -90 to 90 for sensitivity
-                let newContrast = 100 + Math.round((finalBeta * betaSens) / 90 * 75);
                 newContrast = Math.max(25, Math.min(200, newContrast));
                 
-                // Apply smoothing
                 const smoothingFactor = parseFloat(smoothingSlider.value);
-                newBrightness = applySmoothing('brightness', newBrightness, smoothingFactor);
-                newSaturation = applySmoothing('saturation', newSaturation, smoothingFactor);
-                newContrast = applySmoothing('contrast', newContrast, smoothingFactor);
+                lastFilterValues.brightness = applySmoothing('brightness', newBrightness, smoothingFactor);
+                lastFilterValues.saturation = applySmoothing('saturation', newSaturation, smoothingFactor);
+                lastFilterValues.contrast = applySmoothing('contrast', newContrast, smoothingFactor);
                 
-                // Update sliders
-                brightnessSlider.value = newBrightness;
-                saturationSlider.value = newSaturation;
-                contrastSlider.value = newContrast;
+                brightnessSlider.value = lastFilterValues.brightness;
+                saturationSlider.value = lastFilterValues.saturation;
+                contrastSlider.value = lastFilterValues.contrast;
                 
-                // Update display values
-                brightnessValue.textContent = `${Math.round(newBrightness)}%`;
-                saturationValue.textContent = `${Math.round(newSaturation)}%`;
-                contrastValue.textContent = `${Math.round(newContrast)}%`;
-                
-                // Apply filters
-                applyFilters();
+                updateFilterDisplayValues();
+                applyFilters(); 
             }
             
-            // Apply smoothing to filter values
-            function applySmoothing(filterName, newValue, smoothingFactor) {
-                if (smoothingFactor === 0) return newValue;
-                
-                const lastValue = lastFilterValues[filterName];
-                const smoothedValue = lastValue * smoothingFactor + newValue * (1 - smoothingFactor);
-                lastFilterValues[filterName] = smoothedValue;
-                
-                return smoothedValue;
+            function applySmoothing(filterName, newValue, factor) {
+                if (factor === 0) return newValue;
+                return lastFilterValues[filterName] * factor + newValue * (1 - factor);
             }
             
-            // Handle device orientation event
             function handleOrientation(event) {
-                if (!sensorsEnabled) return;
+                if (!sensorsEnabled) return; // Ensure sensors are globally enabled first
+                const { alpha, beta, gamma } = event;
+                if (alpha == null || beta == null || gamma == null) return;
+
+                orientAlpha.textContent = formatSensorNumber(alpha);
+                orientBeta.textContent = formatSensorNumber(beta);
+                orientGamma.textContent = formatSensorNumber(gamma);
+                if (compassNeedle) compassNeedle.style.transform = `rotate(${alpha}deg)`;
                 
-                const alpha = event.alpha; // Z-axis rotation [0,360)
-                const beta = event.beta;   // X-axis rotation [-180,180)
-                const gamma = event.gamma; // Y-axis rotation [-90,90)
-                
-                // Update sensor display values
-                orientAlpha.textContent = formatNumber(alpha);
-                orientBeta.textContent = formatNumber(beta);
-                orientGamma.textContent = formatNumber(gamma);
-                
-                // Update compass
-                if (compassNeedle) {
-                    compassNeedle.style.transform = `rotate(${alpha}deg)`;
-                }
-                
-                // Map orientation to video filters
-                mapOrientationToFilters(alpha, beta, gamma);
+                mapOrientationToFilters(alpha, beta, gamma); // This will also update pointCloudTiltAngles
             }
             
-            // Setup device orientation event
             function setupDeviceOrientation() {
-                if (window.DeviceOrientationEvent) {
-                    if (DeviceOrientationEvent.requestPermission) {
-                        // iOS 13+ requires user gesture to request permission
-                        DeviceOrientationEvent.requestPermission()
-                            .then(permissionState => {
-                                if (permissionState === 'granted') {
-                                    window.addEventListener('deviceorientation', handleOrientation);
-                                    deviceOrientationEnabled = true;
-                                    sensorsEnabled = true;
-                                    sensorToggle.textContent = 'Disable Sensors';
-                                    sensorToggle.classList.add('active');
-                                } else {
-                                    alert('Motion sensor permission denied');
-                                    sensorToggle.textContent = 'Enable Sensors';
-                                    sensorToggle.classList.remove('active');
-                                }
-                            })
-                            .catch(error => {
-                                console.error(`Error requesting device orientation: ${error.message}`);
-                                alert('Error requesting sensor permissions');
-                                sensorToggle.textContent = 'Enable Sensors';
-                                sensorToggle.classList.remove('active');
-                            });
-                    } else {
-                        // Non-iOS devices don't need permission
-                        window.addEventListener('deviceorientation', handleOrientation);
-                        deviceOrientationEnabled = true;
-                        sensorsEnabled = true;
-                        sensorToggle.textContent = 'Disable Sensors';
-                        sensorToggle.classList.add('active');
-                    }
+                if (typeof DeviceOrientationEvent !== 'undefined' && DeviceOrientationEvent.requestPermission) {
+                    DeviceOrientationEvent.requestPermission()
+                        .then(permissionState => {
+                            if (permissionState === 'granted') {
+                                window.addEventListener('deviceorientation', handleOrientation);
+                                deviceOrientationEnabled = true;
+                                sensorsEnabled = true;
+                                sensorToggle.textContent = 'Disable Sensors';
+                                sensorToggle.classList.add('active');
+                            } else {
+                                alert('Motion sensor permission denied.');
+                                disableDeviceOrientation();
+                            }
+                        }).catch(err => {
+                             console.error("Sensor permission error:", err);
+                             alert('Error requesting sensor permissions.');
+                             disableDeviceOrientation();
+                        });
+                } else if ('DeviceOrientationEvent' in window) {
+                    window.addEventListener('deviceorientation', handleOrientation);
+                    deviceOrientationEnabled = true;
+                    sensorsEnabled = true;
+                    sensorToggle.textContent = 'Disable Sensors';
+                    sensorToggle.classList.add('active');
                 } else {
-                    alert('Device orientation not supported on your device');
+                    alert('Device orientation not supported.');
                     sensorToggle.textContent = 'Not Supported';
                     sensorToggle.disabled = true;
                 }
             }
             
-            // Disable device orientation
             function disableDeviceOrientation() {
-                if (window.DeviceOrientationEvent) {
-                    window.removeEventListener('deviceorientation', handleOrientation);
-                    sensorsEnabled = false;
-                    sensorToggle.textContent = 'Enable Sensors';
-                    sensorToggle.classList.remove('active');
-                }
+                window.removeEventListener('deviceorientation', handleOrientation);
+                sensorsEnabled = false;
+                deviceOrientationEnabled = false; 
+                sensorToggle.textContent = 'Enable Sensors';
+                sensorToggle.classList.remove('active');
+                // Reset point cloud tilt angles when sensors are disabled
+                pointCloudTiltAngles = { beta: 0, gamma: 0 };
             }
             
-            // Calibrate sensors
-            function calibrateSensors() {
-                if (deviceOrientationEnabled) {
-                    // Get current orientation values from display
-                    const currentAlpha = parseFloat(orientAlpha.textContent);
-                    const currentBeta = parseFloat(orientBeta.textContent);
-                    const currentGamma = parseFloat(orientGamma.textContent);
-                    
-                    // Set as calibration values
-                    calibrationValues = {
-                        alpha: currentAlpha,
-                        beta: currentBeta,
-                        gamma: currentGamma
-                    };
-                    
-                    // Reset current filter values to defaults
-                    brightnessSlider.value = 100;
-                    saturationSlider.value = 100;
-                    contrastSlider.value = 100;
-                    
-                    // Update display values
-                    brightnessValue.textContent = '100%';
-                    saturationValue.textContent = '100%';
-                    contrastValue.textContent = '100%';
-                    
-                    // Apply filters
-                    applyFilters();
-                    
-                    // Update last filter values for smoothing
-                    lastFilterValues = {
-                        brightness: 100,
-                        saturation: 100,
-                        contrast: 100
-                    };
-                    
-                    // Show confirmation
-                    alert('Sensors calibrated! Current position is now neutral.');
-                } else {
-                    alert('Please enable sensors first.');
-                }
-            }
+            sensorToggle.addEventListener('click', () => sensorsEnabled ? disableDeviceOrientation() : setupDeviceOrientation());
             
-            // Toggle control inversion
-            function toggleInvertControls() {
+            calibrateBtn.addEventListener('click', () => {
+                if (!deviceOrientationEnabled) { alert('Enable sensors first.'); return; }
+                calibrationValues.alpha = parseFloat(orientAlpha.textContent) || 0;
+                calibrationValues.beta = parseFloat(orientBeta.textContent) || 0;
+                calibrationValues.gamma = parseFloat(orientGamma.textContent) || 0;
+                
+                manualOffsets = { alpha: 0, beta: 0, gamma: 0 };
+                alphaOffset.value = 0; betaOffset.value = 0; gammaOffset.value = 0;
+                alphaOffsetValue.textContent = '0°'; betaOffsetValue.textContent = '0°'; gammaOffsetValue.textContent = '0°';
+
+                alert('Sensors calibrated to current orientation. Manual offsets reset.');
+                resetFilters.click();
+                lastFilterValues = { brightness: 100, saturation: 100, contrast: 100 };
+                 // After calibration, update current tilt angles to zero effectively
+                pointCloudTiltAngles = { beta: 0, gamma: 0 };
+            });
+            
+            invertBtn.addEventListener('click', () => {
                 controlsInverted = !controlsInverted;
                 invertBtn.textContent = controlsInverted ? 'Controls Inverted' : 'Invert Controls';
-                
-                if (controlsInverted) {
-                    invertBtn.style.backgroundColor = '#f44336';
+                invertBtn.style.backgroundColor = controlsInverted ? '#f44336' : '#555';
+            });
+
+            [alphaSensitivity, betaSensitivity, gammaSensitivity, smoothingSlider].forEach(slider => {
+                slider.addEventListener('input', function() {
+                    document.getElementById(this.id.replace('Slider', 'Value').replace('Sensitivity', 'SensValue')).textContent = this.value;
+                });
+            });
+            [alphaOffset, betaOffset, gammaOffset].forEach(slider => {
+                slider.addEventListener('input', function() {
+                    const axis = this.id.replace('Offset', ''); 
+                    manualOffsets[axis] = parseFloat(this.value);
+                    document.getElementById(`${axis}OffsetValue`).textContent = `${this.value}°`;
+                });
+            });
+
+            if (pointCloudCanvas) {
+                pointCloudCtx = pointCloudCanvas.getContext('2d', { willReadFrequently: true });
+                densitySlider.value = pointCloudDensity;
+                densityValue.textContent = pointCloudDensity;
+                displacementSlider.value = pointCloudDisplacementScale;
+                displacementValue.textContent = pointCloudDisplacementScale;
+                pointSizeSlider.value = currentPointSize;
+                pointSizeValue.textContent = currentPointSize;
+                tiltSensitivitySlider.value = pointCloudTiltSensitivity; // New
+                tiltSensitivityValue.textContent = pointCloudTiltSensitivity; // New
+
+
+                densitySlider.addEventListener('input', (e) => {
+                    pointCloudDensity = parseInt(e.target.value);
+                    densityValue.textContent = pointCloudDensity;
+                });
+                displacementSlider.addEventListener('input', (e) => {
+                    pointCloudDisplacementScale = parseInt(e.target.value);
+                    displacementValue.textContent = pointCloudDisplacementScale;
+                });
+                pointSizeSlider.addEventListener('input', (e) => {
+                    currentPointSize = parseInt(e.target.value);
+                    pointSizeValue.textContent = currentPointSize;
+                });
+                tiltSensitivitySlider.addEventListener('input', (e) => { // New
+                    pointCloudTiltSensitivity = parseInt(e.target.value);
+                    tiltSensitivityValue.textContent = pointCloudTiltSensitivity;
+                });
+
+                togglePointCloudBtn.addEventListener('click', togglePointCloudView);
+            }
+
+            function setupPointCloudCanvasDimensions() {
+                if (!videoPlayer.videoWidth || !videoPlayer.videoHeight) return;
+
+                const videoAspectRatio = videoPlayer.videoWidth / videoPlayer.videoHeight;
+                let canvasWidth = pointCloudCanvas.parentElement.clientWidth;
+                if (canvasWidth === 0) canvasWidth = Math.min(window.innerWidth - 40, 500-32); // Fallback width
+
+                pointCloudCanvas.width = canvasWidth;
+                if (videoAspectRatio && isFinite(videoAspectRatio) && videoAspectRatio > 0) {
+                    pointCloudCanvas.height = canvasWidth / videoAspectRatio;
                 } else {
-                    invertBtn.style.backgroundColor = '#555';
+                    pointCloudCanvas.height = canvasWidth * (9/16); 
+                }
+                if (isNaN(pointCloudCanvas.height) || pointCloudCanvas.height <= 0 || !isFinite(pointCloudCanvas.height)) {
+                    pointCloudCanvas.height = canvasWidth * (9/16);
                 }
             }
-            
-            // Toggle sensors
-            sensorToggle.addEventListener('click', function() {
-                if (sensorsEnabled) {
-                    disableDeviceOrientation();
-                } else {
-                    setupDeviceOrientation();
-                }
-            });
-            
-            // Update sensitivity display values
-            alphaSensitivity.addEventListener('input', function() {
-                alphaSensValue.textContent = this.value;
-            });
-            
-            betaSensitivity.addEventListener('input', function() {
-                betaSensValue.textContent = this.value;
-            });
-            
-            gammaSensitivity.addEventListener('input', function() {
-                gammaSensValue.textContent = this.value;
-            });
-            
-            smoothingSlider.addEventListener('input', function() {
-                smoothingValue.textContent = this.value;
-            });
-            
-            // Calibrate button
-            calibrateBtn.addEventListener('click', calibrateSensors);
-            
-            // Invert controls button
-            invertBtn.addEventListener('click', toggleInvertControls);
-            
-            // Fullscreen controls
-            exitFullscreen.addEventListener('click', exitFullscreen);
-            playPauseFullscreen.addEventListener('click', function() {
-                if (videoPlayer.paused || videoPlayer.ended) {
-                    videoPlayer.play();
-                    playPauseFullscreen.textContent = 'Pause';
-                    playPauseBtn.textContent = 'Pause';
-                } else {
-                    videoPlayer.pause();
-                    playPauseFullscreen.textContent = 'Play';
-                    playPauseBtn.textContent = 'Play';
-                }
-            });
-            
-            // Show controls when touching video in fullscreen
-            videoPlayer.addEventListener('touchstart', function() {
-                if (document.querySelector('.video-container.fullscreen')) {
-                    fullscreenControls.classList.add('active');
+
+            function togglePointCloudView() {
+                isPointCloudViewActive = !isPointCloudViewActive;
+                if (isPointCloudViewActive) {
+                    if (!videoPlayer.src || videoPlayer.readyState < videoPlayer.HAVE_METADATA) {
+                        alert("Please load a video first.");
+                        isPointCloudViewActive = false; 
+                        return;
+                    }
                     
-                    // Auto-hide after 3 seconds
-                    setTimeout(() => {
-                        fullscreenControls.classList.remove('active');
-                    }, 3000);
+                    videoPlayer.style.display = 'none';
+                    if (controls) controls.style.display = 'none'; 
+                    
+                    pointCloudCanvas.style.display = 'block';
+                    pointCloudParams.style.display = 'block';
+
+                    setupPointCloudCanvasDimensions();
+                    
+                    togglePointCloudBtn.textContent = 'Show Video Player';
+                    
+                    if (videoPlayer.paused && videoPlayer.readyState >= videoPlayer.HAVE_ENOUGH_DATA) {
+                        videoPlayer.play().catch(e => console.error("Error playing video for point cloud:", e)); 
+                    }
+                    renderPointCloudFrame();
+                } else {
+                    videoPlayer.style.display = 'block';
+                    if(controls && fileName.textContent) controls.style.display = 'flex'; 
+                    
+                    pointCloudCanvas.style.display = 'none';
+                    pointCloudParams.style.display = 'none';
+                    togglePointCloudBtn.textContent = 'Show Point Cloud';
+                    
+                    if (pointCloudAnimationFrameId) {
+                        cancelAnimationFrame(pointCloudAnimationFrameId);
+                        pointCloudAnimationFrameId = null;
+                    }
+                    if(pointCloudCtx) pointCloudCtx.clearRect(0, 0, pointCloudCanvas.width, pointCloudCanvas.height);
                 }
-            });
-            
-            // Synchronize fullscreen progress bar
-            videoPlayer.addEventListener('timeupdate', function() {
-                const percentage = (videoPlayer.currentTime / videoPlayer.duration) * 100;
-                progressBarFullscreen.style.width = percentage + '%';
-            });
-            
-            // Click on fullscreen progress bar to seek
-            document.querySelector('.controls-overlay .progress-container').addEventListener('click', function(e) {
-                const progressContainerWidth = this.offsetWidth;
-                const clickPosition = e.offsetX;
-                const seekTime = (clickPosition / progressContainerWidth) * videoPlayer.duration;
-                videoPlayer.currentTime = seekTime;
-            });
+            }
+
+            function renderPointCloudFrame() {
+                if (!isPointCloudViewActive) return; 
+
+                if (videoPlayer.paused || videoPlayer.ended || videoPlayer.seeking || videoPlayer.readyState < videoPlayer.HAVE_CURRENT_DATA) {
+                    pointCloudAnimationFrameId = requestAnimationFrame(renderPointCloudFrame);
+                    return;
+                }
+                
+                let processWidth, processHeight;
+                const MAX_PROCESS_DIM = 128; // Keep it small for performance
+                if (videoPlayer.videoWidth > videoPlayer.videoHeight) {
+                    processWidth = Math.min(videoPlayer.videoWidth, MAX_PROCESS_DIM);
+                    processHeight = videoPlayer.videoHeight * (processWidth / videoPlayer.videoWidth);
+                } else {
+                    processHeight = Math.min(videoPlayer.videoHeight, MAX_PROCESS_DIM);
+                    processWidth = videoPlayer.videoWidth * (processHeight / videoPlayer.videoHeight);
+                }
+                processWidth = Math.max(1, Math.round(processWidth)); 
+                processHeight = Math.max(1, Math.round(processHeight));
+
+                if (tempCanvas.width !== processWidth) tempCanvas.width = processWidth;
+                if (tempCanvas.height !== processHeight) tempCanvas.height = processHeight;
+
+                tempCtx.drawImage(videoPlayer, 0, 0, tempCanvas.width, tempCanvas.height);
+                
+                let imageData;
+                try {
+                    imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+                } catch (e) {
+                    console.error("Error getting image data:", e);
+                    isPointCloudViewActive = false; 
+                    togglePointCloudBtn.textContent = 'Point Cloud Error';
+                    togglePointCloudBtn.disabled = true;
+                    pointCloudCanvas.style.display = 'none';
+                    pointCloudParams.style.display = 'none';
+                    videoPlayer.style.display = 'block';
+                    if(controls && fileName.textContent) controls.style.display = 'flex';
+                    alert("Error processing video for point cloud. Video source might be restricted (CORS).");
+                    return;
+                }
+                
+                drawPointCloud(imageData, pointCloudTiltAngles.beta, pointCloudTiltAngles.gamma);
+                pointCloudAnimationFrameId = requestAnimationFrame(renderPointCloudFrame);
+            }
+
+            function drawPointCloud(imageData, tiltBeta, tiltGamma) {
+                if (!pointCloudCtx) return;
+                pointCloudCtx.fillStyle = '#050505'; 
+                pointCloudCtx.fillRect(0, 0, pointCloudCanvas.width, pointCloudCanvas.height);
+
+                const data = imageData.data;
+                const imgWidth = imageData.width;
+                const imgHeight = imageData.height;
+
+                const stepX = Math.max(1, imgWidth / pointCloudDensity);
+                const stepY = Math.max(1, imgHeight / pointCloudDensity);
+
+                let currentTiltSensitivity = 0;
+                if (sensorsEnabled && tiltSensitivitySlider) { // Check if slider exists
+                     currentTiltSensitivity = parseFloat(tiltSensitivitySlider.value);
+                }
+
+                // Normalize raw tilt angles (e.g. from -90 to 90 for beta/gamma) to -1 to 1
+                // Clamp practical tilt range to +/- 90 degrees for beta and gamma
+                const normTiltBeta = Math.max(-90, Math.min(90, tiltBeta || 0)) / 90.0;
+                const normTiltGamma = Math.max(-90, Math.min(90, tiltGamma || 0)) / 90.0;
+
+
+                for (let y = 0; y < imgHeight; y += stepY) {
+                    for (let x = 0; x < imgWidth; x += stepX) {
+                        const i = (Math.floor(y) * imgWidth + Math.floor(x)) * 4;
+                        const r = data[i];
+                        const g = data[i + 1];
+                        const b = data[i + 2];
+
+                        const brightness = (0.299 * r + 0.587 * g + 0.114 * b) / 255; 
+
+                        const canvasX = (x / imgWidth) * pointCloudCanvas.width;
+                        const baseCanvasY = (y / imgHeight) * pointCloudCanvas.height;
+                        
+                        const displacement = (brightness - 0.5) * pointCloudDisplacementScale; 
+                        const finalCanvasY = baseCanvasY - displacement; // Y is inverted in canvas (0 at top)
+
+                        let shiftX = 0;
+                        let shiftY = 0;
+
+                        if (sensorsEnabled && currentTiltSensitivity > 0) {
+                            // depthFactor: how much the point is displaced. Normalized to roughly -1 to 1.
+                            // If pointCloudDisplacementScale is 0, displacement is 0, so depthFactor is 0.
+                            const depthFactor = pointCloudDisplacementScale !== 0 ? displacement / (0.5 * pointCloudDisplacementScale + 1e-6) : 0;
+                            
+                            shiftX = normTiltGamma * depthFactor * currentTiltSensitivity;
+                            shiftY = normTiltBeta * depthFactor * currentTiltSensitivity;
+                        }
+                        
+                        pointCloudCtx.fillStyle = `rgb(${r},${g},${b})`;
+                        pointCloudCtx.fillRect(canvasX + shiftX, finalCanvasY + shiftY, currentPointSize, currentPointSize);
+                    }
+                }
+            }
         });
     </script>
 </body>
