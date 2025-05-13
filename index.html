@@ -55,6 +55,28 @@
             display: block;
         }
         
+        /* Fullscreen styling */
+        .video-container.fullscreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 9999;
+            background-color: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .video-container.fullscreen video {
+            max-width: 100%;
+            max-height: 100%;
+            width: auto;
+            height: auto;
+            object-fit: contain;
+        }
+        
         .controls {
             padding: 16px;
             display: flex;
@@ -203,6 +225,73 @@
             margin-top: 5px;
         }
         
+        .filter-controls {
+            padding: 12px 16px;
+            background-color: #2a2a2a;
+            border-top: 1px solid #333;
+            margin-top: 10px;
+        }
+        
+        .filter-control {
+            margin-bottom: 12px;
+        }
+        
+        .filter-control:last-child {
+            margin-bottom: 0;
+        }
+        
+        .filter-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-size: 14px;
+            color: #ddd;
+        }
+        
+        .filter-value {
+            color: #2c7be5;
+            font-weight: 500;
+        }
+        
+        .filter-slider {
+            width: 100%;
+            -webkit-appearance: none;
+            height: 5px;
+            border-radius: 5px;
+            background: #333;
+            outline: none;
+        }
+        
+        .filter-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            background: #2c7be5;
+            cursor: pointer;
+        }
+        
+        .filter-slider::-moz-range-thumb {
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            background: #2c7be5;
+            cursor: pointer;
+        }
+        
+        .filter-reset {
+            background-color: #555;
+            margin-top: 10px;
+            width: 100%;
+            font-size: 13px;
+            padding: 8px;
+        }
+        
+        .filter-reset:hover {
+            background-color: #666;
+        }
+        
         @media (max-width: 480px) {
             .controls {
                 padding: 12px;
@@ -249,6 +338,7 @@
             
             <div class="main-controls">
                 <button id="playPauseBtn" class="toggle-button">Play</button>
+                <button id="fullscreenBtn" class="toggle-button">Fullscreen</button>
                 <button id="loopBtn" class="toggle-button">Loop: OFF</button>
             </div>
             
@@ -258,6 +348,34 @@
             </div>
             
             <div class="loop-info" id="loopInfo"></div>
+            
+            <div class="filter-controls">
+                <div class="filter-control">
+                    <div class="filter-label">
+                        <span>Brightness</span>
+                        <span class="filter-value" id="brightnessValue">100%</span>
+                    </div>
+                    <input type="range" min="25" max="200" value="100" class="filter-slider" id="brightnessSlider">
+                </div>
+                
+                <div class="filter-control">
+                    <div class="filter-label">
+                        <span>Saturation</span>
+                        <span class="filter-value" id="saturationValue">100%</span>
+                    </div>
+                    <input type="range" min="25" max="200" value="100" class="filter-slider" id="saturationSlider">
+                </div>
+                
+                <div class="filter-control">
+                    <div class="filter-label">
+                        <span>Contrast</span>
+                        <span class="filter-value" id="contrastValue">100%</span>
+                    </div>
+                    <input type="range" min="25" max="200" value="100" class="filter-slider" id="contrastSlider">
+                </div>
+                
+                <button id="resetFilters" class="filter-reset">Reset All Filters</button>
+            </div>
         </div>
         
         <div class="file-controls">
@@ -282,6 +400,16 @@
             const controls = document.getElementById('controls');
             const loopInfo = document.getElementById('loopInfo');
             
+            // Filter controls
+            const brightnessSlider = document.getElementById('brightnessSlider');
+            const saturationSlider = document.getElementById('saturationSlider');
+            const contrastSlider = document.getElementById('contrastSlider');
+            const brightnessValue = document.getElementById('brightnessValue');
+            const saturationValue = document.getElementById('saturationValue');
+            const contrastValue = document.getElementById('contrastValue');
+            const resetFilters = document.getElementById('resetFilters');
+            const fullscreenBtn = document.getElementById('fullscreenBtn');
+            
             let isLooping = false;
             let loopCount = 0;
             
@@ -291,6 +419,29 @@
                 videoPlayer.volume = parseFloat(savedVolume);
                 volumeSlider.value = parseFloat(savedVolume);
             }
+            
+            // Initialize filters from localStorage or set defaults
+            const savedBrightness = localStorage.getItem('videoPlayerBrightness');
+            const savedSaturation = localStorage.getItem('videoPlayerSaturation');
+            const savedContrast = localStorage.getItem('videoPlayerContrast');
+            
+            if (savedBrightness) {
+                brightnessSlider.value = savedBrightness;
+                brightnessValue.textContent = `${savedBrightness}%`;
+            }
+            
+            if (savedSaturation) {
+                saturationSlider.value = savedSaturation;
+                saturationValue.textContent = `${savedSaturation}%`;
+            }
+            
+            if (savedContrast) {
+                contrastSlider.value = savedContrast;
+                contrastValue.textContent = `${savedContrast}%`;
+            }
+            
+            // Apply initial filters
+            applyFilters();
             
             // Handle file selection
             fileInput.addEventListener('change', function() {
@@ -374,6 +525,51 @@
                 playPauseBtn.textContent = 'Play';
             });
             
+            // Handle filter changes
+            brightnessSlider.addEventListener('input', function() {
+                brightnessValue.textContent = `${this.value}%`;
+                localStorage.setItem('videoPlayerBrightness', this.value);
+                applyFilters();
+            });
+            
+            saturationSlider.addEventListener('input', function() {
+                saturationValue.textContent = `${this.value}%`;
+                localStorage.setItem('videoPlayerSaturation', this.value);
+                applyFilters();
+            });
+            
+            contrastSlider.addEventListener('input', function() {
+                contrastValue.textContent = `${this.value}%`;
+                localStorage.setItem('videoPlayerContrast', this.value);
+                applyFilters();
+            });
+            
+            // Reset filters
+            resetFilters.addEventListener('click', function() {
+                brightnessSlider.value = 100;
+                saturationSlider.value = 100;
+                contrastSlider.value = 100;
+                
+                brightnessValue.textContent = '100%';
+                saturationValue.textContent = '100%';
+                contrastValue.textContent = '100%';
+                
+                localStorage.setItem('videoPlayerBrightness', 100);
+                localStorage.setItem('videoPlayerSaturation', 100);
+                localStorage.setItem('videoPlayerContrast', 100);
+                
+                applyFilters();
+            });
+            
+            // Apply CSS filters to video
+            function applyFilters() {
+                const brightness = brightnessSlider.value;
+                const saturation = saturationSlider.value;
+                const contrast = contrastSlider.value;
+                
+                videoPlayer.style.filter = `brightness(${brightness}%) saturate(${saturation}%) contrast(${contrast}%)`;
+            }
+            
             // Format time in MM:SS
             function formatTime(seconds) {
                 const minutes = Math.floor(seconds / 60);
@@ -398,16 +594,94 @@
                 
                 if (tapLength < 500 && tapLength > 0) {
                     // Double tap detected
-                    if (document.fullscreenElement) {
-                        document.exitFullscreen();
-                    } else {
-                        videoPlayer.requestFullscreen().catch(err => {
-                            console.error(`Error attempting to enable fullscreen: ${err.message}`);
-                        });
-                    }
+                    toggleFullscreen();
                     e.preventDefault();
                 }
                 lastTap = currentTime;
+            });
+            
+            // Fullscreen button
+            fullscreenBtn.addEventListener('click', toggleFullscreen);
+            
+            // Toggle fullscreen function
+            function toggleFullscreen() {
+                const videoContainer = document.querySelector('.video-container');
+                
+                if (!document.fullscreenElement && 
+                    !document.mozFullScreenElement && 
+                    !document.webkitFullscreenElement && 
+                    !document.msFullscreenElement) {
+                    
+                    // Enter custom fullscreen mode
+                    videoContainer.classList.add('fullscreen');
+                    document.body.style.overflow = 'hidden'; // Prevent scrolling
+                    fullscreenBtn.textContent = 'Exit Full';
+                    
+                    // Set video to maintain aspect ratio
+                    videoPlayer.style.objectFit = 'contain';
+                    
+                    // Listen for escape key
+                    document.addEventListener('keydown', exitOnEscape);
+                } else {
+                    // Exit fullscreen
+                    exitFullscreen();
+                }
+            }
+            
+            // Exit fullscreen function
+            function exitFullscreen() {
+                const videoContainer = document.querySelector('.video-container');
+                
+                // Remove custom fullscreen
+                videoContainer.classList.remove('fullscreen');
+                document.body.style.overflow = ''; // Restore scrolling
+                fullscreenBtn.textContent = 'Fullscreen';
+                
+                // Reset video style
+                videoPlayer.style.objectFit = '';
+                
+                // Remove escape listener
+                document.removeEventListener('keydown', exitOnEscape);
+                
+                // Exit browser fullscreen if active
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                } else if (document.mozCancelFullScreen) {
+                    document.mozCancelFullScreen();
+                } else if (document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                } else if (document.msExitFullscreen) {
+                    document.msExitFullscreen();
+                }
+            }
+            
+            // Exit fullscreen on escape key
+            function exitOnEscape(e) {
+                if (e.key === 'Escape') {
+                    exitFullscreen();
+                }
+            }
+            
+            // Handle clicks outside video in fullscreen mode
+            document.addEventListener('click', function(e) {
+                const videoContainer = document.querySelector('.video-container');
+                
+                // If we're in custom fullscreen mode and click is outside the video
+                if (videoContainer.classList.contains('fullscreen') && 
+                    !videoPlayer.contains(e.target) && 
+                    !e.target.closest('.controls')) {
+                    exitFullscreen();
+                }
+            });
+            
+            // Update fullscreen button text when native fullscreen state changes
+            document.addEventListener('fullscreenchange', function() {
+                if (!document.fullscreenElement) {
+                    const videoContainer = document.querySelector('.video-container');
+                    if (videoContainer.classList.contains('fullscreen')) {
+                        exitFullscreen();
+                    }
+                }
             });
         });
     </script>
