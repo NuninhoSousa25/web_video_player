@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Video Player & Point Cloud Viewer</title>
+    <title>Enhanced Sensor Video Processor</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -129,8 +129,7 @@
         .value-label { font-size: 12px; color: #aaa; margin-bottom: 5px; }
         .value-number { font-size: 16px; font-weight: 500; font-family: monospace; color: #2c7be5; }
         .compass {
-            width: 100px; height: 100px; margin: 10px auto 20px; /* Added bottom margin */
-            position: relative; border-radius: 50%;
+            width: 100px; height: 100px; margin: 10px auto; position: relative; border-radius: 50%;
             background-color: #2d2d2d; display: flex; align-items: center; justify-content: center;
             box-shadow: 0 0 8px rgba(0,0,0,0.4) inset;
         }
@@ -146,171 +145,545 @@
         .compass-marker .south { bottom: 5px; left: calc(50% - 9px); }
         .compass-marker .west { left: 5px; top: calc(50% - 9px); }
 
-        /* Removed: .mapping-info, .sensor-configuration, .sensor-config-controls, .config-label, .config-value, .config-slider */
-        /* The old global sensitivity/offset controls are replaced by per-mapping controls */
-
-        .sensor-actions { display: flex; gap: 10px; margin-top: 15px; } /* Kept for global actions */
+        .mapping-info { font-size: 13px; color: #aaa; margin: 10px 0; text-align: center; line-height: 1.4; }
+        .mapping-highlight { color: #2c7be5; font-weight: 500; }
+        .sensor-configuration { margin-top: 15px; border-top: 1px solid #333; padding-top: 15px; }
+        .sensor-config-title { font-size: 14px; font-weight: 600; margin-bottom: 10px; color: #ddd; }
+        .sensor-config-controls { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+        .sensor-config-control { background-color: #2d2d2d; padding: 10px; border-radius: 6px; }
+        .config-label { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 5px; }
+        .config-value { color: #2c7be5; font-weight: 500; }
+        .config-slider { /* Re-use filter-slider styles */
+            width: 100%; -webkit-appearance: none; height: 5px; border-radius: 5px; background: #333; outline: none;
+        }
+        .config-slider::-webkit-slider-thumb { /* Re-use filter-slider styles */
+            -webkit-appearance: none; appearance: none; width: 15px; height: 15px;
+            border-radius: 50%; background: #2c7be5; cursor: pointer;
+        }
+        .config-slider::-moz-range-thumb { /* For Firefox */
+            width: 15px; height: 15px; border-radius: 50%; background: #2c7be5; cursor: pointer; border: none;
+        }
+        .sensor-actions { display: flex; gap: 10px; margin-top: 10px; }
         .sensor-action-btn {
             flex: 1; padding: 8px; font-size: 13px; background-color: #555;
         }
         .sensor-action-btn:hover { background-color: #666; }
 
-        /* --- NEW SENSOR-EFFECT MAPPING UI STYLES --- */
-        .sensor-effect-mapping-module {
-            border-top: 1px solid #333;
-            margin-top: 20px;
-            padding-top: 15px;
+        .point-cloud-container { width:100%; /* Container for canvas for fullscreen */ }
+        #pointCloudCanvas {
+            width: 100%; background-color: #050505;
+            /* margin-top: 10px; No, part of pointCloudModeContent */
+            border: 1px solid #333; display: block; /* Important for layout */
+            cursor: pointer; /* For double tap fullscreen */
         }
-        .mapping-module-header {
+
+        /* New CSS for sensor mapping UI */
+        .mapping-container {
+            background-color: #1e1e1e;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            border-top: 1px solid #333;
+        }
+        .mapping-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 15px;
         }
-        .mapping-module-header h3 {
-            font-size: 15px;
+        .mapping-title {
+            font-size: 16px;
             font-weight: 600;
-            color: #ddd;
         }
-        .add-mapping-btn {
-            background-color: #4caf50;
-            padding: 6px 12px;
-            font-size: 13px;
-        }
-        .add-mapping-btn:hover { background-color: #3e8e41; }
-
-        #mappingListContainer {
+        .mapping-view-toggle {
             display: flex;
-            flex-direction: column;
-            gap: 15px;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .mapping-view-toggle button {
+            padding: 6px 12px;
+            background-color: #333;
+            border: none;
+            color: #aaa;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .mapping-view-toggle button.active {
+            background-color: #2c7be5;
+            color: white;
+        }
+        .mapping-list {
+            margin-bottom: 15px;
         }
         .mapping-item {
             background-color: #2d2d2d;
             border-radius: 6px;
-            border: 1px solid #3a3a3a;
+            padding: 12px;
+            margin-bottom: 10px;
+            border-left: 3px solid #2c7be5;
+        }
+        .mapping-item.disabled {
+            border-left-color: #555;
+            opacity: 0.7;
         }
         .mapping-item-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 10px 12px;
-            cursor: pointer; /* To indicate it's clickable to expand/collapse */
+            margin-bottom: 8px;
         }
-        .mapping-item-summary { /* Shows Sensor -> Effect when collapsed */
-            font-size: 14px;
-            font-weight: 500;
-            color: #e0e0e0;
-            flex-grow: 1;
-            margin-right: 10px; /* Space before controls */
-        }
-        .mapping-item-controls {
+        .mapping-connection {
             display: flex;
             align-items: center;
+        }
+        .mapping-sensor {
+            font-weight: 500;
+        }
+        .mapping-arrow {
+            margin: 0 8px;
+            color: #2c7be5;
+        }
+        .mapping-effect {
+            font-weight: 500;
+        }
+        .mapping-actions {
+            display: flex;
             gap: 8px;
         }
-        .mapping-item-controls .icon-btn {
-            background: none; border: none; color: #aaa;
-            font-size: 18px; cursor: pointer; padding: 4px;
+        .mapping-action-btn {
+            background-color: #444;
+            color: #ddd;
+            border: none;
+            border-radius: 4px;
+            padding: 4px 8px;
+            font-size: 12px;
+            cursor: pointer;
         }
-        .mapping-item-controls .icon-btn:hover { color: #2c7be5; }
-        .mapping-item-controls .remove-mapping-btn:hover { color: #f44336; }
-
-        /* Basic Switch Toggle CSS */
-        .switch { position: relative; display: inline-block; width: 36px; height: 18px; }
-        .switch input { opacity: 0; width: 0; height: 0; }
-        .switch .slider-knob {
-            position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
-            background-color: #555; transition: .3s; border-radius: 18px;
+        .mapping-action-btn:hover {
+            background-color: #555;
         }
-        .switch .slider-knob:before {
-            position: absolute; content: ""; height: 12px; width: 12px; left: 3px; bottom: 3px;
-            background-color: white; transition: .3s; border-radius: 50%;
+        .mapping-action-btn.delete {
+            background-color: #6e3a3a;
         }
-        .switch input:checked + .slider-knob { background-color: #2c7be5; }
-        .switch input:checked + .slider-knob:before { transform: translateX(18px); }
-        
-        .mapping-item-details {
-            padding: 0 12px 12px 12px;
-            border-top: 1px solid #3a3a3a;
-            margin-top: 0px; /* Header already has padding */
+        .mapping-action-btn.delete:hover {
+            background-color: #834545;
+        }
+        .mapping-details {
             display: flex;
-            flex-direction: column;
-            gap: 12px;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #aaa;
         }
-        .mapping-item-details.hidden { display: none; }
-
-        .mapping-config-group {
+        .mapping-detail {
             display: flex;
-            flex-direction: column;
-            gap: 6px;
+            align-items: center;
+            gap: 5px;
         }
-        .mapping-config-group > label, .mapping-config-row > label {
-            font-size: 13px;
-            color: #bbb;
+        .mapping-detail-icon {
+            color: #2c7be5;
+            font-size: 10px;
+        }
+        .mapping-add-btn {
+            width: 100%;
+            background-color: #2d2d2d;
+            color: #aaa;
+            border: 1px dashed #555;
+            border-radius: 6px;
+            padding: 12px;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+        .mapping-add-btn:hover {
+            background-color: #333;
+            border-color: #2c7be5;
+            color: #fff;
+        }
+        .mapping-add-icon {
+            font-size: 16px;
+        }
+
+        /* Mapping Grid View */
+        .mapping-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .mapping-grid-item {
+            background-color: #2d2d2d;
+            border-radius: 6px;
+            overflow: hidden;
+            border: 1px solid #444;
+        }
+        .mapping-grid-item.disabled {
+            opacity: 0.7;
+        }
+        .mapping-grid-header {
+            background-color: #333;
+            padding: 8px 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .mapping-grid-sensor {
             font-weight: 500;
+            font-size: 14px;
+        }
+        .mapping-grid-actions {
+            display: flex;
+            gap: 5px;
+        }
+        .mapping-grid-action {
+            background: none;
+            border: none;
+            color: #aaa;
+            cursor: pointer;
+            padding: 3px;
+            font-size: 12px;
+        }
+        .mapping-grid-action:hover {
+            color: #fff;
+        }
+        .mapping-grid-effect {
+            padding: 10px;
+            text-align: center;
+            font-weight: 500;
+            border-bottom: 1px solid #444;
+        }
+        .mapping-grid-details {
+            padding: 10px;
+            font-size: 12px;
+            color: #aaa;
+        }
+        .mapping-grid-detail {
+            display: flex;
+            justify-content: space-between;
             margin-bottom: 3px;
         }
-         .mapping-config-row {
+        .mapping-grid-value {
+            color: #2c7be5;
+        }
+        .mapping-grid-add {
+            background-color: #2d2d2d;
+            border-radius: 6px;
+            border: 1px dashed #555;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 30px 10px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .mapping-grid-add:hover {
+            background-color: #333;
+            border-color: #2c7be5;
+        }
+        .mapping-grid-add-icon {
+            font-size: 24px;
+            margin-bottom: 8px;
+            color: #2c7be5;
+        }
+        .mapping-grid-add-text {
+            color: #aaa;
+        }
+
+        /* Mapping Modal */
+        .mapping-modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            padding: 20px;
+        }
+        .mapping-modal {
+            background-color: #2d2d2d;
+            border-radius: 8px;
+            width: 100%;
+            max-width: 460px;
+            max-height: 90vh;
+            overflow-y: auto;
+            padding: 20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        }
+        .mapping-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #444;
+        }
+        .mapping-modal-title {
+            font-size: 18px;
+            font-weight: 600;
+        }
+        .mapping-modal-close {
+            background: none;
+            border: none;
+            font-size: 20px;
+            color: #aaa;
+            cursor: pointer;
+        }
+        .mapping-modal-close:hover {
+            color: #fff;
+        }
+        .mapping-form-group {
+            margin-bottom: 15px;
+        }
+        .mapping-form-label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 14px;
+            color: #ddd;
+        }
+        .mapping-form-description {
+            font-size: 12px;
+            color: #888;
+            margin-top: 3px;
+        }
+        .mapping-form-select, .mapping-form-input {
+            width: 100%;
+            padding: 8px 12px;
+            background-color: #444;
+            border: 1px solid #555;
+            border-radius: 4px;
+            color: #fff;
+            font-size: 14px;
+        }
+        .mapping-form-row {
+            display: flex;
+            gap: 10px;
+        }
+        .mapping-form-col {
+            flex: 1;
+        }
+        .mapping-slider-container {
+            margin-top: 20px;
+        }
+        .mapping-slider-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+        .mapping-slider-label {
+            font-size: 14px;
+            color: #ddd;
+        }
+        .mapping-slider-value {
+            font-size: 14px;
+            color: #2c7be5;
+            font-weight: 500;
+        }
+        .mapping-slider {
+            width: 100%;
+            -webkit-appearance: none;
+            height: 5px;
+            border-radius: 5px;
+            background: #555;
+            outline: none;
+            margin-bottom: 15px;
+        }
+        .mapping-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 15px; height: 15px;
+            border-radius: 50%;
+            background: #2c7be5;
+            cursor: pointer;
+        }
+        .mapping-slider::-moz-range-thumb {
+            width: 15px; height: 15px;
+            border-radius: 50%;
+            background: #2c7be5;
+            cursor: pointer;
+            border: none;
+        }
+        .mapping-checkbox-container {
             display: flex;
             align-items: center;
             gap: 8px;
+            margin-bottom: 15px;
         }
-        .mapping-config-row > label { min-width: 80px; margin-bottom: 0; }
-
-
-        .mapping-select {
-            flex-grow: 1;
-            padding: 6px 8px;
-            background-color: #383838;
-            color: #f0f0f0;
-            border: 1px solid #444;
+        .mapping-checkbox {
+            width: 16px;
+            height: 16px;
+        }
+        .mapping-checkbox-label {
+            font-size: 14px;
+            color: #ddd;
+        }
+        .mapping-modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid #444;
+        }
+        .mapping-modal-btn {
+            padding: 8px 15px;
             border-radius: 4px;
-            font-size: 13px;
+            font-size: 14px;
+            cursor: pointer;
+            border: none;
         }
-        
-        .mapping-range-inputs {
+        .mapping-modal-cancel {
+            background-color: #555;
+            color: #fff;
+        }
+        .mapping-modal-cancel:hover {
+            background-color: #666;
+        }
+        .mapping-modal-save {
+            background-color: #2c7be5;
+            color: #fff;
+        }
+        .mapping-modal-save:hover {
+            background-color: #1a68d1;
+        }
+
+        /* Audio Level Meter */
+        .audio-level-container {
+            background-color: #2d2d2d;
+            border-radius: 6px;
+            padding: 8px;
+            margin-top: 10px;
+        }
+        .audio-level-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+        .audio-level-title {
+            font-size: 12px;
+            color: #aaa;
+        }
+        .audio-level-value {
+            font-size: 12px;
+            color: #2c7be5;
+            font-weight: 500;
+        }
+        .audio-level-meter {
+            height: 8px;
+            background-color: #444;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .audio-level-bar {
+            height: 100%;
+            background-color: #2c7be5;
+            width: 0%;
+            transition: width 0.1s;
+        }
+
+        /* Light Sensor */
+        .light-sensor-container {
+            background-color: #2d2d2d;
+            border-radius: 6px;
+            padding: 8px;
+            margin-top: 10px;
+        }
+        .light-sensor-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+        .light-sensor-title {
+            font-size: 12px;
+            color: #aaa;
+        }
+        .light-sensor-value {
+            font-size: 12px;
+            color: #2c7be5;
+            font-weight: 500;
+        }
+        .light-sensor-icon {
+            font-size: 18px;
+            margin-right: 8px;
+            color: #f8c555;
+        }
+
+        /* Testing Mode Controls */
+        .testing-mode-container {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #2d2d2d;
+            border-radius: 6px;
+            border-left: 3px solid #f8c555;
+        }
+        .testing-mode-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        .testing-mode-title {
+            font-size: 14px;
+            font-weight: 500;
             display: flex;
             align-items: center;
-            gap: 6px;
         }
-        .mapping-range-inputs input[type="number"] {
-            width: 65px; padding: 5px; background-color: #383838;
-            color: #f0f0f0; border: 1px solid #444; border-radius: 4px; font-size: 12px;
-            -moz-appearance: textfield;
+        .testing-mode-icon {
+            margin-right: 8px;
+            color: #f8c555;
         }
-        .mapping-range-inputs input[type="number"]::-webkit-outer-spin-button,
-        .mapping-range-inputs input[type="number"]::-webkit-inner-spin-button {
-            -webkit-appearance: none; margin: 0;
+        .testing-mode-toggle {
+            background-color: #444;
+            border: none;
+            color: #ddd;
+            border-radius: 4px;
+            padding: 4px 8px;
+            font-size: 12px;
+            cursor: pointer;
         }
-        .mapping-range-inputs span { color: #aaa; font-size: 12px; }
-        .current-value-display { font-size: 11px; color: #999; margin-left: 5px; font-style: italic; }
-
-        .mapping-options-grid {
+        .testing-mode-toggle:hover {
+            background-color: #555;
+        }
+        .testing-mode-toggle.active {
+            background-color: #f8c555;
+            color: #333;
+        }
+        .testing-mode-description {
+            font-size: 12px;
+            color: #aaa;
+            margin-bottom: 8px;
+        }
+        .testing-mode-controls {
             display: grid;
-            grid-template-columns: 1fr; /* Will be used for filter-control like items */
-            gap: 10px;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
         }
-        .mapping-options-grid .filter-control { margin-bottom: 0; } /* Reset margin if used inside */
-        
-        .inline-checkbox-label {
-            display: flex; align-items: center; font-size: 13px; color: #bbb; cursor: pointer;
+        .testing-mode-control {
+            background-color: #333;
+            padding: 8px;
+            border-radius: 4px;
         }
-        .inline-checkbox-label input[type="checkbox"] { margin-right: 6px; }
-
-
-        .point-cloud-container { width:100%; }
-        #pointCloudCanvas {
-            width: 100%; background-color: #050505;
-            border: 1px solid #333; display: block; 
-            cursor: pointer; 
+        .testing-mode-control-label {
+            font-size: 12px;
+            color: #aaa;
+            margin-bottom: 5px;
+        }
+        .testing-mode-slider {
+            width: 100%;
         }
         
         @media (max-width: 480px) {
             .controls, .filter-controls, .point-cloud-params-container { padding: 10px; gap: 10px;}
             button, .file-label { padding: 8px 12px; font-size: 13px; }
             .toggle-button { min-width: 80px; }
-            /* .sensor-config-controls { grid-template-columns: 1fr; } /* Old, can be removed */
-            .mapping-range-inputs input[type="number"] { width: 60px; }
+            .sensor-config-controls { grid-template-columns: 1fr; } /* Stack sensor config on small screens */
+            .mapping-grid { grid-template-columns: 1fr; } /* Single column on small screens */
         }
         .hidden { display: none !important; }
     </style>
@@ -318,12 +691,13 @@
 <body>
     <div class="container">
         <div class="player-header">
-            <h1>Video & Point Cloud Tool</h1>
+            <h1>Enhanced Sensor Video Processor</h1>
         </div>
 
         <div class="mode-switcher">
             <button id="showVideoPlayerModeBtn" class="active">Video Player</button>
             <button id="showPointCloudModeBtn">Point Cloud</button>
+            <button id="showMappingsModeBtn">Sensor Mappings</button>
         </div>
 
         <!-- Video Player Mode Content -->
@@ -378,6 +752,14 @@
                     <div class="filter-label"><span>Contrast</span><span class="filter-value" id="contrastValue">100%</span></div>
                     <input type="range" min="25" max="200" value="100" class="filter-slider" id="contrastSlider">
                 </div>
+                <div class="filter-control">
+                    <div class="filter-label"><span>Hue Rotate</span><span class="filter-value" id="hueRotateValue">0°</span></div>
+                    <input type="range" min="0" max="360" value="0" class="filter-slider" id="hueRotateSlider">
+                </div>
+                <div class="filter-control">
+                    <div class="filter-label"><span>Blur</span><span class="filter-value" id="blurValue">0px</span></div>
+                    <input type="range" min="0" max="20" value="0" class="filter-slider" id="blurSlider">
+                </div>
                 <button id="resetFiltersBtn" class="filter-reset">Reset All Filters</button>
             </div>
         </div>
@@ -407,6 +789,225 @@
             </div>
         </div>
         
+        <!-- Sensor Mappings Mode Content -->
+        <div id="sensorMappingsModeContent" class="hidden">
+            <div class="mapping-container">
+                <div class="mapping-header">
+                    <div class="mapping-title">Sensor to Effect Mappings</div>
+                    <div class="mapping-view-toggle">
+                        <button id="listViewBtn" class="active">List</button>
+                        <button id="gridViewBtn">Grid</button>
+                    </div>
+                </div>
+                
+                <!-- List View -->
+                <div id="mappingListView" class="mapping-list">
+                    <!-- Each mapping item will be generated by JavaScript -->
+                    <!-- Example mapping item structure: -->
+                    <div class="mapping-item">
+                        <div class="mapping-item-header">
+                            <div class="mapping-connection">
+                                <span class="mapping-sensor">Rotation (Alpha)</span>
+                                <span class="mapping-arrow">→</span>
+                                <span class="mapping-effect">Saturation</span>
+                            </div>
+                            <div class="mapping-actions">
+                                <button class="mapping-action-btn">Disable</button>
+                                <button class="mapping-action-btn">Edit</button>
+                                <button class="mapping-action-btn delete">Delete</button>
+                            </div>
+                        </div>
+                        <div class="mapping-details">
+                            <div class="mapping-detail">
+                                <span class="mapping-detail-icon">⚙️</span>
+                                <span>Sensitivity: 1.0</span>
+                            </div>
+                            <div class="mapping-detail">
+                                <span class="mapping-detail-icon">🔄</span>
+                                <span>Normal</span>
+                            </div>
+                            <div class="mapping-detail">
+                                <span class="mapping-detail-icon">📊</span>
+                                <span>Range: 50% - 150%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Grid View -->
+                <div id="mappingGridView" class="mapping-grid hidden">
+                    <!-- Example grid item structure: -->
+                    <div class="mapping-grid-item">
+                        <div class="mapping-grid-header">
+                            <div class="mapping-grid-sensor">Rotation (Alpha)</div>
+                            <div class="mapping-grid-actions">
+                                <button class="mapping-grid-action">⚡</button>
+                                <button class="mapping-grid-action">✏️</button>
+                                <button class="mapping-grid-action">🗑️</button>
+                            </div>
+                        </div>
+                        <div class="mapping-grid-effect">Saturation</div>
+                        <div class="mapping-grid-details">
+                            <div class="mapping-grid-detail">
+                                <span>Sensitivity:</span>
+                                <span class="mapping-grid-value">1.0</span>
+                            </div>
+                            <div class="mapping-grid-detail">
+                                <span>Invert:</span>
+                                <span class="mapping-grid-value">No</span>
+                            </div>
+                            <div class="mapping-grid-detail">
+                                <span>Range:</span>
+                                <span class="mapping-grid-value">50% - 150%</span>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Add New Button for Grid View -->
+                    <div class="mapping-grid-add" id="addMappingBtnGrid">
+                        <div class="mapping-grid-add-icon">+</div>
+                        <div class="mapping-grid-add-text">Add New Mapping</div>
+                    </div>
+                </div>
+                
+                <!-- Add Button for List View -->
+                <button id="addMappingBtn" class="mapping-add-btn">
+                    <span class="mapping-add-icon">+</span>
+                    <span>Add New Sensor Mapping</span>
+                </button>
+                
+                <!-- Additional Sensor Information -->
+                <div class="audio-level-container">
+                    <div class="audio-level-header">
+                        <div class="audio-level-title">Microphone Level</div>
+                        <div class="audio-level-value" id="micLevelValue">0 dB</div>
+                    </div>
+                    <div class="audio-level-meter">
+                        <div class="audio-level-bar" id="micLevelBar"></div>
+                    </div>
+                </div>
+                
+                <div class="light-sensor-container">
+                    <div class="light-sensor-header">
+                        <div class="light-sensor-title">
+                            <span class="light-sensor-icon">☀️</span>
+                            <span>Ambient Light</span>
+                        </div>
+                        <div class="light-sensor-value" id="lightLevelValue">Unknown</div>
+                    </div>
+                </div>
+                
+                <!-- Testing Mode -->
+                <div class="testing-mode-container">
+                    <div class="testing-mode-header">
+                        <div class="testing-mode-title">
+                            <span class="testing-mode-icon">🧪</span>
+                            <span>Testing Mode</span>
+                        </div>
+                        <button id="testingModeToggle" class="testing-mode-toggle">Enable</button>
+                    </div>
+                    <div class="testing-mode-description">
+                        Manually adjust sensor values to test your mappings without using actual device sensors.
+                    </div>
+                    <div id="testingControls" class="testing-mode-controls hidden">
+                        <div class="testing-mode-control">
+                            <div class="testing-mode-control-label">Alpha (Rotation)</div>
+                            <input type="range" min="0" max="360" value="180" class="mapping-slider" id="testAlphaSlider">
+                        </div>
+                        <div class="testing-mode-control">
+                            <div class="testing-mode-control-label">Beta (Tilt F/B)</div>
+                            <input type="range" min="-90" max="90" value="0" class="mapping-slider" id="testBetaSlider">
+                        </div>
+                        <div class="testing-mode-control">
+                            <div class="testing-mode-control-label">Gamma (Tilt L/R)</div>
+                            <input type="range" min="-90" max="90" value="0" class="mapping-slider" id="testGammaSlider">
+                        </div>
+                        <div class="testing-mode-control">
+                            <div class="testing-mode-control-label">Microphone Level</div>
+                            <input type="range" min="0" max="100" value="30" class="mapping-slider" id="testMicSlider">
+                        </div>
+                        <div class="testing-mode-control">
+                            <div class="testing-mode-control-label">Light Level</div>
+                            <input type="range" min="0" max="1000" value="500" class="mapping-slider" id="testLightSlider">
+                        </div>
+                        <div class="testing-mode-control">
+                            <div class="testing-mode-control-label">Acceleration X</div>
+                            <input type="range" min="-10" max="10" value="0" step="0.1" class="mapping-slider" id="testAccelXSlider">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Mapping Edit/Add Modal -->
+        <div id="mappingModal" class="mapping-modal-overlay hidden">
+            <div class="mapping-modal">
+                <div class="mapping-modal-header">
+                    <div class="mapping-modal-title">Edit Mapping</div>
+                    <button class="mapping-modal-close" id="closeModalBtn">×</button>
+                </div>
+                <div class="mapping-form-group">
+                    <label class="mapping-form-label">Sensor Input</label>
+                    <select class="mapping-form-select" id="modalSensorSelect">
+                        <option value="alpha">Rotation (Alpha)</option>
+                        <option value="beta">Tilt Forward/Back (Beta)</option>
+                        <option value="gamma">Tilt Left/Right (Gamma)</option>
+                        <option value="light">Ambient Light</option>
+                        <option value="mic">Microphone Level</option>
+                        <option value="accelX">Acceleration X</option>
+                        <option value="accelY">Acceleration Y</option>
+                        <option value="accelZ">Acceleration Z</option>
+                    </select>
+                    <div class="mapping-form-description" id="modalSensorDescription">
+                        Device rotation around z-axis (compass direction)
+                    </div>
+                </div>
+                <div class="mapping-form-group">
+                    <label class="mapping-form-label">Effect Output</label>
+                    <select class="mapping-form-select" id="modalEffectSelect">
+                        <option value="brightness">Brightness</option>
+                        <option value="contrast">Contrast</option>
+                        <option value="saturation">Saturation</option>
+                        <option value="hueRotate">Hue Rotation</option>
+                        <option value="blur">Blur</option>
+                        <option value="sepia">Sepia</option>
+                        <option value="playbackRate">Playback Speed</option>
+                        <option value="pointCloudDisplacement">Point Cloud Displacement</option>
+                    </select>
+                    <div class="mapping-form-description" id="modalEffectDescription">
+                        Video brightness filter (25% - 200%)
+                    </div>
+                </div>
+                <div class="mapping-slider-container">
+                    <div class="mapping-slider-header">
+                        <div class="mapping-slider-label">Sensitivity</div>
+                        <div class="mapping-slider-value" id="modalSensitivityValue">1.0</div>
+                    </div>
+                    <input type="range" min="0.1" max="3" step="0.1" value="1.0" class="mapping-slider" id="modalSensitivitySlider">
+                </div>
+                <div class="mapping-form-group">
+                    <label class="mapping-form-label">Effect Range</label>
+                    <div class="mapping-form-row">
+                        <div class="mapping-form-col">
+                            <label class="mapping-form-label">Min Value</label>
+                            <input type="number" class="mapping-form-input" id="modalRangeMin" value="50">
+                        </div>
+                        <div class="mapping-form-col">
+                            <label class="mapping-form-label">Max Value</label>
+                            <input type="number" class="mapping-form-input" id="modalRangeMax" value="150">
+                        </div>
+                    </div>
+                </div>
+                <div class="mapping-checkbox-container">
+                    <input type="checkbox" class="mapping-checkbox" id="modalInvertMapping">
+                    <label class="mapping-checkbox-label">Invert Mapping (reverse direction)</label>
+                </div>
+                <div class="mapping-modal-footer">
+                    <button class="mapping-modal-btn mapping-modal-cancel" id="modalCancelBtn">Cancel</button>
+                    <button class="mapping-modal-btn mapping-modal-save" id="modalSaveBtn">Save Mapping</button>
+                </div>
+            </div>
+        </div>
+        
         <!-- Common Controls -->
         <div class="file-controls">
             <input type="file" id="fileInput" accept="video/*">
@@ -416,16 +1017,18 @@
         
         <div class="sensor-section" id="sensorSectionControls">
             <div class="sensor-heading">
-                <div class="sensor-title">Motion & Sensor Controls</div>
+                <div class="sensor-title">Motion Controls</div>
                 <button id="sensorToggleBtn" class="sensor-toggle">Enable Sensors</button>
             </div>
-            <!-- Removed mapping-info div -->
+            <div class="mapping-info" id="sensorMappingInfo">
+                <!-- Content will be set by JavaScript -->
+            </div>
             <div class="sensor-values">
                 <div class="sensor-value"><div class="value-label">Alpha (°)</div><div id="orientAlpha" class="value-number">0.00</div></div>
                 <div class="sensor-value"><div class="value-label">Beta (°)</div><div id="orientBeta" class="value-number">0.00</div></div>
                 <div class="sensor-value"><div class="value-label">Gamma (°)</div><div id="orientGamma" class="value-number">0.00</div></div>
             </div>
-            <div style="display: flex; justify-content: center;">
+            <div style="display: flex; justify-content: center;"> <!-- Centering compass -->
                 <div class="compass">
                     <div id="compassNeedle" class="compass-needle"></div>
                     <div class="compass-center"></div>
@@ -434,667 +1037,208 @@
                     </div>
                 </div>
             </div>
-            
-            <!-- NEW SENSOR-EFFECT MAPPING MODULE -->
-            <div class="sensor-effect-mapping-module">
-                <div class="mapping-module-header">
-                    <h3>Sensor to Effect Mappings</h3>
-                    <button id="addNewMappingBtn" class="add-mapping-btn">+ Add New Mapping</button>
-                </div>
-                <div id="mappingListContainer">
-                    <!-- Example of one mapping item (to be dynamically generated by JS) -->
-                    <!-- 
-                    <div class="mapping-item" data-mapping-id="1">
-                        <div class="mapping-item-header">
-                            <span class="mapping-item-summary">Orientation Beta → Video Brightness</span>
-                            <div class="mapping-item-controls">
-                                <label class="switch">
-                                    <input type="checkbox" class="mapping-enable-toggle" checked>
-                                    <span class="slider-knob"></span>
-                                </label>
-                                <button class="configure-mapping-btn icon-btn" aria-label="Configure Mapping">⚙️</button>
-                                <button class="remove-mapping-btn icon-btn" aria-label="Remove Mapping">🗑️</button>
-                            </div>
-                        </div>
-                        <div class="mapping-item-details hidden">
-                            <div class="mapping-config-group">
-                                <label for="sensor-select-1">Sensor Source:</label>
-                                <select id="sensor-select-1" class="mapping-select">
-                                    <option value="orientation_alpha">Orientation: Alpha (Z-axis rotation)</option>
-                                    <option value="orientation_beta" selected>Orientation: Beta (X-axis tilt Fwd/Back)</option>
-                                    <option value="orientation_gamma">Orientation: Gamma (Y-axis tilt Left/Right)</option>
-                                    <option value="accelerometer_x">Accelerometer: X</option>
-                                    <option value="accelerometer_y">Accelerometer: Y</option>
-                                    <option value="accelerometer_z">Accelerometer: Z (without gravity)</option>
-                                    <option value="accelerometer_gx">Accelerometer Incl. Gravity: X</option>
-                                    <option value="accelerometer_gy">Accelerometer Incl. Gravity: Y</option>
-                                    <option value="accelerometer_gz">Accelerometer Incl. Gravity: Z</option>
-                                </select>
-                            </div>
-                            <div class="mapping-config-group">
-                                <label for="effect-select-1">Target Effect Parameter:</label>
-                                <select id="effect-select-1" class="mapping-select">
-                                    <optgroup label="Video Player">
-                                        <option value="video_brightness" selected>Brightness</option>
-                                        <option value="video_saturation">Saturation</option>
-                                        <option value="video_contrast">Contrast</option>
-                                        <option value="video_playbackRate">Playback Speed</option>
-                                        <option value="video_volume">Volume</option>
-                                        <option value="video_seek">Seek Position (Experimental)</option>
-                                    </optgroup>
-                                    <optgroup label="Point Cloud">
-                                        <option value="pc_density">Density</option>
-                                        <option value="pc_displacementScale">Displacement Scale</option>
-                                        <option value="pc_pointSize">Point Size</option>
-                                        <option value="pc_tiltSensitivity">View Tilt Sensitivity</option>
-                                    </optgroup>
-                                </select>
-                            </div>
-                            
-                            <div class="mapping-config-group">
-                                <label>Sensor Input Range (<span class="sensor-unit">°</span>): <span class="current-value-display" id="current-sensor-val-1">Raw: 0.0</span></label>
-                                <div class="mapping-range-inputs">
-                                    <input type="number" id="sensor-min-1" value="-90" placeholder="Min">
-                                    <span>to</span>
-                                    <input type="number" id="sensor-max-1" value="90" placeholder="Max">
-                                </div>
-                            </div>
-
-                            <div class="mapping-config-group">
-                                <label>Effect Output Range (<span class="effect-unit">%</span>): <span class="current-value-display" id="current-effect-val-1">Mapped: 100%</span></label>
-                                <div class="mapping-range-inputs">
-                                    <input type="number" id="effect-min-1" value="25" placeholder="Min">
-                                    <span>to</span>
-                                    <input type="number" id="effect-max-1" value="200" placeholder="Max">
-                                </div>
-                            </div>
-                            
-                            <div class="mapping-options-grid">
-                                <label class="inline-checkbox-label">
-                                    <input type="checkbox" id="invert-mapping-1"> Invert Mapping
-                                </label>
-                                <div class="filter-control">
-                                    <div class="filter-label"><span>Mapping Sensitivity</span><span class="filter-value" id="mapping-sensitivity-value-1">1.0</span></div>
-                                    <input type="range" min="0.1" max="5" step="0.1" value="1" class="filter-slider" id="mapping-sensitivity-slider-1">
-                                </div>
-                                <div class="filter-control">
-                                    <div class="filter-label"><span>Input Smoothing</span><span class="filter-value" id="mapping-smoothing-value-1">0.3</span></div>
-                                    <input type="range" min="0" max="0.95" step="0.05" value="0.3" class="filter-slider" id="mapping-smoothing-slider-1">
-                                </div>
-                                <div class="filter-control">
-                                    <div class="filter-label"><span>Sensor Value Offset</span><span class="filter-value" id="mapping-offset-value-1">0</span></div>
-                                    <input type="range" min="-180" max="180" step="1" value="0" class="filter-slider" id="mapping-offset-slider-1">
-                                </div>
-                            </div>
-                        </div>
+            <div class="sensor-configuration">
+                <div class="sensor-config-title">Sensor Sensitivity Settings</div>
+                <div class="sensor-config-controls">
+                    <div class="sensor-config-control">
+                        <div class="config-label"><span>Alpha Sensitivity</span><span class="config-value" id="alphaSensValue">1.0</span></div>
+                        <input type="range" min="0.1" max="2" step="0.1" value="1" class="config-slider" id="alphaSensitivitySlider">
                     </div>
-                    -->
+                    <div class="sensor-config-control">
+                        <div class="config-label"><span>Beta Sensitivity</span><span class="config-value" id="betaSensValue">1.0</span></div>
+                        <input type="range" min="0.1" max="2" step="0.1" value="1" class="config-slider" id="betaSensitivitySlider">
+                    </div>
+                    <div class="sensor-config-control">
+                        <div class="config-label"><span>Gamma Sensitivity</span><span class="config-value" id="gammaSensValue">1.0</span></div>
+                        <input type="range" min="0.1" max="2" step="0.1" value="1" class="config-slider" id="gammaSensitivitySlider">
+                    </div>
+                    <div class="sensor-config-control">
+                        <div class="config-label"><span>Smoothing</span><span class="config-value" id="smoothingValue">0.3</span></div>
+                        <input type="range" min="0" max="0.9" step="0.1" value="0.3" class="config-slider" id="smoothingSlider">
+                    </div>
                 </div>
-            </div>
-            <!-- End of NEW SENSOR-EFFECT MAPPING MODULE -->
-
-            <!-- Global Sensor Actions -->
-            <div class="sensor-actions">
-                <button id="calibrateBtn" class="sensor-action-btn">Calibrate Sensor Zero</button>
-                <button id="resetAllMappingsBtn" class="sensor-action-btn">Reset All Mappings</button>
-                <!-- Removed old invertBtn, as inversion is now per-mapping -->
+                <div class="sensor-config-title">Manual Offset Adjustments</div>
+                <div class="sensor-config-controls">
+                    <div class="sensor-config-control">
+                        <div class="config-label"><span>Alpha Offset</span><span class="config-value" id="alphaOffsetValue">0°</span></div>
+                        <input type="range" min="-180" max="180" step="5" value="0" class="config-slider" id="alphaOffsetSlider">
+                    </div>
+                    <div class="sensor-config-control">
+                        <div class="config-label"><span>Beta Offset</span><span class="config-value" id="betaOffsetValue">0°</span></div>
+                        <input type="range" min="-45" max="45" step="1" value="0" class="config-slider" id="betaOffsetSlider">
+                    </div>
+                    <div class="sensor-config-control">
+                        <div class="config-label"><span>Gamma Offset</span><span class="config-value" id="gammaOffsetValue">0°</span></div>
+                        <input type="range" min="-45" max="45" step="1" value="0" class="config-slider" id="gammaOffsetSlider">
+                    </div>
+                </div>
+                <div class="sensor-actions">
+                    <button id="calibrateBtn" class="sensor-action-btn">Calibrate</button>
+                    <button id="invertBtn" class="sensor-action-btn">Invert Controls</button>
+                </div>
             </div>
         </div>
     </div>
     
     <script>
-        // Existing JavaScript ...
-        // You would need to add new JavaScript logic to handle:
-        // 1. Dynamically adding/removing mapping items.
-        // 2. Populating dropdowns for sensors and effects.
-        // 3. Expanding/collapsing the details of a mapping item.
-        // 4. Saving and applying the configuration of each mapping.
-        // 5. Updating the `handleOrientationEvent` (or a similar function) to iterate
-        //    through active mappings, get sensor values, apply individual mapping
-        //    parameters (ranges, inversion, sensitivity, smoothing, offset), and
-        //    then update the target effect parameter.
-        // 6. Handling "Reset All Mappings".
-        // 7. Updating the summary text (e.g., "Orientation Beta → Video Brightness")
-        //    when sensor/effect selections change.
-        // 8. Updating sensor/effect unit displays (e.g., °, %, px) based on selection.
-        // 9. Live updating "Raw" and "Mapped" value displays in the details section.
-
         document.addEventListener('DOMContentLoaded', function() {
-            // --- DOM Elements (existing ones first) ---
+            // --- DOM Elements ---
             const videoPlayer = document.getElementById('videoPlayer');
             const mainVideoContainer = document.getElementById('mainVideoContainer');
-            // ... (all your existing DOM element selections) ...
+            const videoPlaceholder = document.getElementById('videoPlaceholder');
+            const videoPlayerControls = document.getElementById('videoPlayerControls');
+            const videoFilterControls = document.getElementById('videoFilterControls');
+            const playPauseBtn = document.getElementById('playPauseBtn');
+            const loopBtn = document.getElementById('loopBtn');
+            const fileInput = document.getElementById('fileInput');
+            const fileName = document.getElementById('fileName');
+            const progressBar = document.getElementById('progressBar');
+            const mainProgressContainer = document.getElementById('mainProgressContainer'); 
+            const currentTimeEl = document.getElementById('currentTime');
+            const durationEl = document.getElementById('duration');
+            const volumeSlider = document.getElementById('volumeSlider');
+            const loopInfo = document.getElementById('loopInfo');
+            
+            const brightnessSlider = document.getElementById('brightnessSlider');
+            const saturationSlider = document.getElementById('saturationSlider');
+            const contrastSlider = document.getElementById('contrastSlider');
+            const hueRotateSlider = document.getElementById('hueRotateSlider');
+            const blurSlider = document.getElementById('blurSlider');
+            const brightnessValue = document.getElementById('brightnessValue');
+            const saturationValue = document.getElementById('saturationValue');
+            const contrastValue = document.getElementById('contrastValue');
+            const hueRotateValue = document.getElementById('hueRotateValue');
+            const blurValue = document.getElementById('blurValue');
+            const resetFiltersBtn = document.getElementById('resetFiltersBtn');
+            
+            const videoFullscreenBtn = document.getElementById('videoFullscreenBtn');
+            const fullscreenControlsOverlay = document.getElementById('fullscreenControlsOverlay');
+            const progressBarFullscreen = document.getElementById('progressBarFullscreen');
+            const playPauseFullscreen = document.getElementById('playPauseFullscreen');
+            const exitVideoFullscreenBtn = document.getElementById('exitVideoFullscreenBtn');
+            const fullscreenProgressContainer = fullscreenControlsOverlay.querySelector('.progress-container');
+
+            // Point Cloud Elements
+            const pointCloudCanvas = document.getElementById('pointCloudCanvas');
+            const mainPointCloudContainer = document.getElementById('mainPointCloudContainer');
+            const pointCloudParams = document.getElementById('pointCloudParams');
+            const densitySlider = document.getElementById('densitySlider');
+            const densityValue = document.getElementById('densityValue');
+            const displacementSlider = document.getElementById('displacementSlider');
+            const displacementValue = document.getElementById('displacementValue');
+            const pointSizeSlider = document.getElementById('pointSizeSlider');
+            const pointSizeValue = document.getElementById('pointSizeValue');
+            const tiltSensitivitySlider = document.getElementById('tiltSensitivitySlider'); 
+            const tiltSensitivityValue = document.getElementById('tiltSensitivityValue'); 
+
+            // Sensor Elements
+            const sensorToggleBtn = document.getElementById('sensorToggleBtn');
+            const sensorMappingInfo = document.getElementById('sensorMappingInfo');
             const orientAlpha = document.getElementById('orientAlpha');
             const orientBeta = document.getElementById('orientBeta');
             const orientGamma = document.getElementById('orientGamma');
             const compassNeedle = document.getElementById('compassNeedle');
-            const calibrateBtn = document.getElementById('calibrateBtn'); // Now for global zeroing
+            const alphaSensitivitySlider = document.getElementById('alphaSensitivitySlider');
+            const betaSensitivitySlider = document.getElementById('betaSensitivitySlider');
+            const gammaSensitivitySlider = document.getElementById('gammaSensitivitySlider');
+            const smoothingSlider = document.getElementById('smoothingSlider');
+            const alphaSensValue = document.getElementById('alphaSensValue');
+            const betaSensValue = document.getElementById('betaSensValue');
+            const gammaSensValue = document.getElementById('gammaSensValue');
+            const smoothingValue = document.getElementById('smoothingValue');
+            const alphaOffsetSlider = document.getElementById('alphaOffsetSlider'); 
+            const betaOffsetSlider = document.getElementById('betaOffsetSlider');   
+            const gammaOffsetSlider = document.getElementById('gammaOffsetSlider'); 
+            const alphaOffsetValue = document.getElementById('alphaOffsetValue'); 
+            const betaOffsetValue = document.getElementById('betaOffsetValue');   
+            const gammaOffsetValue = document.getElementById('gammaOffsetValue'); 
+            const calibrateBtn = document.getElementById('calibrateBtn');
+            const invertBtn = document.getElementById('invertBtn');
 
-            // --- NEW Mapping UI Elements ---
-            const addNewMappingBtn = document.getElementById('addNewMappingBtn');
-            const mappingListContainer = document.getElementById('mappingListContainer');
-            const resetAllMappingsBtn = document.getElementById('resetAllMappingsBtn');
+            // Mode Switching Elements
+            const showVideoPlayerModeBtn = document.getElementById('showVideoPlayerModeBtn');
+            const showPointCloudModeBtn = document.getElementById('showPointCloudModeBtn');
+            const showMappingsModeBtn = document.getElementById('showMappingsModeBtn');
+            const videoPlayerModeContent = document.getElementById('videoPlayerModeContent');
+            const pointCloudModeContent = document.getElementById('pointCloudModeContent');
+            const sensorMappingsModeContent = document.getElementById('sensorMappingsModeContent');
+
+            // Mapping UI Elements
+            const listViewBtn = document.getElementById('listViewBtn');
+            const gridViewBtn = document.getElementById('gridViewBtn');
+            const mappingListView = document.getElementById('mappingListView');
+            const mappingGridView = document.getElementById('mappingGridView');
+            const addMappingBtn = document.getElementById('addMappingBtn');
+            const addMappingBtnGrid = document.getElementById('addMappingBtnGrid');
+            const mappingModal = document.getElementById('mappingModal');
+            const modalSensorSelect = document.getElementById('modalSensorSelect');
+            const modalEffectSelect = document.getElementById('modalEffectSelect');
+            const modalSensorDescription = document.getElementById('modalSensorDescription');
+            const modalEffectDescription = document.getElementById('modalEffectDescription');
+            const modalSensitivitySlider = document.getElementById('modalSensitivitySlider');
+            const modalSensitivityValue = document.getElementById('modalSensitivityValue');
+            const modalRangeMin = document.getElementById('modalRangeMin');
+            const modalRangeMax = document.getElementById('modalRangeMax');
+            const modalInvertMapping = document.getElementById('modalInvertMapping');
+            const closeModalBtn = document.getElementById('closeModalBtn');
+            const modalCancelBtn = document.getElementById('modalCancelBtn');
+            const modalSaveBtn = document.getElementById('modalSaveBtn');
+
+            // Testing Mode Elements
+            const testingModeToggle = document.getElementById('testingModeToggle');
+            const testingControls = document.getElementById('testingControls');
+            const testAlphaSlider = document.getElementById('testAlphaSlider');
+            const testBetaSlider = document.getElementById('testBetaSlider');
+            const testGammaSlider = document.getElementById('testGammaSlider');
+            const testMicSlider = document.getElementById('testMicSlider');
+            const testLightSlider = document.getElementById('testLightSlider');
+            const testAccelXSlider = document.getElementById('testAccelXSlider');
+            const micLevelValue = document.getElementById('micLevelValue');
+            const micLevelBar = document.getElementById('micLevelBar');
+            const lightLevelValue = document.getElementById('lightLevelValue');
+
+            // --- State Variables ---
+            let currentMode = 'videoPlayer'; // 'videoPlayer', 'pointCloud', or 'sensorMappings'
+            let isLooping = true; // Loop by default
+            let loopCount = 0;
+            let mappingViewMode = 'list'; // 'list' or 'grid'
             
-            // --- Sensor and Effect Definitions (for dropdowns) ---
-            const SENSOR_SOURCES = [
-                { id: 'orientation_alpha', name: 'Orientation: Alpha (Compass)', unit: '°', defaultMin: 0, defaultMax: 360, liveValueKey: 'alpha' },
-                { id: 'orientation_beta', name: 'Orientation: Beta (Tilt Fwd/Back)', unit: '°', defaultMin: -90, defaultMax: 90, liveValueKey: 'beta' },
-                { id: 'orientation_gamma', name: 'Orientation: Gamma (Tilt Left/Right)', unit: '°', defaultMin: -90, defaultMax: 90, liveValueKey: 'gamma' },
-                // Add more sensors like accelerometer, gyroscope if you plan to use them
-                // { id: 'accelerometer_x', name: 'Accelerometer: X', unit: 'm/s²', defaultMin: -20, defaultMax: 20, liveValueKey: 'accelX' },
-            ];
-
-            const EFFECT_TARGETS = [
-                { 
-                    group: "Video Player", 
-                    options: [
-                        { id: 'video_brightness', name: 'Brightness', unit: '%', defaultMinVal: 25, defaultMaxVal: 200, targetSliderId: 'brightnessSlider' },
-                        { id: 'video_saturation', name: 'Saturation', unit: '%', defaultMinVal: 25, defaultMaxVal: 200, targetSliderId: 'saturationSlider' },
-                        { id: 'video_contrast', name: 'Contrast', unit: '%', defaultMinVal: 25, defaultMaxVal: 200, targetSliderId: 'contrastSlider' },
-                        { id: 'video_playbackRate', name: 'Playback Speed', unit: 'x', defaultMinVal: 0.5, defaultMaxVal: 2, targetProperty: 'playbackRate', targetElement: 'videoPlayer' },
-                        { id: 'video_volume', name: 'Volume', unit: '', defaultMinVal: 0, defaultMaxVal: 1, targetSliderId: 'volumeSlider' },
-                    ]
-                },
-                {
-                    group: "Point Cloud",
-                    options: [
-                        { id: 'pc_density', name: 'Density', unit: '', defaultMinVal: 8, defaultMaxVal: 128, targetSliderId: 'densitySlider' },
-                        { id: 'pc_displacementScale', name: 'Displacement Scale', unit: '', defaultMinVal: 0, defaultMaxVal: 200, targetSliderId: 'displacementSlider' },
-                        { id: 'pc_pointSize', name: 'Point Size', unit: 'px', defaultMinVal: 1, defaultMaxVal: 10, targetSliderId: 'pointSizeSlider' },
-                        { id: 'pc_tiltSensitivity', name: 'View Tilt Sensitivity', unit: '', defaultMinVal: 0, defaultMaxVal: 50, targetSliderId: 'tiltSensitivitySlider' },
-                    ]
-                }
-            ];
-
-            let activeMappings = []; // Array to hold configuration for each mapping
-            let nextMappingId = 1;
-            let currentRawSensorValues = { alpha: 0, beta: 0, gamma: 0 }; // To store latest sensor readings
-            // --- State Variables (existing ones) ---
-            // ... (your existing state variables: currentMode, isLooping, sensorsGloballyEnabled, etc.) ...
-            // The old global sensitivity/offset variables are no longer needed here.
-
-            // Call your existing init functions
-            // updateModeUI();
-            // loadPlayerSettings();
-            // updateFilterDisplayValues();
-            // applyVideoFilters();
-            // updateLoopButton();
-            // if (pointCloudCanvas) { ... }
-
-
-            // --- NEW Mapping UI Logic ---
-
-            function createMappingItemHTML(id) {
-                const item = document.createElement('div');
-                item.className = 'mapping-item';
-                item.dataset.mappingId = id;
-
-                // Populate sensor options
-                let sensorOptionsHTML = SENSOR_SOURCES.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
-                // Populate effect options
-                let effectOptionsHTML = EFFECT_TARGETS.map(group => {
-                    let groupOpts = group.options.map(opt => `<option value="${opt.id}">${opt.name}</option>`).join('');
-                    return `<optgroup label="${group.group}">${groupOpts}</optgroup>`;
-                }).join('');
-
-                item.innerHTML = `
-                    <div class="mapping-item-header">
-                        <span class="mapping-item-summary">New Mapping ${id}</span>
-                        <div class="mapping-item-controls">
-                            <label class="switch">
-                                <input type="checkbox" class="mapping-enable-toggle" checked>
-                                <span class="slider-knob"></span>
-                            </label>
-                            <button class="configure-mapping-btn icon-btn" aria-label="Configure Mapping">⚙️</button>
-                            <button class="remove-mapping-btn icon-btn" aria-label="Remove Mapping">🗑️</button>
-                        </div>
-                    </div>
-                    <div class="mapping-item-details hidden">
-                        <div class="mapping-config-group">
-                            <label for="sensor-select-${id}">Sensor Source:</label>
-                            <select id="sensor-select-${id}" class="mapping-select sensor-source-select">${sensorOptionsHTML}</select>
-                        </div>
-                        <div class="mapping-config-group">
-                            <label for="effect-select-${id}">Target Effect Parameter:</label>
-                            <select id="effect-select-${id}" class="mapping-select effect-target-select">${effectOptionsHTML}</select>
-                        </div>
-                        
-                        <div class="mapping-config-group">
-                            <label>Sensor Input Range (<span class="sensor-unit-display"></span>): <span class="current-value-display current-sensor-value-display">Raw: 0.0</span></label>
-                            <div class="mapping-range-inputs">
-                                <input type="number" id="sensor-min-${id}" class="sensor-min-input" placeholder="Min">
-                                <span>to</span>
-                                <input type="number" id="sensor-max-${id}" class="sensor-max-input" placeholder="Max">
-                            </div>
-                        </div>
-
-                        <div class="mapping-config-group">
-                            <label>Effect Output Range (<span class="effect-unit-display"></span>): <span class="current-value-display current-effect-value-display">Mapped: 0.0</span></label>
-                            <div class="mapping-range-inputs">
-                                <input type="number" id="effect-min-${id}" class="effect-min-input" placeholder="Min">
-                                <span>to</span>
-                                <input type="number" id="effect-max-${id}" class="effect-max-input" placeholder="Max">
-                            </div>
-                        </div>
-                        
-                        <div class="mapping-options-grid">
-                            <label class="inline-checkbox-label">
-                                <input type="checkbox" id="invert-mapping-${id}" class="invert-mapping-checkbox"> Invert Mapping
-                            </label>
-                            <div class="filter-control">
-                                <div class="filter-label"><span>Mapping Sensitivity</span><span class="filter-value mapping-sensitivity-value">1.0</span></div>
-                                <input type="range" min="0.1" max="5" step="0.1" value="1" class="filter-slider mapping-sensitivity-slider">
-                            </div>
-                            <div class="filter-control">
-                                <div class="filter-label"><span>Input Smoothing</span><span class="filter-value mapping-smoothing-value">0.1</span></div>
-                                <input type="range" min="0" max="0.95" step="0.05" value="0.1" class="filter-slider mapping-smoothing-slider">
-                            </div>
-                            <div class="filter-control">
-                                <div class="filter-label"><span>Sensor Value Offset</span><span class="filter-value mapping-offset-value">0</span></div>
-                                <input type="range" min="-180" max="180" step="1" value="0" class="filter-slider mapping-offset-slider">
-                            </div>
-                        </div>
-                    </div>
-                `;
-                mappingListContainer.appendChild(item);
-                return item;
-            }
-
-            function updateMappingItemUI(mappingItemElement, mappingConfig) {
-                // Update summary
-                const sensorDef = SENSOR_SOURCES.find(s => s.id === mappingConfig.sensorSource);
-                let effectDef = null;
-                EFFECT_TARGETS.forEach(group => {
-                    const found = group.options.find(opt => opt.id === mappingConfig.effectTarget);
-                    if (found) effectDef = found;
-                });
-                const summaryEl = mappingItemElement.querySelector('.mapping-item-summary');
-                if (sensorDef && effectDef) {
-                    summaryEl.textContent = `${sensorDef.name.split(':')[1].trim()} → ${effectDef.name}`;
-                } else {
-                    summaryEl.textContent = `Mapping ${mappingConfig.id}`;
-                }
-
-                // Update details if visible
-                mappingItemElement.querySelector('.sensor-source-select').value = mappingConfig.sensorSource;
-                mappingItemElement.querySelector('.effect-target-select').value = mappingConfig.effectTarget;
-                
-                mappingItemElement.querySelector('.sensor-min-input').value = mappingConfig.sensorMin;
-                mappingItemElement.querySelector('.sensor-max-input').value = mappingConfig.sensorMax;
-                mappingItemElement.querySelector('.effect-min-input').value = mappingConfig.effectMin;
-                mappingItemElement.querySelector('.effect-max-input').value = mappingConfig.effectMax;
-
-                mappingItemElement.querySelector('.invert-mapping-checkbox').checked = mappingConfig.invert;
-                
-                const sensSlider = mappingItemElement.querySelector('.mapping-sensitivity-slider');
-                sensSlider.value = mappingConfig.sensitivity;
-                sensSlider.previousElementSibling.querySelector('.mapping-sensitivity-value').textContent = parseFloat(mappingConfig.sensitivity).toFixed(1);
-                
-                const smoothSlider = mappingItemElement.querySelector('.mapping-smoothing-slider');
-                smoothSlider.value = mappingConfig.smoothing;
-                smoothSlider.previousElementSibling.querySelector('.mapping-smoothing-value').textContent = parseFloat(mappingConfig.smoothing).toFixed(2);
-
-                const offsetSlider = mappingItemElement.querySelector('.mapping-offset-slider');
-                offsetSlider.value = mappingConfig.offset;
-                offsetSlider.previousElementSibling.querySelector('.mapping-offset-value').textContent = mappingConfig.offset;
-
-                mappingItemElement.querySelector('.mapping-enable-toggle').checked = mappingConfig.enabled;
-
-                // Update units
-                const sensorUnitEl = mappingItemElement.querySelector('.sensor-unit-display');
-                if (sensorDef) sensorUnitEl.textContent = sensorDef.unit || '';
-                const effectUnitEl = mappingItemElement.querySelector('.effect-unit-display');
-                 if (effectDef) effectUnitEl.textContent = effectDef.unit || '';
-            }
-            
-            function setDefaultMappingValues(mappingItemElement, mappingConfig) {
-                const sensorSelect = mappingItemElement.querySelector('.sensor-source-select');
-                const effectSelect = mappingItemElement.querySelector('.effect-target-select');
-
-                const sensorDef = SENSOR_SOURCES.find(s => s.id === sensorSelect.value);
-                let effectDef = null;
-                EFFECT_TARGETS.forEach(group => {
-                    const found = group.options.find(opt => opt.id === effectSelect.value);
-                    if (found) effectDef = found;
-                });
-
-                if (sensorDef) {
-                    mappingItemElement.querySelector('.sensor-min-input').value = sensorDef.defaultMin;
-                    mappingItemElement.querySelector('.sensor-max-input').value = sensorDef.defaultMax;
-                    mappingConfig.sensorMin = sensorDef.defaultMin;
-                    mappingConfig.sensorMax = sensorDef.defaultMax;
-                }
-                if (effectDef) {
-                    mappingItemElement.querySelector('.effect-min-input').value = effectDef.defaultMinVal;
-                    mappingItemElement.querySelector('.effect-max-input').value = effectDef.defaultMaxVal;
-                    mappingConfig.effectMin = effectDef.defaultMinVal;
-                    mappingConfig.effectMax = effectDef.defaultMaxVal;
-                }
-                updateMappingItemUI(mappingItemElement, mappingConfig);
-            }
-
-
-            function addNewMapping() {
-                const newId = nextMappingId++;
-                const mappingItemElement = createMappingItemHTML(newId);
-                
-                const newMappingConfig = {
-                    id: newId,
-                    enabled: true,
-                    sensorSource: SENSOR_SOURCES[0].id, // Default sensor
-                    effectTarget: EFFECT_TARGETS[0].options[0].id, // Default effect
-                    sensorMin: SENSOR_SOURCES[0].defaultMin,
-                    sensorMax: SENSOR_SOURCES[0].defaultMax,
-                    effectMin: EFFECT_TARGETS[0].options[0].defaultMinVal,
-                    effectMax: EFFECT_TARGETS[0].options[0].defaultMaxVal,
-                    invert: false,
-                    sensitivity: 1.0,
-                    smoothing: 0.1, // Low default smoothing
-                    offset: 0,
-                    // For smoothing calculation
-                    lastSensorProcessedValue: null, 
-                    lastEffectOutputValue: null
-                };
-                activeMappings.push(newMappingConfig);
-                setDefaultMappingValues(mappingItemElement, newMappingConfig); // Set defaults based on selected sensor/effect
-                addEventListenersToMappingItem(mappingItemElement, newMappingConfig);
-                saveMappingsToLocalStorage();
-            }
-
-            function addEventListenersToMappingItem(itemElement, config) {
-                itemElement.querySelector('.mapping-item-header').addEventListener('click', (e) => {
-                    if (e.target.closest('.mapping-item-controls')) return; // Don't toggle if clicking controls
-                    itemElement.querySelector('.mapping-item-details').classList.toggle('hidden');
-                    const configureBtn = itemElement.querySelector('.configure-mapping-btn');
-                    configureBtn.textContent = itemElement.querySelector('.mapping-item-details').classList.contains('hidden') ? '⚙️' : '🔼';
-                });
-
-                itemElement.querySelector('.configure-mapping-btn').addEventListener('click', () => {
-                     itemElement.querySelector('.mapping-item-details').classList.toggle('hidden');
-                     const configureBtn = itemElement.querySelector('.configure-mapping-btn');
-                     configureBtn.textContent = itemElement.querySelector('.mapping-item-details').classList.contains('hidden') ? '⚙️' : '🔼';
-                });
-                
-                itemElement.querySelector('.remove-mapping-btn').addEventListener('click', () => {
-                    activeMappings = activeMappings.filter(m => m.id !== config.id);
-                    itemElement.remove();
-                    saveMappingsToLocalStorage();
-                });
-
-                itemElement.querySelector('.mapping-enable-toggle').addEventListener('change', (e) => {
-                    config.enabled = e.target.checked;
-                    saveMappingsToLocalStorage();
-                });
-
-                // Event listeners for selects and inputs to update config and UI
-                ['.sensor-source-select', '.effect-target-select'].forEach(selector => {
-                    itemElement.querySelector(selector).addEventListener('change', () => {
-                        config.sensorSource = itemElement.querySelector('.sensor-source-select').value;
-                        config.effectTarget = itemElement.querySelector('.effect-target-select').value;
-                        setDefaultMappingValues(itemElement, config); // Reset ranges to defaults for new selections
-                        updateMappingItemUI(itemElement, config);
-                        saveMappingsToLocalStorage();
-                    });
-                });
-                
-                ['.sensor-min-input', '.sensor-max-input', '.effect-min-input', '.effect-max-input'].forEach(selector => {
-                    itemElement.querySelector(selector).addEventListener('input', () => {
-                        config.sensorMin = parseFloat(itemElement.querySelector('.sensor-min-input').value);
-                        config.sensorMax = parseFloat(itemElement.querySelector('.sensor-max-input').value);
-                        config.effectMin = parseFloat(itemElement.querySelector('.effect-min-input').value);
-                        config.effectMax = parseFloat(itemElement.querySelector('.effect-max-input').value);
-                        updateMappingItemUI(itemElement, config); // Update summary if needed
-                        saveMappingsToLocalStorage();
-                    });
-                });
-                
-                itemElement.querySelector('.invert-mapping-checkbox').addEventListener('change', (e) => {
-                    config.invert = e.target.checked;
-                    saveMappingsToLocalStorage();
-                });
-
-                itemElement.querySelector('.mapping-sensitivity-slider').addEventListener('input', (e) => {
-                    config.sensitivity = parseFloat(e.target.value);
-                    e.target.previousElementSibling.querySelector('.mapping-sensitivity-value').textContent = config.sensitivity.toFixed(1);
-                    saveMappingsToLocalStorage();
-                });
-                itemElement.querySelector('.mapping-smoothing-slider').addEventListener('input', (e) => {
-                    config.smoothing = parseFloat(e.target.value);
-                     e.target.previousElementSibling.querySelector('.mapping-smoothing-value').textContent = config.smoothing.toFixed(2);
-                    saveMappingsToLocalStorage();
-                });
-                itemElement.querySelector('.mapping-offset-slider').addEventListener('input', (e) => {
-                    config.offset = parseInt(e.target.value);
-                    e.target.previousElementSibling.querySelector('.mapping-offset-value').textContent = config.offset;
-                    saveMappingsToLocalStorage();
-                });
-            }
-
-            function processSensorMappings() {
-                if (!sensorsGloballyEnabled) return;
-
-                activeMappings.forEach(config => {
-                    if (!config.enabled) return;
-
-                    const sensorDef = SENSOR_SOURCES.find(s => s.id === config.sensorSource);
-                    let effectDef = null;
-                    EFFECT_TARGETS.forEach(group => {
-                        const found = group.options.find(opt => opt.id === config.effectTarget);
-                        if (found) effectDef = found;
-                    });
-
-                    if (!sensorDef || !effectDef) return;
-
-                    let rawSensorValue = currentRawSensorValues[sensorDef.liveValueKey];
-                    if (rawSensorValue === undefined || rawSensorValue === null) return;
-                    
-                    // Apply per-mapping offset (before calibration for consistency or after depending on desired effect)
-                    // Let's assume calibrationValues are global device zero points.
-                    let calibratedSensorValue = rawSensorValue - (calibrationValues[sensorDef.liveValueKey] || 0);
-                    let offsetSensorValue = calibratedSensorValue - config.offset;
-
-
-                    // Apply smoothing to the offset sensor value
-                    if (config.smoothing > 0 && config.lastSensorProcessedValue !== null) {
-                        offsetSensorValue = config.lastSensorProcessedValue * config.smoothing + offsetSensorValue * (1 - config.smoothing);
-                    }
-                    config.lastSensorProcessedValue = offsetSensorValue;
-
-
-                    // Normalize: (value - min) / (max - min)
-                    let normalizedValue = (offsetSensorValue - config.sensorMin) / (config.sensorMax - config.sensorMin);
-                    normalizedValue = Math.max(0, Math.min(1, normalizedValue)); // Clamp to 0-1
-
-                    if (config.invert) {
-                        normalizedValue = 1 - normalizedValue;
-                    }
-
-                    // Apply sensitivity (scales the normalized value range before mapping to output)
-                    // This sensitivity is tricky. Let's interpret it as scaling the "impact"
-                    // For example, sensitivity of 2 means a smaller sensor change has a larger effect.
-                    // A simple way: if sensitivity > 1, expand range around 0.5; if < 1, compress.
-                    // Or, more directly, multiply the change from the midpoint.
-                    // Let's try: new_normalized = 0.5 + (normalizedValue - 0.5) * sensitivity;
-                    // And then clamp again.
-                    let sensitiveValue = 0.5 + (normalizedValue - 0.5) * config.sensitivity;
-                    sensitiveValue = Math.max(0, Math.min(1, sensitiveValue));
-
-
-                    // Denormalize to effect's range
-                    let outputValue = sensitiveValue * (config.effectMax - config.effectMin) + config.effectMin;
-
-                    // Update the target effect
-                    if (effectDef.targetSliderId) {
-                        const slider = document.getElementById(effectDef.targetSliderId);
-                        if (slider) {
-                            slider.value = outputValue;
-                            // Manually trigger input event for sliders to update their display values and apply effects
-                            slider.dispatchEvent(new Event('input', { bubbles:true }));
-                        }
-                    } else if (effectDef.targetProperty && effectDef.targetElement) {
-                        if (effectDef.targetElement === 'videoPlayer' && videoPlayer) {
-                            videoPlayer[effectDef.targetProperty] = outputValue;
-                        }
-                        // Add other direct property targets if needed
-                    }
-                    
-                    // Update live value displays in the mapping item if it's open
-                    const mappingItemElement = mappingListContainer.querySelector(`.mapping-item[data-mapping-id="${config.id}"]`);
-                    if (mappingItemElement && !mappingItemElement.querySelector('.mapping-item-details').classList.contains('hidden')) {
-                        mappingItemElement.querySelector('.current-sensor-value-display').textContent = `Raw: ${offsetSensorValue.toFixed(1)}`;
-                        const effectUnit = effectDef.unit || '';
-                        mappingItemElement.querySelector('.current-effect-value-display').textContent = `Mapped: ${outputValue.toFixed(effectUnit === '%' || effectUnit === '°' ? 0 : 2)}${effectUnit}`;
-                    }
-                });
-            }
-            
-            // Modify your existing handleOrientationEvent
-            function originalHandleOrientationEvent(event) { // Renamed to avoid conflict if you merge
-                if (!sensorsGloballyEnabled) return;
-                const { alpha, beta, gamma } = event;
-
-                currentRawSensorValues.alpha = alpha || 0;
-                currentRawSensorValues.beta = beta || 0;
-                currentRawSensorValues.gamma = gamma || 0;
-
-                // Update global displays
-                if(orientAlpha) orientAlpha.textContent = (alpha != null ? alpha.toFixed(2) : '0.00');
-                if(orientBeta) orientBeta.textContent = (beta != null ? beta.toFixed(2) : '0.00');
-                if(orientGamma) orientGamma.textContent = (gamma != null ? gamma.toFixed(2) : '0.00');
-                if (compassNeedle) compassNeedle.style.transform = `rotate(${(alpha || 0)}deg)`;
-                
-                processSensorMappings(); // Call the new processing function
-            }
-            // Replace the old mapOrientationInput and its direct calls to filter sliders
-            // window.addEventListener('deviceorientation', originalHandleOrientationEvent); // Ensure this is correctly set up in setupSensors
-
-            function saveMappingsToLocalStorage() {
-                localStorage.setItem('sensorEffectMappings', JSON.stringify(activeMappings));
-            }
-
-            function loadMappingsFromLocalStorage() {
-                const savedMappings = localStorage.getItem('sensorEffectMappings');
-                if (savedMappings) {
-                    activeMappings = JSON.parse(savedMappings);
-                    nextMappingId = Math.max(0, ...activeMappings.map(m => m.id)) + 1;
-                    mappingListContainer.innerHTML = ''; // Clear before repopulating
-                    activeMappings.forEach(config => {
-                        const itemElement = createMappingItemHTML(config.id); // Create element but don't add to activeMappings again
-                        // Restore smoothing helper values if needed, or re-init them
-                        config.lastSensorProcessedValue = null; 
-                        config.lastEffectOutputValue = null;
-                        updateMappingItemUI(itemElement, config);
-                        addEventListenersToMappingItem(itemElement, config);
-                    });
-                } else {
-                    // Optionally, add a default mapping if none are saved
-                    // addNewMapping(); 
-                }
-            }
-            
-            if(addNewMappingBtn) addNewMappingBtn.addEventListener('click', addNewMapping);
-            if(resetAllMappingsBtn) {
-                resetAllMappingsBtn.addEventListener('click', () => {
-                    if (confirm("Are you sure you want to remove all sensor to effect mappings?")) {
-                        activeMappings = [];
-                        mappingListContainer.innerHTML = '';
-                        nextMappingId = 1;
-                        saveMappingsToLocalStorage();
-                    }
-                });
-            }
-            
-            // --- Initial load for mappings ---
-            loadMappingsFromLocalStorage();
-
-            // Ensure sensor setup uses the correct handler
-            // In your setupSensors function:
-            // window.addEventListener('deviceorientation', originalHandleOrientationEvent); // Make sure this is the one being added/removed.
-            // And disableSensors:
-            // window.removeEventListener('deviceorientation', originalHandleOrientationEvent);
-
-            // Small modification to existing setupSensors to use originalHandleOrientationEvent
-            // (This is a placeholder, integrate into your actual setupSensors function)
-            const sensorToggleBtn = document.getElementById('sensorToggleBtn');
-            let sensorsGloballyEnabled = false;
+            let sensorsGloballyEnabled = false; // Master switch for sensor processing
             let deviceOrientationPermissionGranted = false;
-            let calibrationValues = { alpha: 0, beta: 0, gamma: 0 }; // Make sure this is accessible
+            let controlsInverted = false;
+            let calibrationValues = { alpha: 0, beta: 0, gamma: 0 };
+            let manualOffsets = { alpha: 0, beta: 0, gamma: 0 }; 
+            let lastVideoFilterValues = { 
+                brightness: 100, 
+                saturation: 100, 
+                contrast: 100,
+                hueRotate: 0,
+                blur: 0
+            };
 
-            if(sensorToggleBtn) sensorToggleBtn.addEventListener('click', () => sensorsGloballyEnabled ? disableSensors() : setupSensors());
-
-            function setupSensors() {
-                const permissionPromise = (typeof DeviceOrientationEvent !== 'undefined' && DeviceOrientationEvent.requestPermission)
-                    ? DeviceOrientationEvent.requestPermission()
-                    : Promise.resolve('granted'); // Assume granted for non-iOS13+ or if API doesn't exist
-
-                permissionPromise.then(permissionState => {
-                    if (permissionState === 'granted') {
-                        if ('DeviceOrientationEvent' in window) {
-                            window.addEventListener('deviceorientation', originalHandleOrientationEvent);
-                            deviceOrientationPermissionGranted = true;
-                            sensorsGloballyEnabled = true;
-                            sensorToggleBtn.textContent = 'Disable Sensors';
-                            sensorToggleBtn.classList.add('active');
-                        } else {
-                             alert('Device orientation not supported.');
-                             disableSensors(); // Ensure state is reset
-                        }
-                    } else {
-                        alert('Motion sensor permission denied.');
-                        disableSensors();
-                    }
-                }).catch(err => {
-                    console.error("Sensor permission error:", err);
-                    alert('Error requesting sensor permissions or not supported.');
-                    disableSensors();
-                });
-            }
-
-            function disableSensors() {
-                window.removeEventListener('deviceorientation', originalHandleOrientationEvent);
-                sensorsGloballyEnabled = false;
-                sensorToggleBtn.textContent = 'Enable Sensors';
-                sensorToggleBtn.classList.remove('active');
-                // Reset any live values if needed
-            }
+            let testingModeEnabled = false;
+            let microphoneStream = null;
+            let audioContext = null;
+            let analyser = null;
+            let audioDataArray = null;
+            let lightSensorSupported = false;
+            let currentLightLevel = null;
             
-            if (calibrateBtn) {
-                calibrateBtn.addEventListener('click', () => {
-                    if (!sensorsGloballyEnabled) { alert('Enable sensors first.'); return; }
-                    // Use currentRawSensorValues which are continuously updated
-                    calibrationValues.alpha = currentRawSensorValues.alpha || 0;
-                    calibrationValues.beta = currentRawSensorValues.beta || 0;
-                    calibrationValues.gamma = currentRawSensorValues.gamma || 0;
-                    
-                    // Reset per-mapping offsets to 0 as calibration provides a new baseline
-                    activeMappings.forEach(config => {
-                        config.offset = 0;
-                        const itemElement = mappingListContainer.querySelector(`.mapping-item[data-mapping-id="${config.id}"]`);
-                        if (itemElement) {
-                           const offsetSlider = itemElement.querySelector('.mapping-offset-slider');
-                           if(offsetSlider) {
-                               offsetSlider.value = 0;
-                               offsetSlider.dispatchEvent(new Event('input', { bubbles:true })); // To update display & config
-                           }
-                        }
-                    });
-                    saveMappingsToLocalStorage(); // Save the reset offsets
-                    alert('Sensor zero point calibrated. Individual mapping offsets reset.');
-                });
-            }
+            let pointCloudCtx;
+            let pointCloudAnimationFrameId;
+            const tempCanvas = document.createElement('canvas'); 
+            const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true }); 
+            let pointCloudConfig = {
+                density: 32,
+                displacementScale: 50,
+                pointSize: 3,
+                tiltSensitivity: 10
+            };
+            let pointCloudTiltAngles = { beta: 0, gamma: 0 };
 
-        // --- END OF NEW MAPPING UI LOGIC ---
-
-        // IMPORTANT: Make sure to call your original DOMContentLoaded initialization code
-        // or merge this new logic carefully into your existing DOMContentLoaded listener.
-        // For example, the parts related to video player, point cloud init, etc.,
-        // are not repeated here but are assumed to be present in your full script.
-        
-        // The following is a partial copy of your original DOMContentLoaded for context,
-        // showing where new elements were added above.
-        // const videoPlayer = document.getElementById('videoPlayer'); // Already defined
-        // ... all other element selections and event listeners from your original script ...
-        });
-    </script>
-</body>
-</html>
+            // --- Sensor Mappings Data Structure ---
+            // Available sensors and their configuration
+            const availableSensors = [
+                { id: 'alpha', name: 'Rotation (Alpha)', description: 'Device rotation around z-axis (compass direction)', unit: '°', min: 0, max: 360, default: 180 },
+                { id: 'beta', name: 'Tilt Forward/Back (Beta)', description: 'Device tilt front/back', unit: '°', min: -90, max: 90, default: 0 },
+                { id: 'gamma', name:
