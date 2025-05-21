@@ -8,28 +8,28 @@ const Utils = (function() {
 
     function handlePlayError(e) {
         console.error("Video play error:", e);
-        // Potentially show a user-friendly message
     }
 
-    function loadPlayerSettings(videoPlayer, volumeSlider, brightnessSlider, saturationSlider, contrastSlider) {
+    function loadPlayerSettings(videoPlayer, volumeSlider, brightnessSlider, saturationSlider, contrastSlider, hueSlider) { // Added hueSlider
         const savedVolume = localStorage.getItem('videoPlayerVolume');
-        if (savedVolume) { 
+        if (savedVolume && volumeSlider) { 
             videoPlayer.volume = parseFloat(savedVolume); 
             volumeSlider.value = parseFloat(savedVolume); 
         }
         
-        brightnessSlider.value = localStorage.getItem('videoPlayerBrightness') || 100;
-        saturationSlider.value = localStorage.getItem('videoPlayerSaturation') || 100;
-        contrastSlider.value = localStorage.getItem('videoPlayerContrast') || 100;
+        if(brightnessSlider) brightnessSlider.value = localStorage.getItem('videoPlayerBrightness') || 100;
+        if(saturationSlider) saturationSlider.value = localStorage.getItem('videoPlayerSaturation') || 100;
+        if(contrastSlider) contrastSlider.value = localStorage.getItem('videoPlayerContrast') || 100;
+        if(hueSlider) hueSlider.value = localStorage.getItem('videoPlayerHue') || 0; // Load hue, default 0
     }
 
-    function saveVideoPlayerSettings(brightnessSlider, saturationSlider, contrastSlider) {
-         localStorage.setItem('videoPlayerBrightness', brightnessSlider.value);
-         localStorage.setItem('videoPlayerSaturation', saturationSlider.value);
-         localStorage.setItem('videoPlayerContrast', contrastSlider.value);
+    function saveVideoPlayerSettings(brightnessSlider, saturationSlider, contrastSlider, hueSlider) { // Added hueSlider
+         if(brightnessSlider) localStorage.setItem('videoPlayerBrightness', brightnessSlider.value);
+         if(saturationSlider) localStorage.setItem('videoPlayerSaturation', saturationSlider.value);
+         if(contrastSlider) localStorage.setItem('videoPlayerContrast', contrastSlider.value);
+         if(hueSlider) localStorage.setItem('videoPlayerHue', hueSlider.value); // Save hue
     }
     
-    // If you need to apply smoothing in multiple places or make it more generic:
     function applySmoothing(currentValue, newValue, factor) {
         if (factor === 0) return newValue;
         return currentValue * factor + newValue * (1 - factor);
