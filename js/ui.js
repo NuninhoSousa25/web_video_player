@@ -42,14 +42,11 @@ const UI = (function() {
     }
     
     function updateSensorMappingInfoText(sensorMappingInfoEl, currentMode) {
-         if (currentMode === 'videoPlayer') {
-            sensorMappingInfoEl.innerHTML = `Tilt your device to control video effects: <br>
-                <span class="mapping-highlight">Rotation</span> → Saturation • 
-                <span class="mapping-highlight">Tilt Fwd/Back</span> → Brightness • 
-                <span class="mapping-highlight">Tilt Left/Right</span> → Contrast`;
-        } else { // pointCloud mode
-            sensorMappingInfoEl.innerHTML = `Tilt your device to adjust point cloud view. Ensure sensors are enabled below.`;
-        }
+         // Removed the "Tilt your device..." instructions
+         // You can add new relevant text here if needed, or leave it blank.
+         if (sensorMappingInfoEl) {
+             sensorMappingInfoEl.innerHTML = ``; // Or some other generic message
+         }
     }
 
     function showVideoFullscreenControlsBriefly(fullscreenControlsOverlay) {
