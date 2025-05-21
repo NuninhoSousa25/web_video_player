@@ -1,4 +1,4 @@
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+           * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
             background-color: #121212; color: #f0f0f0;
@@ -31,7 +31,7 @@
         .video-container.fullscreen video, .point-cloud-container.fullscreen #pointCloudCanvas {
             max-width: 100%; max-height: 100%; width: auto !important; height: auto !important; object-fit: contain;
         }
-        .controls-overlay { /* For video fullscreen controls */
+        .controls-overlay { 
             position: absolute; bottom: 0; left: 0; right: 0;
             background: linear-gradient(transparent, rgba(0,0,0,0.7));
             padding: 20px 10px 10px; opacity: 0; transition: opacity 0.3s ease; z-index: 10000;
@@ -48,7 +48,7 @@
         .file-controls {
             display: flex; flex-direction: column; gap: 8px; padding: 16px; background-color: #1e1e1e;
         }
-        button { /* General button style, ensure .button class is used for specific new buttons if needed */
+        button { 
             background-color: #2c7be5; color: white; border: none; border-radius: 4px;
             padding: 10px 15px; font-size: 14px; cursor: pointer; transition: background-color 0.2s;
         }
@@ -80,7 +80,7 @@
             -webkit-appearance: none; appearance: none; width: 15px; height: 15px;
             border-radius: 50%; background: #2c7be5; cursor: pointer;
         }
-        .volume-slider::-moz-range-thumb { /* For Firefox */
+        .volume-slider::-moz-range-thumb { 
             width: 15px; height: 15px; border-radius: 50%; background: #2c7be5; cursor: pointer; border: none;
         }
         .placeholder-message { padding: 30px; text-align: center; color: #888; }
@@ -97,7 +97,7 @@
             -webkit-appearance: none; appearance: none; width: 15px; height: 15px;
             border-radius: 50%; background: #2c7be5; cursor: pointer;
         }
-         .filter-slider::-moz-range-thumb { /* For Firefox */
+         .filter-slider::-moz-range-thumb { 
             width: 15px; height: 15px; border-radius: 50%; background: #2c7be5; cursor: pointer; border: none;
         }
         .filter-reset {
@@ -107,7 +107,7 @@
         .filter-reset:hover { background-color: #666; }
         
         .sensor-section {
-            background-color: #1e1e1e; /* Keep border-radius: 0 0 8px 8px; if it's the last visual element in container */
+            background-color: #1e1e1e; 
             padding: 15px;
             border-top: 1px solid #333;
         }
@@ -139,7 +139,7 @@
         .compass-marker .south { bottom: 5px; left: calc(50% - 9px); }
         .compass-marker .west { left: 5px; top: calc(50% - 9px); }
 
-        .mapping-info { font-size: 13px; color: #aaa; margin: 10px 0; text-align: center; line-height: 1.4; }
+        .mapping-info { font-size: 13px; color: #aaa; margin: 10px 0; text-align: center; line-height: 1.4; min-height: 1em; /* So it doesn't collapse when empty */}
         .mapping-highlight { color: #2c7be5; font-weight: 500; }
         .sensor-configuration { margin-top: 15px; border-top: 1px solid #333; padding-top: 15px; }
         .sensor-config-title { font-size: 14px; font-weight: 600; margin-bottom: 10px; color: #ddd; }
@@ -147,14 +147,14 @@
         .sensor-config-control { background-color: #2d2d2d; padding: 10px; border-radius: 6px; }
         .config-label { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 5px; }
         .config-value { color: #2c7be5; font-weight: 500; }
-        .config-slider { /* Re-use filter-slider styles */
+        .config-slider { 
             width: 100%; -webkit-appearance: none; height: 5px; border-radius: 5px; background: #333; outline: none;
         }
-        .config-slider::-webkit-slider-thumb { /* Re-use filter-slider styles */
+        .config-slider::-webkit-slider-thumb { 
             -webkit-appearance: none; appearance: none; width: 15px; height: 15px;
             border-radius: 50%; background: #2c7be5; cursor: pointer;
         }
-        .config-slider::-moz-range-thumb { /* For Firefox */
+        .config-slider::-moz-range-thumb { 
             width: 15px; height: 15px; border-radius: 50%; background: #2c7be5; cursor: pointer; border: none;
         }
         .sensor-actions { display: flex; gap: 10px; margin-top: 10px; }
@@ -163,57 +163,56 @@
         }
         .sensor-action-btn:hover { background-color: #666; }
 
-        .point-cloud-container { width:100%; /* Container for canvas for fullscreen */ }
+        .point-cloud-container { width:100%; }
         #pointCloudCanvas {
             width: 100%; background-color: #050505;
-            border: 1px solid #333; display: block; /* Important for layout */
-            cursor: pointer; /* For double tap fullscreen */
+            border: 1px solid #333; display: block; 
+            cursor: pointer; 
         }
 
-        /* Styles for Sensor Mapping Panel */
-        .mapping-panel-toggle-container button.button { /* More specific selector if needed */
+        .mapping-panel-toggle-container button.button { 
             width: auto; 
-            padding: 8px 15px; /* Adjusted padding for this specific button */
+            padding: 8px 15px; 
         }
 
         .sensor-mapping-panel {
-            position: fixed; /* Changed from absolute to fixed for true overlay */
+            position: fixed; 
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
             width: 90%;
-            max-width: 550px; /* Slightly reduced max-width for better fit */
-            max-height: 85vh; /* Adjusted max-height */
-            background-color: #262626; /* Slightly darker panel background */
+            max-width: 550px; 
+            max-height: 85vh; 
+            background-color: #262626; 
             color: #f0f0f0;
-            border-radius: 10px; /* Increased border-radius */
-            box-shadow: 0 10px 30px rgba(0,0,0,0.6); /* Enhanced shadow */
-            z-index: 10001; /* Ensure it's above other fullscreen elements if necessary */
+            border-radius: 10px; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.6); 
+            z-index: 10001; 
             display: flex;
             flex-direction: column;
-            border: 1px solid #444; /* Darker border */
+            border: 1px solid #444; 
         }
 
         .sensor-mapping-panel.hidden {
-            display: none !important; /* Ensure it's hidden */
+            display: none !important; 
         }
 
         .sensor-mapping-panel .panel-header {
-            padding: 10px 15px; /* Adjusted padding */
-            background-color: #333; /* Darker header */
+            padding: 10px 15px; 
+            background-color: #333; 
             display: flex;
             justify-content: space-between;
             align-items: center;
             border-bottom: 1px solid #444;
-            border-radius: 10px 10px 0 0; /* Match panel radius */
+            border-radius: 10px 10px 0 0; 
         }
         .sensor-mapping-panel .panel-header h2 {
-            font-size: 16px; /* Slightly smaller header text */
+            font-size: 16px; 
             margin: 0; 
             font-weight: 600;
         }
         .sensor-mapping-panel .close-button {
-            background: none; border: none; color: #bbb; font-size: 22px; /* Adjusted size */
+            background: none; border: none; color: #bbb; font-size: 22px; 
             cursor: pointer; padding: 0; line-height: 1;
         }
         .sensor-mapping-panel .close-button:hover { color: #fff; }
@@ -226,8 +225,8 @@
 
         .sensor-mapping-panel .mappings-list-container h3,
         .sensor-mapping-panel .edit-form-container h3 {
-            font-size: 15px; /* Adjusted sub-header size */
-            color: #0095ff; /* Brighter blue */
+            font-size: 15px; 
+            color: #0095ff; 
             margin-bottom: 12px;
             border-bottom: 1px solid #444;
             padding-bottom: 8px;
@@ -239,11 +238,11 @@
             margin: 0 0 15px 0;
         }
         .sensor-mapping-panel .mappings-list li {
-            background-color: #303030; /* Darker list item */
-            padding: 10px 12px; /* Adjusted padding */
-            border-radius: 6px; /* Smoother radius */
+            background-color: #303030; 
+            padding: 10px 12px; 
+            border-radius: 6px; 
             margin-bottom: 10px;
-            border: 1px solid #484848; /* Slightly lighter border for items */
+            border: 1px solid #484848; 
             transition: background-color 0.2s;
         }
          .sensor-mapping-panel .mappings-list li:hover {
@@ -262,61 +261,61 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 6px; /* Adjusted margin */
+            margin-bottom: 6px; 
         }
         .sensor-mapping-panel .mappings-list li .mapping-name {
             font-weight: 500;
-            font-size: 14px; /* Ensure readability */
+            font-size: 14px; 
         }
         .sensor-mapping-panel .mappings-list li .mapping-details {
-            font-size: 0.8em; /* Slightly smaller details */
-            color: #bbb; /* Lighter detail text */
+            font-size: 0.8em; 
+            color: #bbb; 
         }
         .sensor-mapping-panel .mappings-list li .mapping-actions button {
-            font-size: 0.75em; /* Smaller action buttons */
-            padding: 3px 7px; /* Adjusted padding */
+            font-size: 0.75em; 
+            padding: 3px 7px; 
             margin-left: 6px;
-            background-color: #4a4a4a; /* Consistent button color */
+            background-color: #4a4a4a; 
             border-radius: 3px;
         }
         .sensor-mapping-panel .mappings-list li .mapping-actions button:hover {
             background-color: #555;
         }
         .sensor-mapping-panel .mappings-list li .mapping-actions .delete-btn {
-            background-color: #b73e3e; /* Softer red */
+            background-color: #b73e3e; 
         }
         .sensor-mapping-panel .mappings-list li .mapping-actions .delete-btn:hover {
             background-color: #c94a4a;
         }
-        .sensor-mapping-panel .add-new-button.button { /* Specific class for this button */
+        .sensor-mapping-panel .add-new-button.button { 
             width: 100%; 
             margin-top: 10px; 
-            padding: 10px; /* Larger padding */
+            padding: 10px; 
             font-size: 14px;
         }
 
         .sensor-mapping-panel .edit-form-container {
-            background-color: #2f2f2f; /* Slightly different background for form */
+            background-color: #2f2f2f; 
             padding: 15px;
             border-radius: 6px;
             border: 1px solid #444;
         }
         .sensor-mapping-panel .edit-form-container div {
-            margin-bottom: 10px; /* Consistent margin */
+            margin-bottom: 10px; 
         }
         .sensor-mapping-panel .edit-form-container label {
             display: block;
-            font-size: 13px; /* Adjusted label size */
-            margin-bottom: 5px; /* Increased margin */
-            color: #ddd; /* Lighter labels */
+            font-size: 13px; 
+            margin-bottom: 5px; 
+            color: #ddd; 
         }
         .sensor-mapping-panel .edit-form-container select,
         .sensor-mapping-panel .edit-form-container input[type="number"],
         .sensor-mapping-panel .edit-form-container input[type="range"] {
             width: 100%;
-            padding: 8px 10px; /* Adjusted padding */
-            background-color: #3a3a3a; /* Input background */
-            border: 1px solid #555; /* Input border */
+            padding: 8px 10px; 
+            background-color: #3a3a3a; 
+            border: 1px solid #555; 
             color: #f0f0f0;
             border-radius: 4px;
             box-sizing: border-box;
@@ -324,23 +323,23 @@
         }
         .sensor-mapping-panel .edit-form-container input[type="checkbox"] {
             width: auto;
-            margin-right: 8px; /* Increased spacing */
+            margin-right: 8px; 
             vertical-align: middle;
         }
         .sensor-mapping-panel .description-text {
-            font-size: 0.75em; /* Smaller description */
-            color: #999; /* Lighter description */
-            margin-top: 4px; /* Adjusted margin */
+            font-size: 0.75em; 
+            color: #999; 
+            margin-top: 4px; 
         }
         .sensor-mapping-panel .range-inputs {
             display: flex;
-            gap: 12px; /* Increased gap */
+            gap: 12px; 
         }
         .sensor-mapping-panel .range-inputs > div {
             flex: 1;
         }
         .sensor-mapping-panel .form-actions {
-            margin-top: 15px; /* Adjusted margin */
+            margin-top: 15px; 
             display: flex;
             justify-content: flex-end;
             gap: 10px;
@@ -349,12 +348,45 @@
         .sensor-mapping-panel .form-actions .secondary-button { background-color: #555; }
         .sensor-mapping-panel .form-actions .secondary-button:hover { background-color: #666; }
         
+        /* NEW: Active Mapping Indicator Styles */
+        .active-mapping-indicator-container {
+            position: relative;
+            display: inline-flex; /* Changed from inline-block for better alignment with text */
+            align-items: center; /* Align dot with text */
+        }
+        .active-mapping-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background-color: #ffc107; /* A distinct yellow/orange color */
+            border-radius: 50%;
+            margin-left: 6px; /* Space between text and dot */
+            visibility: hidden; /* Hidden by default */
+            transition: transform 0.2s ease-out, opacity 0.2s;
+            opacity: 0;
+        }
+        .active-mapping-dot.active {
+            visibility: visible;
+            transform: scale(1.2);
+            opacity: 1;
+        }
+        /* Ensure volume icon container can also house the dot properly */
+        .volume-icon.active-mapping-indicator-container {
+             /* display: inline-flex; align-items: center; /* Already good */
+        }
+        /* Adjust filter label span to be inline-flex for proper dot alignment */
+        .filter-label > span:first-child.active-mapping-indicator-container {
+            display: inline-flex;
+            align-items: center;
+        }
+
+
         @media (max-width: 480px) {
             .controls, .filter-controls, .point-cloud-params-container { padding: 10px; gap: 10px;}
             button, .file-label { padding: 8px 12px; font-size: 13px; }
             .toggle-button { min-width: 80px; }
-            .sensor-config-controls { grid-template-columns: 1fr; } /* Stack sensor config on small screens */
-            .mapping-grid { grid-template-columns: 1fr; } /* Single column on small screens */
+            .sensor-config-controls { grid-template-columns: 1fr; } 
+            .mapping-grid { grid-template-columns: 1fr; } 
             .sensor-mapping-panel { width: 95%; max-height: 90vh; }
             .sensor-mapping-panel .panel-content { padding: 10px; }
         }
