@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Sensor Video Processor</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div class="container">
+        <div class="player-header">
+            <h1>Enhanced Sensor Video Processor</h1>
+        </div>
+
+        <div class="mode-switcher">
+            <button id="showVideoPlayerModeBtn" class="active">Video Player</button>
+            <button id="showPointCloudModeBtn">Point Cloud</button>
+            <button id="showMappingsModeBtn">Sensor Mappings</button>
+        </div>
+
+        <!-- Video Player Mode Content -->
+        <div id="videoPlayerModeContent">
+            <div class="video-container" id="mainVideoContainer">
+                <video id="videoPlayer" playsinline webkit-playsinline></video>
+                <div class="controls-overlay" id="fullscreenControlsOverlay">
+                    <div class="progress-container">
+                        <div class="progress-bar" id="progressBarFullscreen"></div>
+                    </div>
+                    <div class="main-controls">
+                        <button id="playPauseFullscreen" class="toggle-button">Play</button>
+                        <button id="exitVideoFullscreenBtn" class="toggle-button">Exit Full</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="videoPlaceholder" class="placeholder-message">
+                <p>Select a video file to play</p>
+            </div>
+            
+            <div class="controls" id="videoPlayerControls">
+                <div class="progress-container" id="mainProgressContainer">
+                    <div class="progress-bar" id="progressBar"></div>
+                </div>
+                <div class="time-display">
+                    <span id="currentTime">0:00</span>
+                    <span id="duration">0:00</span>
+                </div>
+                <div class="main-controls">
+                    <button id="playPauseBtn" class="toggle-button">Play</button>
+                    <button id="videoFullscreenBtn" class="toggle-button">Fullscreen</button>
+                    <button id="loopBtn" class="toggle-button">Loop: ON</button>
+                </div>
+                <div class="volume-container">
+                    <div class="volume-icon">🔊</div>
+                    <input type="range" min="0" max="1" step="0.1" value="1" class="volume-slider" id="volumeSlider">
+                </div>
+                <div class="loop-info" id="loopInfo"></div>
+            </div>
+            
+            <div class="filter-controls" id="videoFilterControls">
+                 <div class="filter-control">
+                    <div class="filter-label"><span>Brightness</span><span class="filter-value" id="brightnessValue">100%</span></div>
+                    <input type="range" min="25" max="200" value="100" class="filter-slider" id="brightnessSlider">
+                </div>
+                <div class="filter-control">
+                    <div class="filter-label"><span>Saturation</span><span class="filter-value" id="saturationValue">100%</span></div>
+                    <input type="range" min="25" max="200" value="100" class="filter-slider" id="saturationSlider">
+                </div>
+                <div class="filter-control">
+                    <div class="filter-label"><span>Contrast</span><span class="filter-value" id="contrastValue">100%</span></div>
+                    <input type="range" min="25" max="200" value="100" class="filter-slider" id="contrastSlider">
+                </div>
+                <div class="filter-control">
+                    <div class="filter-label"><span>Hue Rotate</span><span class="filter-value" id="hueRotateValue">0°</span></div>
+                    <input type="range" min="0" max="360" value="0" class="filter-slider" id="hueRotateSlider">
+                </div>
+                <div class="filter-control">
+                    <div class="filter-label"><span>Blur</span><span class="filter-value" id="blurValue">0px</span></div>
+                    <input type="range" min="0" max="20" value="0" class="filter-slider" id="blurSlider">
+                </div>
+                <button id="resetFiltersBtn" class="filter-reset">Reset All Filters</button>
+            </div>
+        </div>
+
+        <!-- Point Cloud Mode Content -->
+        <div id="pointCloudModeContent" class="hidden">
+            <div class="point-cloud-container" id="mainPointCloudContainer">
+                 <canvas id="pointCloudCanvas"></canvas>
+            </div>
+            <div class="point-cloud-params-container" id="pointCloudParams">
+                <div class="filter-control">
+                    <div class="filter-label"><span>Point Density</span><span class="filter-value" id="densityValue">32</span></div>
+                    <input type="range" min="8" max="128" value="32" step="1" class="filter-slider" id="densitySlider">
+                </div>
+                <div class="filter-control">
+                    <div class="filter-label"><span>Displacement Scale</span><span class="filter-value" id="displacementValue">50</span></div>
+                    <input type="range" min="0" max="200" value="50" step="1" class="filter-slider" id="displacementSlider">
+                </div>
+                 <div class="filter-control">
+                    <div class="filter-label"><span>Point Size</span><span class="filter-value" id="pointSizeValue">3</span></div>
+                    <input type="range" min="1" max="10" value="3" step="1" class="filter-slider" id="pointSizeSlider">
+                </div>
+                <div class="filter-control">
+                    <div class="filter-label"><span>Tilt Sensitivity</span><span class="filter-value" id="tiltSensitivityValue">10</span></div>
+                    <input type="range" min="0" max="50" value="10" step="1" class="filter-slider" id="tiltSensitivitySlider">
+                </div>
+            </div>
+        </div>
+        
+        <!-- Sensor Mappings Mode Content -->
+        <div id="sensorMappingsModeContent" class="hidden">
+            <div class="mapping-container">
+                <div class="mapping-header">
+                    <div class="mapping-title">Sensor to Effect Mappings</div>
+                    <div class="mapping-view-toggle">
+                        <button id="listViewBtn" class="active">List</button>
+                        <button id="gridViewBtn">Grid</button>
+                    </div>
+                </div>
+                
+                <!-- List View -->
+                <div id="mappingListView" class="mapping-list">
+                    <!-- Mapping items will be generated by JavaScript -->
+                </div>
+                
+                <!-- Grid View -->
+                <div id="mappingGridView" class="mapping-grid hidden">
+                    <!-- Grid items will be generated by JavaScript -->
+                </div>
+                
+                <!-- Add Button for List View -->
+                <button id="addMappingBtn" class="mapping-add-btn">
+                    <span class="mapping-add-icon">+</span>
+                    <span>Add New Sensor Mapping</span>
+                </button>
+                
+                <!-- Additional Sensor Information -->
+                <div class="audio-level-container">
+                    <div class="audio-level-header">
+                        <div class="audio-level-title">Microphone Level</div>
+                        <div class="audio-level-value" id="micLevelValue">0 dB</div>
+                    </div>
+                    <div class="audio-level-meter">
+                        <div class="audio-level-bar" id="micLevelBar"></div>
+                    </div>
+                </div>
+                
+                <div class="light-sensor-container">
+                    <div class="light-sensor-header">
+                        <div class="light-sensor-title">
+                            <span class="light-sensor-icon">☀️</span>
+                            <span>Ambient Light</span>
+                        </div>
+                        <div class="light-sensor-value" id="lightLevelValue">Unknown</div>
+                    </div>
+                </div>
+                
+                <!-- Testing Mode -->
+                <div class="testing-mode-container">
+                    <div class="testing-mode-header">
+                        <div class="testing-mode-title">
+                            <span class="testing-mode-icon">🧪</span>
+                            <span>Testing Mode</span>
+                        </div>
+                        <button id="testingModeToggle" class="testing-mode-toggle">Enable</button>
+                    </div>
+                    <div class="testing-mode-description">
+                        Manually adjust sensor values to test your mappings without using actual device sensors.
+                    </div>
+                    <div id="testingControls" class="testing-mode-controls hidden">
+                        <div class="testing-mode-control">
+                            <div class="testing-mode-control-label">Alpha (Rotation)</div>
+                            <input type="range" min="0" max="360" value="180" class="mapping-slider" id="testAlphaSlider">
+                        </div>
+                        <div class="testing-mode-control">
+                            <div class="testing-mode-control-label">Beta (Tilt F/B)</div>
+                            <input type="range" min="-90" max="90" value="0" class="mapping-slider" id="testBetaSlider">
+                        </div>
+                        <div class="testing-mode-control">
+                            <div class="testing-mode-control-label">Gamma (Tilt L/R)</div>
+                            <input type="range" min="-90" max="90" value="0" class="mapping-slider" id="testGammaSlider">
+                        </div>
+                        <div class="testing-mode-control">
+                            <div class="testing-mode-control-label">Microphone Level</div>
+                            <input type="range" min="0" max="100" value="30" class="mapping-slider" id="testMicSlider">
+                        </div>
+                        <div class="testing-mode-control">
+                            <div class="testing-mode-control-label">Light Level</div>
+                            <input type="range" min="0" max="1000" value="500" class="mapping-slider" id="testLightSlider">
+                        </div>
+                        <div class="testing-mode-control">
+                            <div class="testing-mode-control-label">Acceleration X</div>
+                            <input type="range" min="-10" max="10" value="0" step="0.1" class="mapping-slider" id="testAccelXSlider">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Mapping Edit/Add Modal -->
+        <div id="mappingModal" class="mapping-modal-overlay hidden">
+            <div class="mapping-modal">
+                <div class="mapping-modal-header">
+                    <div class="mapping-modal-title">Edit Mapping</div>
+                    <button class="mapping-modal-close" id="closeModalBtn">×</button>
+                </div>
+                <div class="mapping-form-group">
+                    <label class="mapping-form-label">Sensor Input</label>
+                    <select class="mapping-form-select" id="modalSensorSelect">
+                        <!-- Options will be populated by JavaScript -->
+                    </select>
+                    <div class="mapping-form-description" id="modalSensorDescription">
+                        Device rotation around z-axis (compass direction)
+                    </div>
+                </div>
+                <div class="mapping-form-group">
+                    <label class="mapping-form-label">Effect Output</label>
+                    <select class="mapping-form-select" id="modalEffectSelect">
+                        <!-- Options will be populated by JavaScript -->
+                    </select>
+                    <div class="mapping-form-description" id="modalEffectDescription">
+                        Video brightness filter (25% - 200%)
+                    </div>
+                </div>
+                <div class="mapping-slider-container">
+                    <div class="mapping-slider-header">
+                        <div class="mapping-slider-label">Sensitivity</div>
+                        <div class="mapping-slider-value" id="modalSensitivityValue">1.0</div>
+                    </div>
+                    <input type="range" min="0.1" max="3" step="0.1" value="1.0" class="mapping-slider" id="modalSensitivitySlider">
+                </div>
+                <div class="mapping-form-group">
+                    <label class="mapping-form-label">Effect Range</label>
+                    <div class="mapping-form-row">
+                        <div class="mapping-form-col">
+                            <label class="mapping-form-label">Min Value</label>
+                            <input type="number" class="mapping-form-input" id="modalRangeMin" value="50">
+                        </div>
+                        <div class="mapping-form-col">
+                            <label class="mapping-form-label">Max Value</label>
+                            <input type="number" class="mapping-form-input" id="modalRangeMax" value="150">
+                        </div>
+                    </div>
+                </div>
+                <div class="mapping-checkbox-container">
+                    <input type="checkbox" class="mapping-checkbox" id="modalInvertMapping">
+                    <label class="mapping-checkbox-label">Invert Mapping (reverse direction)</label>
+                </div>
+                <div class="mapping-modal-footer">
+                    <button class="mapping-modal-btn mapping-modal-cancel" id="modalCancelBtn">Cancel</button>
+                    <button class="mapping-modal-btn mapping-modal-save" id="modalSaveBtn">Save Mapping</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Common Controls -->
+        <div class="file-controls">
+            <input type="file" id="fileInput" accept="video/*">
+            <label for="fileInput" class="file-label">Choose Video File</label>
+            <div class="file-name" id="fileName">No file selected</div>
+        </div>
+        
+        <div class="sensor-section" id="sensorSectionControls">
+            <div class="sensor-heading">
+                <div class="sensor-title">Motion Controls</div>
+                <button id="sensorToggleBtn" class="sensor-toggle">Enable Sensors</button>
+            </div>
+            <div class="mapping-info" id="sensorMappingInfo">
+                <!-- Content will be set by JavaScript -->
+            </div>
+            <div class="sensor-values">
+                <div class="sensor-value"><div class="value-label">Alpha (°)</div><div id="orientAlpha" class="value-number">0.00</div></div>
+                <div class="sensor-value"><div class="value-label">Beta (°)</div><div id="orientBeta" class="value-number">0.00</div></div>
+                <div class="sensor-value"><div class="value-label">Gamma (°)</div><div id="orientGamma" class="value-number">0.00</div></div>
+            </div>
+            <div style="display: flex; justify-content: center;"> <!-- Centering compass -->
+                <div class="compass">
+                    <div id="compassNeedle" class="compass-needle"></div>
+                    <div class="compass-center"></div>
+                    <div class="compass-marker">
+                        <span class="north">N</span><span class="east">E</span><span class="south">S</span><span class="west">W</span>
+                    </div>
+                </div>
+            </div>
+            <div class="sensor-configuration">
+                <div class="sensor-config-title">Sensor Sensitivity Settings</div>
+                <div class="sensor-config-controls">
+                    <div class="sensor-config-control">
+                        <div class="config-label"><span>Alpha Sensitivity</span><span class="config-value" id="alphaSensValue">1.0</span></div>
+                        <input type="range" min="0.1" max="2" step="0.1" value="1" class="config-slider" id="alphaSensitivitySlider">
+                    </div>
+                    <div class="sensor-config-control">
+                        <div class="config-label"><span>Beta Sensitivity</span><span class="config-value" id="betaSensValue">1.0</span></div>
+                        <input type="range" min="0.1" max="2" step="0.1" value="1" class="config-slider" id="betaSensitivitySlider">
+                    </div>
+                    <div class="sensor-config-control">
+                        <div class="config-label"><span>Gamma Sensitivity</span><span class="config-value" id="gammaSensValue">1.0</span></div>
+                        <input type="range" min="0.1" max="2" step="0.1" value="1" class="config-slider" id="gammaSensitivitySlider">
+                    </div>
+                    <div class="sensor-config-control">
+                        <div class="config-label"><span>Smoothing</span><span class="config-value" id="smoothingValue">0.3</span></div>
+                        <input type="range" min="0" max="0.9" step="0.1" value="0.3" class="config-slider" id="smoothingSlider">
+                    </div>
+                </div>
+                <div class="sensor-config-title">Manual Offset Adjustments</div>
+                <div class="sensor-config-controls">
+                    <div class="sensor-config-control">
+                        <div class="config-label"><span>Alpha Offset</span><span class="config-value" id="alphaOffsetValue">0°</span></div>
+                        <input type="range" min="-180" max="180" step="5" value="0" class="config-slider" id="alphaOffsetSlider">
+                    </div>
+                    <div class="sensor-config-control">
+                        <div class="config-label"><span>Beta Offset</span><span class="config-value" id="betaOffsetValue">0°</span></div>
+                        <input type="range" min="-45" max="45" step="1" value="0" class="config-slider" id="betaOffsetSlider">
+                    </div>
+                    <div class="sensor-config-control">
+                        <div class="config-label"><span>Gamma Offset</span><span class="config-value" id="gammaOffsetValue">0°</span></div>
+                        <input type="range" min="-45" max="45" step="1" value="0" class="config-slider" id="gammaOffsetSlider">
+                    </div>
+                </div>
+                <div class="sensor-actions">
+                    <button id="calibrateBtn" class="sensor-action-btn">Calibrate</button>
+                    <button id="invertBtn" class="sensor-action-btn">Invert Controls</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Scripts -->
+    <script src="js/utils.js"></script>
+    <script src="js/mappings.js"></script>
+    <script src="js/sensors.js"></script>
+    <script src="js/pointcloud.js"></script>
+    <script src="js/player.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
