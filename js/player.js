@@ -9,7 +9,7 @@ const Player = (function() {
 
     let isLooping = true;
     let loopCount = 0;
-    let lastVideoFilterValues = { brightness: 100, saturation: 100, contrast: 100 };
+    let currentFilterStyles = {}; // To store current state of CSS filters
     let lastVideoTap = 0;
 
     // This will be called by main.js to set the current mode
@@ -47,11 +47,66 @@ const Player = (function() {
         fullscreenProgressContainer = fullscreenControlsOverlay.querySelector('.progress-container');
     }
     
-    function applyVideoFilters() {
-        lastVideoFilterValues.brightness = brightnessSlider.value;
-        lastVideoFilterValues.saturation = saturationSlider.value;
-        lastVideoFilterValues.contrast = contrastSlider.value;
-        videoPlayer.style.filter = `brightness(${lastVideoFilterValues.brightness}%) saturate(${lastVideoFilterValues.saturation}%) contrast(${lastVideoFilterValues.contrast}%)`;
+    function applyCombinedVideoFilters() {
+        let filterString = "";
+        AVAILABLE_EFFECTS.forEach(effect => {
+            if (effect.isFilter && currentFilterStyles[effect.id] !== undefined) {
+                // Special handling for filters that are "off" at their default.
+                if ((effect.id === 'blur' && currentFilterStyles[effect.id] === 0) ||
+                    (effect.id === 'hue' && currentFilterStyles[effect.id] === 0) ||
+                    (effect.id === 'sepia' && currentFilterStyles[effect.id] === 0) ||
+                    (effect.id === 'grayscale' && currentFilterStyles[effect.id] === 0) ||
+                    (effect.id === 'invertColors' && currentFilterStyles[effect.id] === 0)
+                ) {
+                    // Don't add to filter string if it's at its "off" default
+                } else {
+                    filterString += `${effect.prop}(${currentFilterStyles[effect.id]}${effect.unit}) `;
+                }
+            }
+        });
+        videoPlayer.style.filter = filterString.trim();
+    }
+
+    function setEffect(effectId, value) {
+        const effectDetails = getEffectById(effectId);
+        if (!effectDetails || effectDetails.target !== 'player') return;
+
+        if (effectDetails.isFilter) {
+            currentFilterStyles[effectId] = value;
+            applyCombinedVideoFilters();
+            
+            // Update corresponding UI slider if it exists and is for this effect
+            if (effectId === 'brightness' && brightnessSlider) brightnessSlider.value = value;
+            else if (effectId === 'saturation' && saturationSlider) saturationSlider.value = value;
+            else if (effectId === 'contrast' && contrastSlider) contrastSlider.value = value;
+            
+            if (brightnessValue) UI.updateFilterDisplayValues(brightnessSlider, saturationSlider, contrastSlider, brightnessValue, saturationValue, contrastValue);
+        } else if (effectDetails.prop === 'playbackRate') {
+            videoPlayer.playbackRate = Math.max(effectDetails.min, Math.min(effectDetails.max, value));
+        } else if (effectDetails.prop === 'volume') {
+            videoPlayer.volume = Math.max(effectDetails.min, Math.min(effectDetails.max, value));
+            if (volumeSlider) volumeSlider.value = videoPlayer.volume;
+        }
+    }
+
+    function loadInitialPlayerEffects() {
+        Utils.loadPlayerSettings(videoPlayer, volumeSlider, brightnessSlider, saturationSlider, contrastSlider);
+        
+        setEffect('brightness', parseFloat(brightnessSlider.value));
+        setEffect('saturation', parseFloat(saturationSlider.value));
+        setEffect('contrast', parseFloat(contrastSlider.value));
+        setEffect('volume', parseFloat(volumeSlider.value));
+        
+        // Set other effects to their defaults if not mapped or controlled by UI
+        AVAILABLE_EFFECTS.forEach(eff => {
+            if (eff.target === 'player' && currentFilterStyles[eff.id] === undefined && eff.prop !== 'volume' && eff.prop !== 'playbackRate') {
+                if (eff.isFilter) setEffect(eff.id, eff.default);
+            }
+        });
+        
+        if (videoPlayer.playbackRate === 1) {
+            setEffect('playbackRate', getEffectById('playbackRate').default);
+        }
     }
 
     function togglePlayPause() {
@@ -80,7 +135,6 @@ const Player = (function() {
         document.body.style.overflow = 'hidden';
         videoFullscreenBtn.textContent = 'Exit Full';
         UI.showVideoFullscreenControlsBriefly(fullscreenControlsOverlay);
-        // document.addEventListener('keydown', exitFullscreenOnEscape); // Managed by Main.js
         if (mainVideoContainer.requestFullscreen) mainVideoContainer.requestFullscreen().catch(err => console.error("FS Error:", err));
     }
 
@@ -89,7 +143,6 @@ const Player = (function() {
         document.body.style.overflow = '';
         videoFullscreenBtn.textContent = 'Fullscreen';
         fullscreenControlsOverlay.classList.remove('active');
-        // document.removeEventListener('keydown', exitFullscreenOnEscape); // Managed by Main.js
         if (document.exitFullscreen) document.exitFullscreen().catch(err => console.error("Exit FS Error:", err));
     }
     
@@ -117,7 +170,7 @@ const Player = (function() {
         videoPlayer.addEventListener('loadedmetadata', function() {
             durationEl.textContent = Utils.formatTime(videoPlayer.duration);
             if (currentModeGetter() === 'pointCloud' && pointCloudModuleRef) { 
-                pointCloudModuleRef.setupCanvasDimensions(); // Notify PointCloud module
+                pointCloudModuleRef.setupCanvasDimensions();
             }
             if (videoPlayer.src && videoPlayer.paused) {
                videoPlayer.play().catch(Utils.handlePlayError);
@@ -149,7 +202,7 @@ const Player = (function() {
         }
         
         volumeSlider.addEventListener('input', function() {
-            videoPlayer.volume = this.value;
+            setEffect('volume', parseFloat(this.value));
             localStorage.setItem('videoPlayerVolume', this.value);
         });
         
@@ -170,21 +223,44 @@ const Player = (function() {
             UI.updatePlayPauseButtons(playPauseBtn, playPauseFullscreen, false);
         });
 
-        [brightnessSlider, saturationSlider, contrastSlider].forEach(slider => {
-            slider.addEventListener('input', () => {
-                UI.updateFilterDisplayValues(brightnessSlider, saturationSlider, contrastSlider, brightnessValue, saturationValue, contrastValue);
-                Utils.saveVideoPlayerSettings(brightnessSlider, saturationSlider, contrastSlider);
-                applyVideoFilters();
-            });
+        brightnessSlider.addEventListener('input', () => {
+            setEffect('brightness', parseFloat(brightnessSlider.value));
+            localStorage.setItem('videoPlayerBrightness', brightnessSlider.value);
+        });
+        
+        saturationSlider.addEventListener('input', () => {
+            setEffect('saturation', parseFloat(saturationSlider.value));
+            localStorage.setItem('videoPlayerSaturation', saturationSlider.value);
+        });
+        
+        contrastSlider.addEventListener('input', () => {
+            setEffect('contrast', parseFloat(contrastSlider.value));
+            localStorage.setItem('videoPlayerContrast', contrastSlider.value);
         });
         
         resetFiltersBtn.addEventListener('click', function() {
-            brightnessSlider.value = 100;
-            saturationSlider.value = 100;
-            contrastSlider.value = 100;
+            const defaultBrightness = getEffectById('brightness').default;
+            const defaultSaturation = getEffectById('saturation').default;
+            const defaultContrast = getEffectById('contrast').default;
+            
+            setEffect('brightness', defaultBrightness); 
+            brightnessSlider.value = defaultBrightness;
+            
+            setEffect('saturation', defaultSaturation);
+            saturationSlider.value = defaultSaturation;
+
+            setEffect('contrast', defaultContrast);
+            contrastSlider.value = defaultContrast;
+
+            // Reset other filters controlled by mappings to their defaults
+            AVAILABLE_EFFECTS.forEach(eff => {
+                if (eff.isFilter && eff.id !== 'brightness' && eff.id !== 'saturation' && eff.id !== 'contrast') {
+                    setEffect(eff.id, eff.default);
+                }
+            });
+            
             UI.updateFilterDisplayValues(brightnessSlider, saturationSlider, contrastSlider, brightnessValue, saturationValue, contrastValue);
             Utils.saveVideoPlayerSettings(brightnessSlider, saturationSlider, contrastSlider);
-            applyVideoFilters();
         });
 
         videoPlayer.addEventListener('touchend', (e) => {
@@ -207,25 +283,22 @@ const Player = (function() {
         pointCloudModuleRef = pcModule;
         cacheDOMElements();
         setupEventListeners();
-        Utils.loadPlayerSettings(videoPlayer, volumeSlider, brightnessSlider, saturationSlider, contrastSlider);
+        loadInitialPlayerEffects();
         UI.updateFilterDisplayValues(brightnessSlider, saturationSlider, contrastSlider, brightnessValue, saturationValue, contrastValue);
-        applyVideoFilters();
         UI.updateLoopButton(loopBtn, isLooping);
     }
 
     // Public API
     return {
         init,
-        applyVideoFilters, // Mappings might need this
-        getFilterSliderElements: () => ({ brightnessSlider, saturationSlider, contrastSlider }), // Mappings might need these
-        getLastFilterValues: () => lastVideoFilterValues, // Mappings might need these for smoothing
+        setEffect,
         getVideoElement: () => videoPlayer,
         getMainVideoContainer: () => mainVideoContainer,
         toggleVideoFullscreen,
         enterVideoFullscreenMode,
         exitVideoFullscreenMode,
         resetFilters: () => resetFiltersBtn.click(),
-        getDOM: () => ({ // For main.js to show/hide relevant controls
+        getDOM: () => ({
             videoPlayerControls, 
             videoFilterControls,
             videoPlaceholder
