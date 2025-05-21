@@ -102,7 +102,7 @@
                         <span class="active-mapping-indicator-container">Point Density<span class="active-mapping-dot" data-effect-id="pc_density"></span></span>
                         <span class="filter-value" id="densityValue">32</span>
                     </div>
-                    <input type="range" min="8" max="256" value="32" step="1" class="filter-slider" id="densitySlider"> <!-- max increased -->
+                    <input type="range" min="8" max="256" value="32" step="1" class="filter-slider" id="densitySlider"> 
                 </div>
                 <div class="filter-control">
                     <div class="filter-label">
@@ -120,7 +120,7 @@
                 </div>
                 <div class="filter-control"> 
                     <div class="filter-label"><span>Parallax Sensitivity</span><span class="filter-value" id="tiltSensitivityValue">10</span></div>
-                    <input type="range" min="0" max="150" value="10" step="1" class="filter-slider" id="tiltSensitivitySlider"> <!-- max increased -->
+                    <input type="range" min="0" max="150" value="10" step="1" class="filter-slider" id="tiltSensitivitySlider"> 
                 </div>
                 <div class="filter-control">
                     <div class="filter-label"><span>Processing Detail</span><span class="filter-value" id="pcProcessingValue">Medium</span></div>
@@ -130,6 +130,12 @@
                         <option value="180">High (180px)</option>
                         <option value="240">Max (240px)</option>
                     </select>
+                </div>
+                <div class="filter-control"> <!-- NEW: Invert Depth Checkbox -->
+                    <label for="pcInvertDepthCheckbox" class="checkbox-label">
+                        <input type="checkbox" id="pcInvertDepthCheckbox">
+                        Invert Point Cloud Depth
+                    </label>
                 </div>
             </div>
         </div>
