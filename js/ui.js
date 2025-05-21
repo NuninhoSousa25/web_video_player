@@ -1,116 +1,71 @@
-/**
- * Enhanced Sensor Video Processor - UI Module
- * Handles the UI mode switching and interactions
- */
+// js/ui.js
+const UI = (function() {
+    // DOM Elements that are purely for display updates might be cached here
+    // or passed into functions. For simplicity, we'll assume they are accessible
+    // or passed when needed by other modules.
 
-// UI state variables
-let currentMode = 'videoPlayer'; // 'videoPlayer', 'pointCloud', or 'sensorMappings'
+    function updateFilterDisplayValues(brightnessSlider, saturationSlider, contrastSlider, brightnessValueEl, saturationValueEl, contrastValueEl) {
+        brightnessValueEl.textContent = `${brightnessSlider.value}%`;
+        saturationValueEl.textContent = `${saturationSlider.value}%`;
+        contrastValueEl.textContent = `${contrastSlider.value}%`;
+    }
 
-// DOM Elements
-let showVideoPlayerModeBtn;
-let showPointCloudModeBtn;
-let showMappingsModeBtn;
-let videoPlayerModeContent;
-let pointCloudModeContent;
-let sensorMappingsModeContent;
-let sensorMappingInfo;
-let videoPlaceholder;
-let videoPlayerControls;
-let videoFilterControls;
-
-// Initialize UI module
-function initializeUI() {
-    // Get DOM elements
-    showVideoPlayerModeBtn = utils.getElement('showVideoPlayerModeBtn');
-    showPointCloudModeBtn = utils.getElement('showPointCloudModeBtn');
-    showMappingsModeBtn = utils.getElement('showMappingsModeBtn');
-    videoPlayerModeContent = utils.getElement('videoPlayerModeContent');
-    pointCloudModeContent = utils.getElement('pointCloudModeContent');
-    sensorMappingsModeContent = utils.getElement('sensorMappingsModeContent');
-    sensorMappingInfo = utils.getElement('sensorMappingInfo');
-    videoPlaceholder = utils.getElement('videoPlaceholder');
-    videoPlayerControls = utils.getElement('videoPlayerControls');
-    videoFilterControls = utils.getElement('videoFilterControls');
+    function updatePointCloudParamDisplays(config, densityValueEl, displacementValueEl, pointSizeValueEl, tiltSensitivityValueEl) {
+        densityValueEl.textContent = config.density;
+        displacementValueEl.textContent = config.displacementScale;
+        pointSizeValueEl.textContent = config.pointSize;
+        tiltSensitivityValueEl.textContent = config.tiltSensitivity;
+    }
     
-    // Set up mode switching event listeners
-    showVideoPlayerModeBtn.addEventListener('click', () => switchMode('videoPlayer'));
-    showPointCloudModeBtn.addEventListener('click', () => switchMode('pointCloud'));
-    showMappingsModeBtn.addEventListener('click', () => switchMode('sensorMappings'));
+    function updateSensorConfigDisplayValues(sliders, values) {
+        values.alphaSens.textContent = parseFloat(sliders.alphaSensitivity.value).toFixed(1);
+        values.betaSens.textContent = parseFloat(sliders.betaSensitivity.value).toFixed(1);
+        values.gammaSens.textContent = parseFloat(sliders.gammaSensitivity.value).toFixed(1);
+        values.smoothing.textContent = parseFloat(sliders.smoothing.value).toFixed(1);
+        values.alphaOffset.textContent = `${sliders.alphaOffset.value}°`;
+        values.betaOffset.textContent = `${sliders.betaOffset.value}°`;
+        values.gammaOffset.textContent = `${sliders.gammaOffset.value}°`;
+    }
+
+    function updateLoopButton(loopBtn, isLooping) {
+        loopBtn.textContent = isLooping ? 'Loop: ON' : 'Loop: OFF';
+    }
+
+    function updateLoopInfo(loopInfoEl, videoPlayer, loopCount) {
+        loopInfoEl.textContent = videoPlayer.loop ? `Looped ${loopCount} time${loopCount === 1 ? '' : 's'}` : '';
+    }
+
+    function updatePlayPauseButtons(playPauseBtn, playPauseFullscreenBtn, isPlaying) {
+        const text = isPlaying ? 'Pause' : 'Play';
+        if (playPauseBtn) playPauseBtn.textContent = text;
+        if (playPauseFullscreenBtn) playPauseFullscreenBtn.textContent = text;
+    }
     
-    // Initialize mode UI
-    updateModeUI();
-}
-
-// Switch between application modes
-function switchMode(newMode) {
-    if (newMode === currentMode) return;
-
-    currentMode = newMode;
-    updateModeUI();
-
-    if (currentMode === 'pointCloud') {
-        const videoPlayer = document.getElementById('videoPlayer');
-        if (!videoPlayer.src || videoPlayer.readyState < videoPlayer.HAVE_METADATA) {
-            alert("Please load and play a video first to use Point Cloud mode.");
-            // Revert to video player mode if no video
-            currentMode = 'videoPlayer'; 
-            updateModeUI();
-            return;
-        }
-        window.pointCloud.setupPointCloudCanvasDimensions();
-        if (videoPlayer.paused) videoPlayer.play().catch(err => console.error("Play error:", err));
-        window.pointCloud.renderPointCloudFrame();
-    } else { 
-        // Switching from pointCloud mode
-        if (window.pointCloudAnimationFrameId) {
-            cancelAnimationFrame(window.pointCloudAnimationFrameId);
-            window.pointCloudAnimationFrameId = null;
+    function updateSensorMappingInfoText(sensorMappingInfoEl, currentMode) {
+         if (currentMode === 'videoPlayer') {
+            sensorMappingInfoEl.innerHTML = `Tilt your device to control video effects: <br>
+                <span class="mapping-highlight">Rotation</span> → Saturation • 
+                <span class="mapping-highlight">Tilt Fwd/Back</span> → Brightness • 
+                <span class="mapping-highlight">Tilt Left/Right</span> → Contrast`;
+        } else { // pointCloud mode
+            sensorMappingInfoEl.innerHTML = `Tilt your device to adjust point cloud view. Ensure sensors are enabled below.`;
         }
     }
-    
-    // If switching to mappings mode, update the UI
-    if (newMode === 'sensorMappings') {
-        window.mappings.renderMappings();
+
+    function showVideoFullscreenControlsBriefly(fullscreenControlsOverlay) {
+        fullscreenControlsOverlay.classList.add('active');
+        setTimeout(() => fullscreenControlsOverlay.classList.remove('active'), 3000);
     }
-}
 
-// Update UI based on current mode
-function updateModeUI() {
-    // Update tab buttons
-    showVideoPlayerModeBtn.classList.toggle('active', currentMode === 'videoPlayer');
-    showPointCloudModeBtn.classList.toggle('active', currentMode === 'pointCloud');
-    showMappingsModeBtn.classList.toggle('active', currentMode === 'sensorMappings');
 
-    // Show/hide content sections
-    utils.toggleElementVisibility(videoPlayerModeContent, currentMode === 'videoPlayer');
-    utils.toggleElementVisibility(pointCloudModeContent, currentMode === 'pointCloud');
-    utils.toggleElementVisibility(sensorMappingsModeContent, currentMode === 'sensorMappings');
-    
-    // Hide placeholder if video is loaded, regardless of mode
-    const videoPlayer = document.getElementById('videoPlayer');
-    utils.toggleElementVisibility(videoPlaceholder, !videoPlayer.src);
-    
-    // Show video controls only if video loaded AND in video player mode
-    utils.toggleElementVisibility(videoPlayerControls, videoPlayer.src && currentMode === 'videoPlayer');
-    utils.toggleElementVisibility(videoFilterControls, videoPlayer.src && currentMode === 'videoPlayer');
-
-    // Update sensor mapping info text
-    if (currentMode === 'videoPlayer') {
-        sensorMappingInfo.innerHTML = `Use the <b>Sensor Mappings</b> tab to configure motion controls for video effects`;
-    } else if (currentMode === 'pointCloud') { 
-        sensorMappingInfo.innerHTML = `Tilt your device to adjust point cloud view. Ensure sensors are enabled below.`;
-    } else { // 'sensorMappings'
-        sensorMappingInfo.innerHTML = `Create custom mappings between device sensors and video effects.`;
-    }
-}
-
-// Export functions to global scope
-window.ui = {
-    initializeUI,
-    switchMode,
-    updateModeUI,
-    getCurrentMode: function() { return currentMode; }
-};
-
-// Export global variables for other modules to access
-window.currentMode = currentMode;
+    return {
+        updateFilterDisplayValues,
+        updatePointCloudParamDisplays,
+        updateSensorConfigDisplayValues,
+        updateLoopButton,
+        updateLoopInfo,
+        updatePlayPauseButtons,
+        updateSensorMappingInfoText,
+        showVideoFullscreenControlsBriefly
+    };
+})();
