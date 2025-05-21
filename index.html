@@ -97,7 +97,9 @@
                 </div>
             </div>
         </div>
-        
+        <div class="mapping-panel-toggle-container" style="padding: 10px; text-align: center; background-color: #2d2d2d; border-top: 1px solid #333;">
+            <button id="toggleMappingPanelBtn" class="button">Sensor Mapping Panel</button>
+        </div>
         <!-- Common Controls -->
         <div class="file-controls">
             <input type="file" id="fileInput" accept="video/*">
@@ -169,15 +171,81 @@
             </div>
         </div>
     </div>
+    <div id="sensorMappingPanel" class="sensor-mapping-panel hidden">
+        <div class="panel-header">
+            <h2>Sensor Effect Mappings</h2>
+            <button id="closeMappingPanelBtn" class="close-button">×</button>
+        </div>
+        <div class="panel-content">
+            <div class="mappings-list-container">
+                <h3>Active Mappings</h3>
+                <ul id="mappingsList" class="mappings-list">
+                    <!-- Mappings will be rendered here -->
+                </ul>
+                <button id="addNewMappingBtn" class="button add-new-button">+ Add New Mapping</button>
+            </div>
 
+            <div id="mappingEditFormContainer" class="edit-form-container hidden">
+                <h3 id="editFormTitle">Add/Edit Mapping</h3>
+                <form id="mappingEditForm">
+                    <input type="hidden" id="mappingId">
+                    
+                    <div>
+                        <label for="sensorSelect">Sensor:</label>
+                        <select id="sensorSelect" name="sensorId"></select>
+                        <p id="sensorDescription" class="description-text"></p>
+                    </div>
+                    
+                    <div>
+                        <label for="effectSelect">Effect:</label>
+                        <select id="effectSelect" name="effectId"></select>
+                        <p id="effectDescription" class="description-text"></p>
+                    </div>
+                    
+                    <div>
+                        <label for="sensitivityRange">Sensitivity: <span id="sensitivityValue">1.0</span></label>
+                        <input type="range" id="sensitivityRange" name="sensitivity" min="0.1" max="5" step="0.1" value="1.0">
+                    </div>
+                    
+                    <div class="range-inputs">
+                        <div>
+                            <label for="outputMin">Output Min (<span id="effectUnitMin"></span>):</label>
+                            <input type="number" id="outputMin" name="rangeMin" step="any">
+                        </div>
+                        <div>
+                            <label for="outputMax">Output Max (<span id="effectUnitMax"></span>):</label>
+                            <input type="number" id="outputMax" name="rangeMax" step="any">
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <input type="checkbox" id="invertMapping" name="invert">
+                        <label for="invertMapping">Invert Mapping</label>
+                    </div>
+                    
+                    <div>
+                        <input type="checkbox" id="mappingEnabled" name="enabled" checked>
+                        <label for="mappingEnabled">Enabled</label>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="button">Save Mapping</button>
+                        <button type="button" id="cancelEditBtn" class="button secondary-button">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
     <!-- Scripts: Order matters for dependencies if not using ES6 modules -->
-    <script src="js/utils.js"></script>
-    <script src="js/ui.js"></script>
-    <script src="js/player.js"></script>
-    <script src="js/pointcloud.js"></script>
-    <script src="js/sensors.js"></script>
-    <script src="js/mappings.js"></script>
-    <script src="js/main.js"></script> 
-    <!-- main.js is last as it will likely initialize other modules -->
+   <script src="js/utils.js"></script>
+<script src="js/mapping_config.js"></script> <!-- NEW -->
+<script src="js/ui.js"></script>
+<script src="js/player.js"></script>
+<script src="js/pointcloud.js"></script>
+<script src="js/sensors.js"></script>
+<script src="js/mapping_manager.js"></script> <!-- NEW -->
+<script src="js/mapping_panel.js"></script> <!-- NEW -->
+<script src="js/mappings.js"></script> <!-- Will be heavily modified -->
+<script src="js/main.js"></script>
 </body>
 </html>
