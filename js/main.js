@@ -1,13 +1,11 @@
 // js/main.js
 const App = (function() {
-    let currentMode = 'videoPlayer'; // 'videoPlayer' or 'pointCloud'
+    let currentMode = 'videoPlayer'; 
 
-    // DOM Elements for mode switching and global fullscreen handling
     let showVideoPlayerModeBtn, showPointCloudModeBtn,
         videoPlayerModeContent, pointCloudModeContent,
         sensorMappingInfo;
     
-    // Module references
     let player, pointcloud, sensors, mappings, ui, utils, mappingPanel;
 
     function cacheGlobalDOMElements() {
@@ -32,7 +30,8 @@ const App = (function() {
         playerDOM.videoPlayerControls.classList.toggle('hidden', !videoElement.src || currentMode !== 'videoPlayer');
         playerDOM.videoFilterControls.classList.toggle('hidden', !videoElement.src || currentMode !== 'videoPlayer');
 
-        UI.updateSensorMappingInfoText(sensorMappingInfo, currentMode);
+        UI.updateSensorMappingInfoText(sensorMappingInfo, currentMode); // Already in place
+        UI.updateActiveMappingIndicators(); // Update indicators on mode switch
     }
 
     function switchMode(newMode) {
@@ -43,7 +42,7 @@ const App = (function() {
         const videoElement = player.getVideoElement();
 
         if (currentMode === 'pointCloud') {
-            pointcloud.stopRendering(); // Ensure any previous rendering is stopped
+            pointcloud.stopRendering(); 
             if (!videoElement.src || videoElement.readyState < videoElement.HAVE_METADATA) {
                 alert("Please load and play a video first to use Point Cloud mode.");
                 currentMode = 'videoPlayer'; 
@@ -51,9 +50,9 @@ const App = (function() {
                 return;
             }
             pointcloud.setupCanvasDimensions();
-            if (videoElement.paused) videoElement.play().catch(Utils.handlePlayError); // Player module will call pointcloud.startRendering on 'play'
-            else pointcloud.startRendering(); // If already playing
-        } else { // Switching to videoPlayer mode
+            if (videoElement.paused) videoElement.play().catch(Utils.handlePlayError); 
+            else pointcloud.startRendering(); 
+        } else { 
             pointcloud.stopRendering();
         }
     }
@@ -62,17 +61,31 @@ const App = (function() {
         if (e.key === 'Escape') {
             const videoContainer = player.getMainVideoContainer();
             const pcContainer = pointcloud.getMainPointCloudContainer();
-            if (videoContainer && videoContainer.classList.contains('fullscreen')) player.exitVideoFullscreenMode();
-            if (pcContainer && pcContainer.classList.contains('fullscreen')) pointcloud.exitPointCloudFullscreenMode();
+            // Check if any element is in fullscreen mode first
+            if (document.fullscreenElement || document.webkitIsFullScreen) {
+                if (videoContainer && videoContainer.classList.contains('fullscreen')) {
+                    player.exitVideoFullscreenMode();
+                }
+                if (pcContainer && pcContainer.classList.contains('fullscreen')) {
+                    pointcloud.exitPointCloudFullscreenMode();
+                }
+            }
         }
     }
 
+
     function handleFullscreenChange() {
+        // This function is called when browser fullscreen state changes (e.g., by Esc key)
         if (!document.fullscreenElement && !document.webkitIsFullScreen && !document.mozFullScreen && !document.msFullscreenElement) {
             const videoContainer = player.getMainVideoContainer();
             const pcContainer = pointcloud.getMainPointCloudContainer();
-            if (videoContainer && videoContainer.classList.contains('fullscreen')) player.exitVideoFullscreenMode();
-            if (pcContainer && pcContainer.classList.contains('fullscreen')) pointcloud.exitPointCloudFullscreenMode();
+            
+            if (videoContainer && videoContainer.classList.contains('fullscreen')) {
+                player.exitVideoFullscreenMode(); // Call module's exit to clean up classes
+            }
+            if (pcContainer && pcContainer.classList.contains('fullscreen')) {
+                pointcloud.exitPointCloudFullscreenMode(); // Call module's exit
+            }
        }
     }
 
@@ -82,58 +95,52 @@ const App = (function() {
 
         document.addEventListener('keydown', exitFullscreenOnEscape);
         document.addEventListener('fullscreenchange', handleFullscreenChange);
-        document.addEventListener('webkitfullscreenchange', handleFullscreenChange); // Safari
-        document.addEventListener('mozfullscreenchange', handleFullscreenChange);    // Firefox
-        document.addEventListener('MSFullscreenChange', handleFullscreenChange);   // IE/Edge
+        document.addEventListener('webkitfullscreenchange', handleFullscreenChange); 
+        document.addEventListener('mozfullscreenchange', handleFullscreenChange);    
+        document.addEventListener('MSFullscreenChange', handleFullscreenChange);   
     }
 
     function init() {
-        // Assign module references
         player = Player;
         pointcloud = PointCloud;
         sensors = Sensors;
         mappings = Mappings;
         ui = UI;
         utils = Utils;
-        mappingPanel = MappingPanel; // New mapping panel module
+        mappingPanel = MappingPanel; 
 
         cacheGlobalDOMElements();
 
-        // Initialize modules, passing necessary references or callbacks
         const getCurrentMode = () => currentMode;
         const getSensorState = () => sensors.isGloballyEnabled();
 
         player.init(getCurrentMode, pointcloud);
-        pointcloud.init(player.getVideoElement(), getCurrentMode, getSensorState);
+        pointcloud.init(player.getVideoElement(), getCurrentMode, getSensorState); // Pass sensor state getter
         
-        // Initialize mappings with reference to sensors
         mappings.init(player, pointcloud, sensors, getCurrentMode);
         
-        // Initialize sensors with mappings' applyAllActiveMappings as callback
-        sensors.init(mappings.applyAllActiveMappings, player);
+        // Pass pointcloud module to sensors init for parallax updates
+        sensors.init(mappings.applyAllActiveMappings, player, pointcloud); 
         
-        // Initialize mapping panel
         mappingPanel.init();
 
         setupGlobalEventListeners();
-        updateModeUI(); // Set initial UI based on default mode
+        updateModeUI(); 
     }
     
     function forceSwitchMode(mode) {
         console.warn(`Forcing mode switch to: ${mode}`);
-        currentMode = mode; // Directly set
-        updateModeUI(); // Update UI accordingly
+        currentMode = mode; 
+        updateModeUI(); 
         if (mode === 'videoPlayer') {
             pointcloud.stopRendering();
         }
     }
 
-    // Public API for App
     return {
         init,
         forceSwitchMode
     };
 })();
 
-// Start the application once the DOM is ready
 document.addEventListener('DOMContentLoaded', App.init);
