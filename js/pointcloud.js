@@ -2,10 +2,11 @@
 const PointCloud = (function() {
     let pointCloudCanvas, mainPointCloudContainer, pointCloudParams, densitySlider, densityValue,
         displacementSlider, displacementValue, pointSizeSlider, pointSizeValue,
-        tiltSensitivitySlider, tiltSensitivityValue;
+        tiltSensitivitySlider, tiltSensitivityValue,
+        pcProcessingResolutionSlider, pcProcessingValue; // New DOM elements for resolution
 
-    let videoPlayerRef; // Reference to the video element from Player module
-    let currentModeGetter = () => 'videoPlayer'; // Default getter
+    let videoPlayerRef; 
+    let currentModeGetter = () => 'videoPlayer'; 
 
     let pointCloudCtx;
     let pointCloudAnimationFrameId;
@@ -16,7 +17,8 @@ const PointCloud = (function() {
         density: 32,
         displacementScale: 50,
         pointSize: 3,
-        tiltSensitivity: 10
+        tiltSensitivity: 10,
+        maxProcessingDimension: 120 // Default processing dimension
     };
     let tiltAngles = { beta: 0, gamma: 0 };
     let lastCanvasTap = 0;
@@ -34,6 +36,8 @@ const PointCloud = (function() {
         pointSizeValue = document.getElementById('pointSizeValue');
         tiltSensitivitySlider = document.getElementById('tiltSensitivitySlider');
         tiltSensitivityValue = document.getElementById('tiltSensitivityValue');
+        pcProcessingResolutionSlider = document.getElementById('pcProcessingResolutionSlider'); // Cache new slider
+        pcProcessingValue = document.getElementById('pcProcessingValue'); // Cache new value display
     }
     
     function setEffect(effectId, value) {
@@ -43,22 +47,33 @@ const PointCloud = (function() {
         if (config.hasOwnProperty(effectDetails.prop)) {
             config[effectDetails.prop] = Math.max(effectDetails.min, Math.min(effectDetails.max, value));
             
-            // Update corresponding UI slider if it exists for this effect
             if (effectId === 'pc_density' && densitySlider) densitySlider.value = value;
             else if (effectId === 'pc_displacement' && displacementSlider) displacementSlider.value = value;
             else if (effectId === 'pc_pointSize' && pointSizeSlider) pointSizeSlider.value = value;
-            else if (effectId === 'pc_tiltSensitivity' && tiltSensitivitySlider) tiltSensitivitySlider.value = value;
+            // tiltSensitivity is not an "effect" in AVAILABLE_EFFECTS, so it's handled by its own slider directly.
 
-            if(densityValue) UI.updatePointCloudParamDisplays(config, densityValue, displacementValue, pointSizeValue, tiltSensitivityValue);
+            if(densityValue) UI.updatePointCloudParamDisplays(
+                config, densityValue, displacementValue, pointSizeValue,
+                tiltSensitivityValue, pcProcessingValue // Pass pcProcessingValue
+            );
+            UI.updateActiveMappingIndicators(); // Update indicators
         }
     }
     
     function loadInitialPCEffects() {
-        // Initialize from slider values or defaults
         setEffect('pc_density', parseInt(densitySlider.value) || getEffectById('pc_density').default);
         setEffect('pc_displacement', parseInt(displacementSlider.value) || getEffectById('pc_displacement').default);
         setEffect('pc_pointSize', parseInt(pointSizeSlider.value) || getEffectById('pc_pointSize').default);
-        setEffect('pc_tiltSensitivity', parseInt(tiltSensitivitySlider.value) || getEffectById('pc_tiltSensitivity').default);
+        
+        // Tilt sensitivity and processing dimension are handled by their own sliders/config
+        config.tiltSensitivity = parseInt(tiltSensitivitySlider.value) || 10;
+        config.maxProcessingDimension = parseInt(pcProcessingResolutionSlider.value) || 120;
+
+        UI.updatePointCloudParamDisplays(
+            config, densityValue, displacementValue, pointSizeValue, 
+            tiltSensitivityValue, pcProcessingValue
+        );
+        UI.updateActiveMappingIndicators(); // Update on load
     }
 
     function setupCanvasDimensions() {
@@ -143,7 +158,7 @@ const PointCloud = (function() {
             return;
         }
         
-        const MAX_PROCESS_DIM = 120;
+        const MAX_PROCESS_DIM = config.maxProcessingDimension; // Use configured max dimension
         let processWidth, processHeight;
         if (videoPlayerRef.videoWidth > videoPlayerRef.videoHeight) {
             processWidth = Math.min(videoPlayerRef.videoWidth, MAX_PROCESS_DIM);
@@ -208,7 +223,20 @@ const PointCloud = (function() {
         });
         
         tiltSensitivitySlider.addEventListener('input', (e) => {
-            setEffect('pc_tiltSensitivity', parseInt(e.target.value));
+            config.tiltSensitivity = parseInt(e.target.value); // Directly update config
+            UI.updatePointCloudParamDisplays(
+                config, densityValue, displacementValue, pointSizeValue, 
+                tiltSensitivityValue, pcProcessingValue
+            );
+        });
+
+        pcProcessingResolutionSlider.addEventListener('change', (e) => { // Listen to 'change' for select element
+            config.maxProcessingDimension = parseInt(e.target.value);
+            UI.updatePointCloudParamDisplays(
+                config, densityValue, displacementValue, pointSizeValue, 
+                tiltSensitivityValue, pcProcessingValue
+            );
+            // Optionally, could save this to localStorage
         });
     
         pointCloudCanvas.addEventListener('touchend', (e) => {
@@ -233,10 +261,9 @@ const PointCloud = (function() {
             pointCloudCtx = pointCloudCanvas.getContext('2d', { willReadFrequently: true });
         }
         setupEventListeners();
-        loadInitialPCEffects();
+        loadInitialPCEffects(); // This also calls UI.updatePointCloudParamDisplays
     }
 
-    // Public API
     return {
         init,
         setEffect,
@@ -259,6 +286,12 @@ const PointCloud = (function() {
         getDOM: () => ({
              pointCloudParams,
              pointCloudCanvas
-        })
+        }),
+        // Expose for UI module to check which effects are applied
+        isEffectActive: (effectId) => {
+            const effect = getEffectById(effectId);
+            if (!effect || !config.hasOwnProperty(effect.prop)) return false;
+            return config[effect.prop] !== effect.default;
+        }
     };
 })();
