@@ -3,15 +3,16 @@ const Player = (function() {
     let videoPlayer, mainVideoContainer, videoPlaceholder, videoPlayerControls, videoFilterControls,
         playPauseBtn, loopBtn, fileInput, fileName, progressBar, mainProgressContainer,
         currentTimeEl, durationEl, volumeSlider, loopInfo, brightnessSlider, saturationSlider,
-        contrastSlider, hueSlider, // Added hueSlider
-        brightnessValue, saturationValue, contrastValue, hueValue, // Added hueValue
+        contrastSlider, hueSlider, 
+        brightnessValue, saturationValue, contrastValue, hueValue, 
         resetFiltersBtn, videoFullscreenBtn, fullscreenControlsOverlay, progressBarFullscreen,
-        playPauseFullscreen, exitVideoFullscreenBtn, fullscreenProgressContainer;
+        playPauseFullscreen /* exitVideoFullscreenBtn removed */ ;
 
     let isLooping = true;
     let loopCount = 0;
     let currentFilterStyles = {}; 
     let lastVideoTap = 0;
+    let fsControlsTimeout; // For fullscreen controls auto-hide
 
     let currentModeGetter = () => 'videoPlayer'; 
     let pointCloudModuleRef; 
@@ -35,17 +36,17 @@ const Player = (function() {
         brightnessSlider = document.getElementById('brightnessSlider');
         saturationSlider = document.getElementById('saturationSlider');
         contrastSlider = document.getElementById('contrastSlider');
-        hueSlider = document.getElementById('hueSlider'); // Cache hueSlider
+        hueSlider = document.getElementById('hueSlider'); 
         brightnessValue = document.getElementById('brightnessValue');
         saturationValue = document.getElementById('saturationValue');
         contrastValue = document.getElementById('contrastValue');
-        hueValue = document.getElementById('hueValue'); // Cache hueValue
+        hueValue = document.getElementById('hueValue'); 
         resetFiltersBtn = document.getElementById('resetFiltersBtn');
-        videoFullscreenBtn = document.getElementById('videoFullscreenBtn');
+        videoFullscreenBtn = document.getElementById('videoFullscreenBtn'); // Button to ENTER fullscreen
         fullscreenControlsOverlay = document.getElementById('fullscreenControlsOverlay');
         progressBarFullscreen = document.getElementById('progressBarFullscreen');
         playPauseFullscreen = document.getElementById('playPauseFullscreen');
-        exitVideoFullscreenBtn = document.getElementById('exitVideoFullscreenBtn');
+        // exitVideoFullscreenBtn = document.getElementById('exitVideoFullscreenBtn'); // Removed
         fullscreenProgressContainer = fullscreenControlsOverlay.querySelector('.progress-container');
     }
     
@@ -54,7 +55,7 @@ const Player = (function() {
         AVAILABLE_EFFECTS.forEach(effect => {
             if (effect.isFilter && currentFilterStyles[effect.id] !== undefined) {
                 if ((effect.id === 'blur' && currentFilterStyles[effect.id] === 0) ||
-                    (effect.id === 'hue' && currentFilterStyles[effect.id] === 0) || // Updated to use effect.id
+                    (effect.id === 'hue' && currentFilterStyles[effect.id] === 0) || 
                     (effect.id === 'sepia' && currentFilterStyles[effect.id] === 0) ||
                     (effect.id === 'grayscale' && currentFilterStyles[effect.id] === 0) ||
                     (effect.id === 'invertColors' && currentFilterStyles[effect.id] === 0)
@@ -66,7 +67,7 @@ const Player = (function() {
             }
         });
         videoPlayer.style.filter = filterString.trim();
-        UI.updateActiveMappingIndicators(); // Call this after applying filters
+        UI.updateActiveMappingIndicators(); 
     }
 
     function setEffect(effectId, value) {
@@ -80,29 +81,29 @@ const Player = (function() {
             if (effectId === 'brightness' && brightnessSlider) brightnessSlider.value = value;
             else if (effectId === 'saturation' && saturationSlider) saturationSlider.value = value;
             else if (effectId === 'contrast' && contrastSlider) contrastSlider.value = value;
-            else if (effectId === 'hue' && hueSlider) hueSlider.value = value; // Update hue slider
+            else if (effectId === 'hue' && hueSlider) hueSlider.value = value; 
             
             if (brightnessValue) UI.updateFilterDisplayValues(
-                brightnessSlider, saturationSlider, contrastSlider, hueSlider, // Pass hueSlider
-                brightnessValue, saturationValue, contrastValue, hueValue // Pass hueValue
+                brightnessSlider, saturationSlider, contrastSlider, hueSlider, 
+                brightnessValue, saturationValue, contrastValue, hueValue 
             );
         } else if (effectDetails.prop === 'playbackRate') {
             videoPlayer.playbackRate = Math.max(effectDetails.min, Math.min(effectDetails.max, value));
-             UI.updateActiveMappingIndicators(); // Update indicators if playbackRate is mapped
+             UI.updateActiveMappingIndicators(); 
         } else if (effectDetails.prop === 'volume') {
             videoPlayer.volume = Math.max(effectDetails.min, Math.min(effectDetails.max, value));
             if (volumeSlider) volumeSlider.value = videoPlayer.volume;
-             UI.updateActiveMappingIndicators(); // Update indicators if volume is mapped
+             UI.updateActiveMappingIndicators(); 
         }
     }
 
     function loadInitialPlayerEffects() {
-        Utils.loadPlayerSettings(videoPlayer, volumeSlider, brightnessSlider, saturationSlider, contrastSlider, hueSlider); // Pass hueSlider
+        Utils.loadPlayerSettings(videoPlayer, volumeSlider, brightnessSlider, saturationSlider, contrastSlider, hueSlider); 
         
         setEffect('brightness', parseFloat(brightnessSlider.value));
         setEffect('saturation', parseFloat(saturationSlider.value));
         setEffect('contrast', parseFloat(contrastSlider.value));
-        setEffect('hue', parseFloat(hueSlider.value)); // Load initial hue
+        setEffect('hue', parseFloat(hueSlider.value)); 
         setEffect('volume', parseFloat(volumeSlider.value));
         
         AVAILABLE_EFFECTS.forEach(eff => {
@@ -114,7 +115,7 @@ const Player = (function() {
         if (videoPlayer.playbackRate === 1) {
             setEffect('playbackRate', getEffectById('playbackRate').default);
         }
-        applyCombinedVideoFilters(); // Ensure indicators are updated on load
+        applyCombinedVideoFilters(); 
     }
 
     function togglePlayPause() {
@@ -133,25 +134,56 @@ const Player = (function() {
         videoPlayer.currentTime = seekTime;
     }
     
-    function toggleVideoFullscreen() {
-        if (!mainVideoContainer.classList.contains('fullscreen')) enterVideoFullscreenMode();
-        else exitVideoFullscreenMode();
+    function showFullscreenControls() {
+        if (mainVideoContainer.classList.contains('fullscreen')) {
+            clearTimeout(fsControlsTimeout);
+            fullscreenControlsOverlay.classList.add('active');
+            fsControlsTimeout = setTimeout(() => {
+                fullscreenControlsOverlay.classList.remove('active');
+            }, 3000);
+        }
+    }
+    
+    function toggleVideoFullscreen() { // This function is now primarily for ENTERING fullscreen via button
+        if (!mainVideoContainer.classList.contains('fullscreen')) {
+            enterVideoFullscreenMode();
+        } else {
+             exitVideoFullscreenMode(); // Can still be called if needed, e.g. by Esc key handler
+        }
     }
 
     function enterVideoFullscreenMode() {
+        if (mainVideoContainer.classList.contains('fullscreen')) return;
         mainVideoContainer.classList.add('fullscreen');
         document.body.style.overflow = 'hidden';
-        videoFullscreenBtn.textContent = 'Exit Full';
-        UI.showVideoFullscreenControlsBriefly(fullscreenControlsOverlay);
-        if (mainVideoContainer.requestFullscreen) mainVideoContainer.requestFullscreen().catch(err => console.error("FS Error:", err));
+        videoFullscreenBtn.textContent = 'Exit Full'; // Keep this for the button in normal view
+        showFullscreenControls(); // Show controls briefly
+        if (mainVideoContainer.requestFullscreen) {
+            mainVideoContainer.requestFullscreen().catch(err => {
+                console.error("FS Error:", err);
+                // If request fails, revert UI
+                mainVideoContainer.classList.remove('fullscreen');
+                document.body.style.overflow = '';
+                videoFullscreenBtn.textContent = 'Fullscreen';
+            });
+        } else if (mainVideoContainer.webkitRequestFullscreen) { // Safari
+             mainVideoContainer.webkitRequestFullscreen();
+        }
     }
 
     function exitVideoFullscreenMode() {
+        if (!mainVideoContainer.classList.contains('fullscreen') && !document.fullscreenElement && !document.webkitIsFullScreen) return;
+
         mainVideoContainer.classList.remove('fullscreen');
         document.body.style.overflow = '';
         videoFullscreenBtn.textContent = 'Fullscreen';
         fullscreenControlsOverlay.classList.remove('active');
-        if (document.exitFullscreen) document.exitFullscreen().catch(err => console.error("Exit FS Error:", err));
+        
+        if (document.exitFullscreen) {
+            document.exitFullscreen().catch(err => console.error("Exit FS Error:", err));
+        } else if (document.webkitExitFullscreen) { // Safari
+            document.webkitExitFullscreen();
+        }
     }
     
     function setupEventListeners() {
@@ -161,12 +193,10 @@ const Player = (function() {
                 const videoURL = URL.createObjectURL(file);
                 videoPlayer.src = videoURL;
                 fileName.textContent = file.name;
-                
                 videoPlayer.loop = isLooping;
                 loopCount = 0;
                 UI.updateLoopInfo(loopInfo, videoPlayer, loopCount);
                 UI.updateLoopButton(loopBtn, isLooping);
-                
                 videoPlaceholder.classList.add('hidden');
                 if (currentModeGetter() === 'videoPlayer') {
                     videoPlayerControls.classList.remove('hidden');
@@ -246,21 +276,20 @@ const Player = (function() {
             localStorage.setItem('videoPlayerContrast', contrastSlider.value);
         });
 
-        hueSlider.addEventListener('input', () => { // Event listener for hueSlider
+        hueSlider.addEventListener('input', () => { 
             setEffect('hue', parseFloat(hueSlider.value));
             localStorage.setItem('videoPlayerHue', hueSlider.value);
         });
         
         resetFiltersBtn.addEventListener('click', function() {
-            // Reset all filters that have UI sliders
             AVAILABLE_EFFECTS.forEach(eff => {
                 if (eff.isFilter && eff.target === 'player') {
-                    const slider = document.getElementById(eff.id + 'Slider'); // e.g. brightnessSlider
-                    if (slider) { // Check if a slider exists for this filter
+                    const slider = document.getElementById(eff.id + 'Slider'); 
+                    if (slider) { 
                          setEffect(eff.id, eff.default);
                          slider.value = eff.default;
-                    } else if (currentFilterStyles.hasOwnProperty(eff.id)) { // If no slider but was set by mapping
-                        setEffect(eff.id, eff.default); // Reset to default
+                    } else if (currentFilterStyles.hasOwnProperty(eff.id)) { 
+                        setEffect(eff.id, eff.default); 
                     }
                 }
             });
@@ -270,21 +299,43 @@ const Player = (function() {
                 brightnessValue, saturationValue, contrastValue, hueValue
             );
             Utils.saveVideoPlayerSettings(brightnessSlider, saturationSlider, contrastSlider, hueSlider);
-            applyCombinedVideoFilters(); // Re-apply and update indicators
+            applyCombinedVideoFilters(); 
         });
 
+        // Double tap/click for fullscreen on video element itself
         videoPlayer.addEventListener('touchend', (e) => {
             if (currentModeGetter() !== 'videoPlayer') return;
             const currentTime = new Date().getTime();
-            if (currentTime - lastVideoTap < 500) { toggleVideoFullscreen(); e.preventDefault(); }
+            if (currentTime - lastVideoTap < 300) { // Reduced time for double tap
+                 if (mainVideoContainer.classList.contains('fullscreen')) {
+                    exitVideoFullscreenMode();
+                } else {
+                    enterVideoFullscreenMode();
+                }
+                e.preventDefault(); 
+            }
             lastVideoTap = currentTime;
         });
-        videoPlayer.addEventListener('dblclick', () => { if (currentModeGetter() === 'videoPlayer') toggleVideoFullscreen(); });
-        videoFullscreenBtn.addEventListener('click', toggleVideoFullscreen);
-        exitVideoFullscreenBtn.addEventListener('click', exitVideoFullscreenMode);
-        
-        videoPlayer.addEventListener('touchstart', () => {
-            if (mainVideoContainer.classList.contains('fullscreen')) UI.showVideoFullscreenControlsBriefly(fullscreenControlsOverlay);
+        videoPlayer.addEventListener('dblclick', () => { 
+            if (currentModeGetter() === 'videoPlayer') {
+                 if (mainVideoContainer.classList.contains('fullscreen')) {
+                    exitVideoFullscreenMode();
+                } else {
+                    enterVideoFullscreenMode();
+                }
+            }
+        });
+
+        videoFullscreenBtn.addEventListener('click', toggleVideoFullscreen); // Button in normal controls
+        // exitVideoFullscreenBtn was removed
+
+        // Show fullscreen controls on tap/mouse move when in fullscreen
+        mainVideoContainer.addEventListener('click', showFullscreenControls); // For mouse click
+        mainVideoContainer.addEventListener('mousemove', showFullscreenControls);
+        mainVideoContainer.addEventListener('touchstart', (e) => { // For touch
+            if (mainVideoContainer.classList.contains('fullscreen')) {
+                showFullscreenControls();
+            }
         });
     }
 
@@ -293,8 +344,8 @@ const Player = (function() {
         pointCloudModuleRef = pcModule;
         cacheDOMElements();
         setupEventListeners();
-        loadInitialPlayerEffects(); // This now includes applyCombinedVideoFilters
-        UI.updateFilterDisplayValues( // Ensure this uses all relevant sliders/values
+        loadInitialPlayerEffects(); 
+        UI.updateFilterDisplayValues( 
             brightnessSlider, saturationSlider, contrastSlider, hueSlider,
             brightnessValue, saturationValue, contrastValue, hueValue
         );
@@ -306,9 +357,9 @@ const Player = (function() {
         setEffect,
         getVideoElement: () => videoPlayer,
         getMainVideoContainer: () => mainVideoContainer,
-        toggleVideoFullscreen,
+        // toggleVideoFullscreen, // Dbl tap now primary toggle in FS mode
         enterVideoFullscreenMode,
-        exitVideoFullscreenMode,
+        exitVideoFullscreenMode, // Keep for global Esc key handler
         resetFilters: () => {
             resetFiltersBtn.click();
         },
@@ -317,9 +368,8 @@ const Player = (function() {
             videoFilterControls,
             videoPlaceholder
         }),
-        // Expose for UI module to check which effects are applied by player itself
         isFilterApplied: (effectId) => currentFilterStyles.hasOwnProperty(effectId) && currentFilterStyles[effectId] !== getEffectById(effectId)?.default,
-        isEffectActive: (effectId) => { // More generic check
+        isEffectActive: (effectId) => { 
             const effect = getEffectById(effectId);
             if (!effect) return false;
             if (effect.isFilter) {
