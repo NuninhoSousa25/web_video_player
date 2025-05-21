@@ -1,4 +1,4 @@
-           * { margin: 0; padding: 0; box-sizing: border-box; }
+ * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
             background-color: #121212; color: #f0f0f0;
@@ -36,8 +36,20 @@
             background: linear-gradient(transparent, rgba(0,0,0,0.7));
             padding: 20px 10px 10px; opacity: 0; transition: opacity 0.3s ease; z-index: 10000;
         }
-        .video-container.fullscreen:hover .controls-overlay,
-        .video-container.fullscreen .controls-overlay.active { opacity: 1; }
+        .video-container.fullscreen .controls-overlay { /* Controls only show on hover/active in fullscreen */
+             pointer-events: none; /* Don't capture mouse events unless active */
+        }
+        .video-container.fullscreen .controls-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .video-container.fullscreen:hover .controls-overlay { /* Show on hover */
+             opacity: 1;
+             pointer-events: auto;
+        }
+
+        /* Hide exit fullscreen button if it exists, as we use double tap */
+        /* #exitVideoFullscreenBtn { display: none !important; } */ /* Not needed anymore as removed from HTML */
         
         .controls, .filter-controls, .point-cloud-params-container {
             padding: 12px 16px; display: flex; flex-direction: column; gap: 12px;
@@ -93,6 +105,17 @@
         .filter-slider {
             width: 100%; -webkit-appearance: none; height: 5px; border-radius: 5px; background: #333; outline: none;
         }
+        #pcProcessingResolutionSlider.filter-slider { /* Style for the select element */
+            -webkit-appearance: menulist-button; /* Or auto, or none depending on desired look */
+            appearance: menulist-button;       /* Or auto */
+            background-color: #3a3a3a;
+            color: #f0f0f0;
+            border: 1px solid #555;
+            border-radius: 4px;
+            padding: 8px 10px !important; /* Override general filter-slider height if needed */
+            height: auto !important;
+        }
+
         .filter-slider::-webkit-slider-thumb {
             -webkit-appearance: none; appearance: none; width: 15px; height: 15px;
             border-radius: 50%; background: #2c7be5; cursor: pointer;
@@ -139,7 +162,7 @@
         .compass-marker .south { bottom: 5px; left: calc(50% - 9px); }
         .compass-marker .west { left: 5px; top: calc(50% - 9px); }
 
-        .mapping-info { font-size: 13px; color: #aaa; margin: 10px 0; text-align: center; line-height: 1.4; min-height: 1em; /* So it doesn't collapse when empty */}
+        .mapping-info { font-size: 13px; color: #aaa; margin: 10px 0; text-align: center; line-height: 1.4; min-height: 1em; }
         .mapping-highlight { color: #2c7be5; font-weight: 500; }
         .sensor-configuration { margin-top: 15px; border-top: 1px solid #333; padding-top: 15px; }
         .sensor-config-title { font-size: 14px; font-weight: 600; margin-bottom: 10px; color: #ddd; }
@@ -348,20 +371,19 @@
         .sensor-mapping-panel .form-actions .secondary-button { background-color: #555; }
         .sensor-mapping-panel .form-actions .secondary-button:hover { background-color: #666; }
         
-        /* NEW: Active Mapping Indicator Styles */
         .active-mapping-indicator-container {
             position: relative;
-            display: inline-flex; /* Changed from inline-block for better alignment with text */
-            align-items: center; /* Align dot with text */
+            display: inline-flex; 
+            align-items: center; 
         }
         .active-mapping-dot {
             display: inline-block;
             width: 8px;
             height: 8px;
-            background-color: #ffc107; /* A distinct yellow/orange color */
+            background-color: #ffc107; 
             border-radius: 50%;
-            margin-left: 6px; /* Space between text and dot */
-            visibility: hidden; /* Hidden by default */
+            margin-left: 6px; 
+            visibility: hidden; 
             transition: transform 0.2s ease-out, opacity 0.2s;
             opacity: 0;
         }
@@ -370,11 +392,7 @@
             transform: scale(1.2);
             opacity: 1;
         }
-        /* Ensure volume icon container can also house the dot properly */
-        .volume-icon.active-mapping-indicator-container {
-             /* display: inline-flex; align-items: center; /* Already good */
-        }
-        /* Adjust filter label span to be inline-flex for proper dot alignment */
+        .volume-icon.active-mapping-indicator-container {}
         .filter-label > span:first-child.active-mapping-indicator-container {
             display: inline-flex;
             align-items: center;
