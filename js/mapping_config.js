@@ -3,11 +3,14 @@ const AVAILABLE_SENSORS = [
     { id: 'alpha', name: 'Rotation (Alpha)', description: 'Device rotation around Z-axis (0-360°)', typicalMin: 0, typicalMax: 360, unit: '°' },
     { id: 'beta', name: 'Tilt Fwd/Back (Beta)', description: 'Device tilt front/back (-180 to 180° for Android, -90 to 90° for iOS)', typicalMin: -90, typicalMax: 90, unit: '°' },
     { id: 'gamma', name: 'Tilt Left/Right (Gamma)', description: 'Device tilt left/right (-90 to 90°)', typicalMin: -90, typicalMax: 90, unit: '°' },
+    { id: 'compassHeading', name: 'Compass Heading', description: 'Device compass heading (0-360°), derived from Alpha.', typicalMin: 0, typicalMax: 360, unit: '°' },
     // For simplicity, we'll assume acceleration data is available and somewhat normalized.
     // Real-world usage requires careful handling of gravity and sensitivity.
     { id: 'accelX', name: 'Acceleration X', description: 'Linear acceleration along X-axis', typicalMin: -10, typicalMax: 10, unit: 'm/s²' },
     { id: 'accelY', name: 'Acceleration Y', description: 'Linear acceleration along Y-axis', typicalMin: -10, typicalMax: 10, unit: 'm/s²' },
-    { id: 'accelZ', name: 'Acceleration Z', description: 'Linear acceleration along Z-axis (excluding gravity)', typicalMin: -10, typicalMax: 10, unit: 'm/s²' }
+    { id: 'accelZ', name: 'Acceleration Z', description: 'Linear acceleration along Z-axis (excluding gravity)', typicalMin: -10, typicalMax: 10, unit: 'm/s²' },
+    { id: 'proximity', name: 'Proximity', description: 'Device proximity to an object. Lower values mean closer. (Typically 0-25cm, can vary by device)', typicalMin: 0, typicalMax: 25, unit: 'cm' },
+    { id: 'micVolume', name: 'Microphone Volume', description: 'Audio input level from microphone (0-100%)', typicalMin: 0, typicalMax: 100, unit: '%' }
 ];
 
 const AVAILABLE_EFFECTS = [
@@ -21,7 +24,7 @@ const AVAILABLE_EFFECTS = [
     { id: 'invertColors', name: 'Invert Colors', target: 'player', prop: 'invert', min: 0, max: 100, default: 0, unit: '%', isFilter: true },
     { id: 'playbackRate', name: 'Playback Speed', target: 'player', prop: 'playbackRate', min: 0.25, max: 4, default: 1, unit: 'x' },
     { id: 'volume', name: 'Volume', target: 'player', prop: 'volume', min: 0, max: 1, default: 1, unit: '' },
-    { id: 'pc_displacement', name: 'PC Displacement', target: 'pointcloud', prop: 'displacementScale', min: 0, max: 200, default: 50, unit: '' },
+    { id: 'pc_displacement', name: 'PC Displacement', target: 'pointcloud', prop: 'displacementScale', min: 0, max: 360, default: 50, unit: '' }, // Changed max to 360
     { id: 'pc_pointSize', name: 'PC Point Size', target: 'pointcloud', prop: 'pointSize', min: 1, max: 10, default: 3, unit: '' },
     { id: 'pc_density', name: 'PC Density', target: 'pointcloud', prop: 'density', min: 8, max: 128, default: 32, unit: '' }
 ];
