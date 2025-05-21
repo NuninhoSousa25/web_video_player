@@ -1,5 +1,4 @@
 // js/main.js
-// Use an IIFE to create a scope for the App
 const App = (function() {
     let currentMode = 'videoPlayer'; // 'videoPlayer' or 'pointCloud'
 
@@ -9,7 +8,7 @@ const App = (function() {
         sensorMappingInfo;
     
     // Module references
-    let player, pointcloud, sensors, mappings, ui, utils;
+    let player, pointcloud, sensors, mappings, ui, utils, mappingPanel;
 
     function cacheGlobalDOMElements() {
         showVideoPlayerModeBtn = document.getElementById('showVideoPlayerModeBtn');
@@ -88,15 +87,15 @@ const App = (function() {
         document.addEventListener('MSFullscreenChange', handleFullscreenChange);   // IE/Edge
     }
 
-
     function init() {
-        // Assign module references (assuming they are globally available as Player, PointCloud, etc.)
+        // Assign module references
         player = Player;
         pointcloud = PointCloud;
         sensors = Sensors;
         mappings = Mappings;
-        ui = UI; // UI is already an object from ui.js
-        utils = Utils; // Utils is already an object from utils.js
+        ui = UI;
+        utils = Utils;
+        mappingPanel = MappingPanel; // New mapping panel module
 
         cacheGlobalDOMElements();
 
@@ -104,16 +103,22 @@ const App = (function() {
         const getCurrentMode = () => currentMode;
         const getSensorState = () => sensors.isGloballyEnabled();
 
-        player.init(getCurrentMode, pointcloud); // Pass PointCloud for canvas dimension updates
+        player.init(getCurrentMode, pointcloud);
         pointcloud.init(player.getVideoElement(), getCurrentMode, getSensorState);
-        mappings.init(player, pointcloud, getCurrentMode);
-        sensors.init(mappings.processOrientation, player); // Pass Mappings' processing function & Player for filter reset on calibrate
+        
+        // Initialize mappings with reference to sensors
+        mappings.init(player, pointcloud, sensors, getCurrentMode);
+        
+        // Initialize sensors with mappings' applyAllActiveMappings as callback
+        sensors.init(mappings.applyAllActiveMappings, player);
+        
+        // Initialize mapping panel
+        mappingPanel.init();
 
         setupGlobalEventListeners();
         updateModeUI(); // Set initial UI based on default mode
     }
     
-    // Expose a way to force switch mode if PointCloud encounters a critical error
     function forceSwitchMode(mode) {
         console.warn(`Forcing mode switch to: ${mode}`);
         currentMode = mode; // Directly set
@@ -123,11 +128,10 @@ const App = (function() {
         }
     }
 
-    // Public API for App if needed, e.g., for debugging or external calls
+    // Public API for App
     return {
         init,
-        forceSwitchMode // Expose this
-        // getCurrentMode, // If other parts absolutely need it outside modules
+        forceSwitchMode
     };
 })();
 
