@@ -2,10 +2,11 @@
 const PointCloud = (function() {
     let pointCloudCanvas, mainPointCloudContainer, pointCloudParams, densitySlider, densityValue,
         displacementSlider, displacementValue, pointSizeSlider, pointSizeValue,
-        parallaxSensitivitySlider, parallaxSensitivityValue, // Renamed from tiltSensitivitySlider/Value
-        pcProcessingResolutionSlider, pcProcessingValue; 
+        parallaxSensitivitySlider, parallaxSensitivityValue, 
+        pcProcessingResolutionSlider, pcProcessingValue,
+        pcInvertDepthCheckbox; // New checkbox element
 
-    let videoElementRef; // Renamed from videoPlayerRef for clarity of its role
+    let videoElementRef; 
     let currentModeGetter = () => 'videoPlayer'; 
 
     let pointCloudCtx;
@@ -18,7 +19,8 @@ const PointCloud = (function() {
         displacementScale: 50,
         pointSize: 3,
         parallaxSensitivity: 10, 
-        maxProcessingDimension: 120 
+        maxProcessingDimension: 120,
+        invertDepth: false // New config option
     };
     let currentSensorTilt = { beta: 0, gamma: 0 }; 
     let lastCanvasTap = 0;
@@ -34,10 +36,11 @@ const PointCloud = (function() {
         displacementValue = document.getElementById('displacementValue');
         pointSizeSlider = document.getElementById('pointSizeSlider');
         pointSizeValue = document.getElementById('pointSizeValue');
-        parallaxSensitivitySlider = document.getElementById('tiltSensitivitySlider'); // ID from HTML
-        parallaxSensitivityValue = document.getElementById('tiltSensitivityValue'); // ID from HTML
+        parallaxSensitivitySlider = document.getElementById('tiltSensitivitySlider'); 
+        parallaxSensitivityValue = document.getElementById('tiltSensitivityValue'); 
         pcProcessingResolutionSlider = document.getElementById('pcProcessingResolutionSlider'); 
         pcProcessingValue = document.getElementById('pcProcessingValue'); 
+        pcInvertDepthCheckbox = document.getElementById('pcInvertDepthCheckbox'); // Cache new checkbox
     }
     
     function setEffect(effectId, value) {
@@ -54,6 +57,7 @@ const PointCloud = (function() {
             if(densityValue) UI.updatePointCloudParamDisplays(
                 config, densityValue, displacementValue, pointSizeValue,
                 parallaxSensitivityValue, pcProcessingValue 
+                // Note: invertDepth is not displayed via this function, its state is the checkbox itself
             );
             UI.updateActiveMappingIndicators(); 
         }
@@ -66,6 +70,7 @@ const PointCloud = (function() {
         
         config.parallaxSensitivity = parseInt(parallaxSensitivitySlider.value) || 10;
         config.maxProcessingDimension = parseInt(pcProcessingResolutionSlider.value) || 120;
+        config.invertDepth = pcInvertDepthCheckbox.checked; // Load initial state of invertDepth
 
         UI.updatePointCloudParamDisplays(
             config, densityValue, displacementValue, pointSizeValue, 
@@ -75,6 +80,7 @@ const PointCloud = (function() {
     }
 
     function setupCanvasDimensions() {
+        // ... (no changes in this function from previous version) ...
         if (!videoElementRef || !videoElementRef.videoWidth || !videoElementRef.videoHeight || !pointCloudCanvas.parentElement) return;
         const videoAspectRatio = videoElementRef.videoWidth / videoElementRef.videoHeight;
         let canvasWidth = pointCloudCanvas.parentElement.clientWidth;
@@ -124,11 +130,16 @@ const PointCloud = (function() {
             for (let x = 0; x < imgWidth; x += stepX) {
                 const i = (Math.floor(y) * imgWidth + Math.floor(x)) * 4;
                 const r = data[i]; const g = data[i + 1]; const b = data[i + 2];
-                const brightness = (0.299 * r + 0.587 * g + 0.114 * b) / 255; 
+                
+                let brightness = (0.299 * r + 0.587 * g + 0.114 * b) / 255; 
+                if (config.invertDepth) {
+                    brightness = 1.0 - brightness; // Invert brightness for depth calculation
+                }
 
                 const canvasX = (x / imgWidth) * pointCloudCanvas.width;
                 const baseCanvasY = (y / imgHeight) * pointCloudCanvas.height;
                 
+                // Displacement: positive for "brighter" (after potential inversion), negative for "darker"
                 const displacement = (brightness - 0.5) * config.displacementScale; 
                 const finalCanvasY = baseCanvasY - displacement; 
 
@@ -136,19 +147,21 @@ const PointCloud = (function() {
                 let shiftY = 0;
 
                 if (sensorsGloballyEnabledGetter() && config.parallaxSensitivity > 0) {
+                    // Depth factor now also reflects inverted brightness if active
                     const depthFactor = config.displacementScale !== 0 ? displacement / (0.5 * config.displacementScale + 1e-6) : 0;
                     
                     shiftX = normTiltGamma * depthFactor * config.parallaxSensitivity;
                     shiftY = normTiltBeta * depthFactor * config.parallaxSensitivity; 
                 }
                 
-                pointCloudCtx.fillStyle = `rgb(${r},${g},${b})`;
+                pointCloudCtx.fillStyle = `rgb(${r},${g},${b})`; // Original color is still used for the point
                 pointCloudCtx.fillRect(canvasX + shiftX, finalCanvasY + shiftY, config.pointSize, config.pointSize);
             }
         }
     }
 
     function renderFrame() {
+        // ... (no changes in this function from previous version) ...
         if (currentModeGetter() !== 'pointCloud' || !videoElementRef || !videoElementRef.src) {
              if (pointCloudAnimationFrameId) cancelAnimationFrame(pointCloudAnimationFrameId);
              pointCloudAnimationFrameId = null;
@@ -195,6 +208,7 @@ const PointCloud = (function() {
     }
     
     function togglePointCloudFullscreen() {
+        // ... (no changes in this function from previous version) ...
         if (!mainPointCloudContainer.classList.contains('fullscreen')) {
             enterPointCloudFullscreenMode();
         } else {
@@ -203,6 +217,7 @@ const PointCloud = (function() {
    }
    
    function enterPointCloudFullscreenMode() {
+       // ... (no changes in this function from previous version) ...
        if (mainPointCloudContainer.classList.contains('fullscreen')) return;
        mainPointCloudContainer.classList.add('fullscreen');
        document.body.style.overflow = 'hidden';
@@ -211,34 +226,32 @@ const PointCloud = (function() {
                          (mainPointCloudContainer.webkitRequestFullscreen ? mainPointCloudContainer.webkitRequestFullscreen() : Promise.reject());
        
        fsPromise.then(() => {
-            // Delay slightly for browser to complete transition before resizing
             setTimeout(setupCanvasDimensions, 50); 
        }).catch(err => {
             console.error("PC FS Error:", err);
             mainPointCloudContainer.classList.remove('fullscreen');
             document.body.style.overflow = '';
-            setupCanvasDimensions(); // Resize back if FS failed
+            setupCanvasDimensions(); 
        });
    }
    
    function exitPointCloudFullscreenMode() {
+       // ... (no changes in this function from previous version) ...
        if (!mainPointCloudContainer.classList.contains('fullscreen') && !document.fullscreenElement && !document.webkitIsFullScreen) return;
        
        const exitFsPromise = document.exitFullscreen ? 
                              document.exitFullscreen() : 
                              (document.webkitExitFullscreen ? document.webkitExitFullscreen() : Promise.reject());
 
-       mainPointCloudContainer.classList.remove('fullscreen'); // Remove class immediately
+       mainPointCloudContainer.classList.remove('fullscreen'); 
        document.body.style.overflow = '';
 
        exitFsPromise.then(() => {
             setTimeout(setupCanvasDimensions, 50);
        }).catch(err => {
            console.error("PC Exit FS Error:", err);
-           // Class already removed, just ensure dimensions are reset
            setupCanvasDimensions();
        });
-       // Call immediately too, in case promise handling is slow or fails
        setupCanvasDimensions(); 
    }
 
@@ -270,6 +283,11 @@ const PointCloud = (function() {
                 parallaxSensitivityValue, pcProcessingValue
             );
         });
+
+        pcInvertDepthCheckbox.addEventListener('change', (e) => { // Listener for new checkbox
+            config.invertDepth = e.target.checked;
+            // No need to call UI.updatePointCloudParamDisplays unless you add a text display for this
+        });
     
         pointCloudCanvas.addEventListener('touchend', (e) => {
             if (currentModeGetter() !== 'pointCloud') return;
@@ -289,10 +307,9 @@ const PointCloud = (function() {
 
         document.addEventListener('fullscreenchange', () => {
             if (currentModeGetter() === 'pointCloud' && !document.fullscreenElement && mainPointCloudContainer.classList.contains('fullscreen')) {
-                // If browser exited fullscreen (e.g. Esc) and we think we are in FS, sync state
                 exitPointCloudFullscreenMode(); 
             } else if (currentModeGetter() === 'pointCloud') {
-                 setTimeout(setupCanvasDimensions, 50); // Resize on any FS change
+                 setTimeout(setupCanvasDimensions, 50); 
             }
         });
         document.addEventListener('webkitfullscreenchange', () => { 
@@ -306,7 +323,7 @@ const PointCloud = (function() {
     }
     
     function init(videoEl, modeGetterFn, sensorStateGetterFn) { 
-        videoElementRef = videoEl; // Store the video element reference
+        videoElementRef = videoEl; 
         currentModeGetter = modeGetterFn;
         sensorsGloballyEnabledGetter = sensorStateGetterFn; 
 
@@ -314,8 +331,10 @@ const PointCloud = (function() {
         if (pointCloudCanvas) {
             pointCloudCtx = pointCloudCanvas.getContext('2d', { willReadFrequently: true });
         }
-        // Ensure DOM elements for parallax slider are correctly identified by their new purpose
-        parallaxSensitivityValue.previousElementSibling.textContent = "Parallax Sensitivity"; // Update label text dynamically if needed, or ensure HTML is correct.
+        
+        if (parallaxSensitivityValue && parallaxSensitivityValue.previousElementSibling) {
+             parallaxSensitivityValue.previousElementSibling.textContent = "Parallax Sensitivity";
+        }
         
         setupEventListeners();
         loadInitialPCEffects(); 
