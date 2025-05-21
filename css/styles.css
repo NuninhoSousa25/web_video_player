@@ -680,3 +680,150 @@
             .mapping-grid { grid-template-columns: 1fr; } /* Single column on small screens */
         }
         .hidden { display: none !important; }
+
+mapping-panel-toggle-container button {
+    width: auto; /* Override general button width if needed */
+}
+
+.sensor-mapping-panel {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 90%;
+    max-width: 600px;
+    max-height: 80vh;
+    background-color: #1e1e1e;
+    color: #f0f0f0;
+    border-radius: 8px;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.5);
+    z-index: 10000;
+    display: flex;
+    flex-direction: column;
+    border: 1px solid #333;
+}
+
+.sensor-mapping-panel.hidden {
+    display: none;
+}
+
+.sensor-mapping-panel .panel-header {
+    padding: 12px 16px;
+    background-color: #2d2d2d;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #333;
+    border-radius: 8px 8px 0 0;
+}
+.sensor-mapping-panel .panel-header h2 {
+    font-size: 18px; margin: 0;
+}
+.sensor-mapping-panel .close-button {
+    background: none; border: none; color: #aaa; font-size: 24px; cursor: pointer; padding: 0 5px;
+}
+.sensor-mapping-panel .close-button:hover { color: #fff; }
+
+.sensor-mapping-panel .panel-content {
+    padding: 16px;
+    overflow-y: auto;
+    flex-grow: 1;
+}
+
+.sensor-mapping-panel .mappings-list-container h3,
+.sensor-mapping-panel .edit-form-container h3 {
+    font-size: 16px;
+    color: #2c7be5;
+    margin-bottom: 10px;
+    border-bottom: 1px solid #333;
+    padding-bottom: 5px;
+}
+
+.sensor-mapping-panel .mappings-list {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 15px 0;
+}
+.sensor-mapping-panel .mappings-list li {
+    background-color: #2a2a2a;
+    padding: 10px;
+    border-radius: 4px;
+    margin-bottom: 8px;
+    border: 1px solid #383838;
+}
+.sensor-mapping-panel .mappings-list li .mapping-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 5px;
+}
+.sensor-mapping-panel .mappings-list li .mapping-name {
+    font-weight: 500;
+}
+.sensor-mapping-panel .mappings-list li .mapping-details {
+    font-size: 0.85em;
+    color: #aaa;
+}
+.sensor-mapping-panel .mappings-list li .mapping-actions button {
+    font-size: 0.8em;
+    padding: 4px 8px;
+    margin-left: 5px;
+    background-color: #444;
+}
+.sensor-mapping-panel .mappings-list li .mapping-actions button:hover {
+    background-color: #555;
+}
+.sensor-mapping-panel .mappings-list li .mapping-actions .delete-btn {
+    background-color: #c33;
+}
+.sensor-mapping-panel .mappings-list li .mapping-actions .delete-btn:hover {
+    background-color: #d44;
+}
+.sensor-mapping-panel .add-new-button { width: 100%; margin-top: 10px; }
+
+.sensor-mapping-panel .edit-form-container div {
+    margin-bottom: 12px;
+}
+.sensor-mapping-panel .edit-form-container label {
+    display: block;
+    font-size: 14px;
+    margin-bottom: 4px;
+    color: #ccc;
+}
+.sensor-mapping-panel .edit-form-container select,
+.sensor-mapping-panel .edit-form-container input[type="number"],
+.sensor-mapping-panel .edit-form-container input[type="range"] {
+    width: 100%;
+    padding: 8px;
+    background-color: #333;
+    border: 1px solid #444;
+    color: #f0f0f0;
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+.sensor-mapping-panel .edit-form-container input[type="checkbox"] {
+    width: auto;
+    margin-right: 5px;
+    vertical-align: middle;
+}
+.sensor-mapping-panel .description-text {
+    font-size: 0.8em;
+    color: #888;
+    margin-top: 3px;
+}
+.sensor-mapping-panel .range-inputs {
+    display: flex;
+    gap: 10px;
+}
+.sensor-mapping-panel .range-inputs > div {
+    flex: 1;
+}
+.sensor-mapping-panel .form-actions {
+    margin-top: 20px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+.sensor-mapping-panel .form-actions .button { width: auto; }
+.sensor-mapping-panel .form-actions .secondary-button { background-color: #555; }
+.sensor-mapping-panel .form-actions .secondary-button:hover { background-color: #666; }
