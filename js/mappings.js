@@ -5,12 +5,13 @@ const Mappings = (function() {
     let currentModeGetter = () => 'videoPlayer';
     let sensorsModuleRef;
 
-    // This function will be called by Sensors.js whenever sensor data updates
     function applyAllActiveMappings() {
+        let activeMappingApplied = false; // Flag to see if any mapping was applied
+
         if (!sensorsModuleRef || !sensorsModuleRef.isGloballyEnabled()) {
-            // If sensors are off, consider resetting effects to their defaults or last user-set values
-            // For now, we'll just not apply any sensor-driven changes.
-            // Player filters might still be user-controlled via sliders.
+            // If sensors are off, just update indicators to show no sensor mappings are active.
+            // UI-driven effects will persist.
+            UI.updateActiveMappingIndicators(); 
             return;
         }
 
@@ -20,35 +21,38 @@ const Mappings = (function() {
             if (!mapping.enabled) return;
 
             const sensorValue = sensorsModuleRef.getSensorValue(mapping.sensorId);
-            if (sensorValue === undefined || sensorValue === null) return; // Sensor data not available
+            if (sensorValue === undefined || sensorValue === null) return; 
 
             const effectDetails = getEffectById(mapping.effectId);
             if (!effectDetails) return;
             
-            // Calculate the target value for the effect
             const targetEffectValue = MappingManager.calculateEffectValue(sensorValue, mapping);
 
-            // Apply the effect
             if (effectDetails.target === 'player' && playerModuleRef) {
                 playerModuleRef.setEffect(effectDetails.id, targetEffectValue);
+                activeMappingApplied = true;
             } else if (effectDetails.target === 'pointcloud' && pointCloudModuleRef) {
                 pointCloudModuleRef.setEffect(effectDetails.id, targetEffectValue);
+                activeMappingApplied = true;
             }
         });
+        
+        // Update indicators after all mappings are processed for this cycle
+        // The setEffect methods in player/pointcloud will also call this,
+        // but calling it here ensures it runs even if a sensor value didn't change an effect.
+        UI.updateActiveMappingIndicators();
     }
 
 
     function init(player, pointcloud, sensors, modeGetterFn) {
         playerModuleRef = player;
         pointCloudModuleRef = pointcloud;
-        sensorsModuleRef = sensors; // Store reference to Sensors module
+        sensorsModuleRef = sensors; 
         currentModeGetter = modeGetterFn;
-        // `Sensors.js` will call `applyAllActiveMappings` via the callback
     }
 
-    // Public API
     return {
         init,
-        applyAllActiveMappings // This is the key function now
+        applyAllActiveMappings 
     };
 })();
