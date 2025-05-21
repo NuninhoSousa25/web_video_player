@@ -27,7 +27,6 @@
                     </div>
                     <div class="main-controls">
                         <button id="playPauseFullscreen" class="toggle-button">Play</button>
-                        <!-- exitVideoFullscreenBtn is removed from here, functionality handled by double tap/Esc -->
                     </div>
                 </div>
             </div>
@@ -103,7 +102,7 @@
                         <span class="active-mapping-indicator-container">Point Density<span class="active-mapping-dot" data-effect-id="pc_density"></span></span>
                         <span class="filter-value" id="densityValue">32</span>
                     </div>
-                    <input type="range" min="8" max="128" value="32" step="1" class="filter-slider" id="densitySlider">
+                    <input type="range" min="8" max="256" value="32" step="1" class="filter-slider" id="densitySlider"> <!-- max increased -->
                 </div>
                 <div class="filter-control">
                     <div class="filter-label">
@@ -119,9 +118,9 @@
                     </div>
                     <input type="range" min="1" max="10" value="3" step="1" class="filter-slider" id="pointSizeSlider">
                 </div>
-                <div class="filter-control"> <!-- This now controls parallax strength -->
+                <div class="filter-control"> 
                     <div class="filter-label"><span>Parallax Sensitivity</span><span class="filter-value" id="tiltSensitivityValue">10</span></div>
-                    <input type="range" min="0" max="50" value="10" step="1" class="filter-slider" id="tiltSensitivitySlider">
+                    <input type="range" min="0" max="150" value="10" step="1" class="filter-slider" id="tiltSensitivitySlider"> <!-- max increased -->
                 </div>
                 <div class="filter-control">
                     <div class="filter-label"><span>Processing Detail</span><span class="filter-value" id="pcProcessingValue">Medium</span></div>
@@ -154,8 +153,6 @@
                 <div class="sensor-value"><div class="value-label">Alpha (°)</div><div id="orientAlpha" class="value-number">0.00</div></div>
                 <div class="sensor-value"><div class="value-label">Beta (°)</div><div id="orientBeta" class="value-number">0.00</div></div>
                 <div class="sensor-value"><div class="value-label">Gamma (°)</div><div id="orientGamma" class="value-number">0.00</div></div>
-                <!-- Add UI for mic volume if desired, e.g. -->
-                <!-- <div class="sensor-value"><div class="value-label">Mic Vol (%)</div><div id="micVolumeDisplay" class="value-number">0</div></div> -->
             </div>
             <div style="display: flex; justify-content: center;"> 
                 <div class="compass">
