@@ -20,10 +20,9 @@ const Sensors = (function() {
         accelX: 0, accelY: 0, accelZ: 0,
     };
 
-    // Calibration and offset values for orientation
     let calibrationValues = { alpha: 0, beta: 0, gamma: 0 };
     let manualOffsets = { alpha: 0, beta: 0, gamma: 0 };
-    let controlsInverted = false; // For orientation alpha, beta, gamma
+    let controlsInverted = false;
 
     let onSensorUpdateCallback = () => {};
 
@@ -37,7 +36,7 @@ const Sensors = (function() {
         alphaSensitivitySlider = document.getElementById('alphaSensitivitySlider');
         betaSensitivitySlider = document.getElementById('betaSensitivitySlider');
         gammaSensitivitySlider = document.getElementById('gammaSensitivitySlider');
-        smoothingSlider = document.getElementById('smoothingSlider'); // Note: Smoothing logic isn't currently applied directly in this module for new mapping system
+        smoothingSlider = document.getElementById('smoothingSlider');
         
         alphaSensValueEl = document.getElementById('alphaSensValue');
         betaSensValueEl = document.getElementById('betaSensValue');
@@ -57,9 +56,15 @@ const Sensors = (function() {
         sensorSectionControls = document.getElementById('sensorSectionControls'); 
     }
 
-    // THIS FUNCTION WAS MISSING
     function updateConfigDisplay() {
-        if (!alphaSensValueEl) return; // Guard if elements aren't found (e.g. during teardown or error)
+        // Guard against elements not being found, especially if this is called before DOM is fully ready or if elements are removed.
+        if (!alphaSensValueEl || !alphaSensitivitySlider || !betaSensValueEl || !betaSensitivitySlider || 
+            !gammaSensValueEl || !gammaSensitivitySlider || !smoothingValueEl || !smoothingSlider ||
+            !alphaOffsetValueEl || !alphaOffsetSlider || !betaOffsetValueEl || !betaOffsetSlider ||
+            !gammaOffsetValueEl || !gammaOffsetSlider) {
+            // console.warn("Sensors.updateConfigDisplay: One or more UI elements for sensor config not found.");
+            return; 
+        }
 
         alphaSensValueEl.textContent = parseFloat(alphaSensitivitySlider.value).toFixed(1);
         betaSensValueEl.textContent = parseFloat(betaSensitivitySlider.value).toFixed(1);
@@ -70,20 +75,15 @@ const Sensors = (function() {
         betaOffsetValueEl.textContent = `${betaOffsetSlider.value}°`;
         gammaOffsetValueEl.textContent = `${gammaOffsetSlider.value}°`;
 
-        // Update manual offsets state from sliders
         manualOffsets.alpha = parseFloat(alphaOffsetSlider.value);
         manualOffsets.beta = parseFloat(betaOffsetSlider.value);
         manualOffsets.gamma = parseFloat(gammaOffsetSlider.value);
 
-        // Since offsets might have changed, trigger a sensor update to re-evaluate mappings
-        if (globallyEnabled) {
-            // Simulate a sensor event or directly call the processing logic if needed
-            // For now, just call the callback, the next real sensor event will pick up changes.
-             if (onSensorUpdateCallback) onSensorUpdateCallback();
+        if (globallyEnabled && onSensorUpdateCallback) {
+            onSensorUpdateCallback();
         }
     }
     
-    // THIS FUNCTION WAS MISSING
     function setupEventListeners() {
         if (sensorToggleBtn) sensorToggleBtn.addEventListener('click', () => globallyEnabled ? disable() : enable());
 
@@ -91,26 +91,21 @@ const Sensors = (function() {
             calibrateBtn.addEventListener('click', () => {
                 if (!globallyEnabled) { alert('Enable sensors first.'); return; }
                 
-                // Use raw values from display for calibration baseline
-                // These are already being updated by handleOrientationEvent (without calibration at that point)
-                calibrationValues.alpha = parseFloat(orientAlphaEl.textContent) || 0;
-                calibrationValues.beta = parseFloat(orientBetaEl.textContent) || 0;
-                calibrationValues.gamma = parseFloat(orientGammaEl.textContent) || 0;
+                calibrationValues.alpha = parseFloat(orientAlphaEl ? orientAlphaEl.textContent : '0') || 0;
+                calibrationValues.beta = parseFloat(orientBetaEl ? orientBetaEl.textContent : '0') || 0;
+                calibrationValues.gamma = parseFloat(orientGammaEl ? orientGammaEl.textContent : '0') || 0;
                 
-                // Reset manual offsets
                 manualOffsets = { alpha: 0, beta: 0, gamma: 0 };
-                alphaOffsetSlider.value = 0; 
-                betaOffsetSlider.value = 0; 
-                gammaOffsetSlider.value = 0;
-                updateConfigDisplay(); // Update display and internal manualOffsets state
+                if(alphaOffsetSlider) alphaOffsetSlider.value = 0; 
+                if(betaOffsetSlider) betaOffsetSlider.value = 0; 
+                if(gammaOffsetSlider) gammaOffsetSlider.value = 0;
+                updateConfigDisplay();
 
                 alert('Sensors calibrated. Manual offsets reset.');
 
-                // If the old filter system is still somewhat active via Player.resetFilters()
                 if (playerModuleRef && playerModuleRef.resetFilters) {
                      playerModuleRef.resetFilters();
                 }
-                // Crucially, notify that sensor processing parameters have changed.
                 if (onSensorUpdateCallback) onSensorUpdateCallback();
             });
         }
@@ -120,26 +115,31 @@ const Sensors = (function() {
                 controlsInverted = !controlsInverted;
                 invertBtn.textContent = controlsInverted ? 'Controls Inverted' : 'Invert Controls';
                 invertBtn.style.backgroundColor = controlsInverted ? '#f44336' : '#555';
-                // Notify that sensor processing parameters have changed.
                 if (onSensorUpdateCallback) onSensorUpdateCallback();
             });
         }
 
-        // Listeners for the old sensitivity/offset sliders
-        [alphaSensitivitySlider, betaSensitivitySlider, gammaSensitivitySlider, smoothingSlider, 
-         alphaOffsetSlider, betaOffsetSlider, gammaOffsetSlider].forEach(slider => {
-            if (slider) slider.addEventListener('input', updateConfigDisplay);
+        const configSliders = [
+            alphaSensitivitySlider, betaSensitivitySlider, gammaSensitivitySlider, 
+            smoothingSlider, alphaOffsetSlider, betaOffsetSlider, gammaOffsetSlider
+        ];
+
+        configSliders.forEach((slider, index) => {
+            if (slider) {
+                slider.addEventListener('input', updateConfigDisplay);
+            } else {
+                // For debugging:
+                // const sliderNames = ["alphaSensitivitySlider", "betaSensitivitySlider", "gammaSensitivitySlider", "smoothingSlider", "alphaOffsetSlider", "betaOffsetSlider", "gammaOffsetSlider"];
+                // console.warn(`Sensor configuration slider "${sliderNames[index]}" not found in the DOM.`);
+            }
         });
     }
 
     function updateSensorDisplay() {
-        // Display values in latestSensorData ARE ALREADY PROCESSED (calibrated, offset, inverted)
         if(orientAlphaEl) orientAlphaEl.textContent = (latestSensorData.alpha != null ? latestSensorData.alpha.toFixed(2) : '0.00');
         if(orientBetaEl) orientBetaEl.textContent = (latestSensorData.beta != null ? latestSensorData.beta.toFixed(2) : '0.00');
         if(orientGammaEl) orientGammaEl.textContent = (latestSensorData.gamma != null ? latestSensorData.gamma.toFixed(2) : '0.00');
         
-        // Compass needle should use the "heading" alpha, which might be raw or calibrated alpha based on preference.
-        // For simplicity, let's use the processed alpha.
         if (compassNeedle) compassNeedle.style.transform = `rotate(${(latestSensorData.alpha || 0)}deg)`;
     }
 
@@ -150,12 +150,10 @@ const Sensors = (function() {
         let rawBeta = event.beta || 0;
         let rawGamma = event.gamma || 0;
 
-        // Apply calibration and manual offsets
         let procAlpha = ((rawAlpha - calibrationValues.alpha - manualOffsets.alpha + 360) % 360);
         let procBeta = rawBeta - calibrationValues.beta - manualOffsets.beta;
         let procGamma = rawGamma - calibrationValues.gamma - manualOffsets.gamma;
 
-        // Apply inversion
         if (controlsInverted) {
             latestSensorData.alpha = (360 - procAlpha + 360) % 360;
             latestSensorData.beta = -procBeta;
@@ -166,7 +164,7 @@ const Sensors = (function() {
             latestSensorData.gamma = procGamma;
         }
         
-        updateSensorDisplay(); // Update UI with processed values
+        updateSensorDisplay();
         if (onSensorUpdateCallback) onSensorUpdateCallback();
     }
 
@@ -185,8 +183,6 @@ const Sensors = (function() {
             latestSensorData.accelZ = acc.z;
         }
         
-        // Acceleration data is not typically calibrated/offset/inverted in this simple system
-        // updateSensorDisplay(); // Already called by handleOrientationEvent if it also fires or not needed for accel display.
         if (onSensorUpdateCallback) onSensorUpdateCallback();
     }
     
@@ -227,24 +223,26 @@ const Sensors = (function() {
         }
         
         if (permissionGranted.orientation) {
-            window.addEventListener('deviceorientation', handleOrientationEvent);
+            window.addEventListener('deviceorientation', handleOrientationEvent, true); // Added true for capture phase, sometimes helps
         } else {
             console.warn("Device Orientation permission not granted or API not available.");
         }
         if (permissionGranted.motion) {
-            window.addEventListener('devicemotion', handleMotionEvent);
+            window.addEventListener('devicemotion', handleMotionEvent, true); // Added true
         } else {
             console.warn("Device Motion permission not granted or API not available.");
         }
         
         globallyEnabled = true;
-        sensorToggleBtn.textContent = 'Disable Sensors';
-        sensorToggleBtn.classList.add('active');
+        if(sensorToggleBtn) {
+            sensorToggleBtn.textContent = 'Disable Sensors';
+            sensorToggleBtn.classList.add('active');
+        }
     }
 
     function disable() {
-        window.removeEventListener('deviceorientation', handleOrientationEvent);
-        window.removeEventListener('devicemotion', handleMotionEvent);
+        window.removeEventListener('deviceorientation', handleOrientationEvent, true);
+        window.removeEventListener('devicemotion', handleMotionEvent, true);
         globallyEnabled = false;
         if (sensorToggleBtn) {
             sensorToggleBtn.textContent = 'Enable Sensors';
@@ -258,10 +256,10 @@ const Sensors = (function() {
     
     function init(sensorUpdCb, pModuleRef) {
         onSensorUpdateCallback = sensorUpdCb;
-        playerModuleRef = pModuleRef; // Store player module reference
-        cacheDOMElements();
-        setupEventListeners(); // This was missing, now added.
-        updateConfigDisplay(); 
+        playerModuleRef = pModuleRef;
+        cacheDOMElements();     // Call this first
+        setupEventListeners();  // Then this
+        updateConfigDisplay();  // Then update displays
         updateSensorDisplay(); 
     }
 
