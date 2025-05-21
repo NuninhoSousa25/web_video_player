@@ -50,7 +50,10 @@
                     <button id="loopBtn" class="toggle-button">Loop: ON</button>
                 </div>
                 <div class="volume-container">
-                    <div class="volume-icon">🔊</div>
+                    <div class="volume-icon active-mapping-indicator-container">
+                        🔊
+                        <span class="active-mapping-dot" data-effect-id="volume"></span>
+                    </div>
                     <input type="range" min="0" max="1" step="0.1" value="1" class="volume-slider" id="volumeSlider">
                 </div>
                 <div class="loop-info" id="loopInfo"></div>
@@ -58,16 +61,34 @@
             
             <div class="filter-controls" id="videoFilterControls">
                  <div class="filter-control">
-                    <div class="filter-label"><span>Brightness</span><span class="filter-value" id="brightnessValue">100%</span></div>
+                    <div class="filter-label">
+                        <span class="active-mapping-indicator-container">Brightness<span class="active-mapping-dot" data-effect-id="brightness"></span></span>
+                        <span class="filter-value" id="brightnessValue">100%</span>
+                    </div>
                     <input type="range" min="25" max="200" value="100" class="filter-slider" id="brightnessSlider">
                 </div>
                 <div class="filter-control">
-                    <div class="filter-label"><span>Saturation</span><span class="filter-value" id="saturationValue">100%</span></div>
+                    <div class="filter-label">
+                        <span class="active-mapping-indicator-container">Saturation<span class="active-mapping-dot" data-effect-id="saturation"></span></span>
+                        <span class="filter-value" id="saturationValue">100%</span>
+                    </div>
                     <input type="range" min="25" max="200" value="100" class="filter-slider" id="saturationSlider">
                 </div>
                 <div class="filter-control">
-                    <div class="filter-label"><span>Contrast</span><span class="filter-value" id="contrastValue">100%</span></div>
+                    <div class="filter-label">
+                        <span class="active-mapping-indicator-container">Contrast<span class="active-mapping-dot" data-effect-id="contrast"></span></span>
+                        <span class="filter-value" id="contrastValue">100%</span>
+                    </div>
                     <input type="range" min="25" max="200" value="100" class="filter-slider" id="contrastSlider">
+                </div>
+                <!-- Add more filter controls here with active-mapping-dot spans -->
+                <!-- Example for Hue -->
+                <div class="filter-control">
+                    <div class="filter-label">
+                        <span class="active-mapping-indicator-container">Hue Rotate<span class="active-mapping-dot" data-effect-id="hue"></span></span>
+                        <span class="filter-value" id="hueValue">0deg</span> <!-- Needs corresponding JS to update this value -->
+                    </div>
+                    <input type="range" min="0" max="360" value="0" class="filter-slider" id="hueSlider"> <!-- Needs JS wiring -->
                 </div>
                 <button id="resetFiltersBtn" class="filter-reset">Reset All Filters</button>
             </div>
@@ -80,20 +101,38 @@
             </div>
             <div class="point-cloud-params-container" id="pointCloudParams">
                 <div class="filter-control">
-                    <div class="filter-label"><span>Point Density</span><span class="filter-value" id="densityValue">32</span></div>
+                    <div class="filter-label">
+                        <span class="active-mapping-indicator-container">Point Density<span class="active-mapping-dot" data-effect-id="pc_density"></span></span>
+                        <span class="filter-value" id="densityValue">32</span>
+                    </div>
                     <input type="range" min="8" max="128" value="32" step="1" class="filter-slider" id="densitySlider">
                 </div>
                 <div class="filter-control">
-                    <div class="filter-label"><span>Displacement Scale</span><span class="filter-value" id="displacementValue">50</span></div>
+                    <div class="filter-label">
+                        <span class="active-mapping-indicator-container">Displacement Scale<span class="active-mapping-dot" data-effect-id="pc_displacement"></span></span>
+                        <span class="filter-value" id="displacementValue">50</span>
+                    </div>
                     <input type="range" min="0" max="360" value="50" step="1" class="filter-slider" id="displacementSlider">
                 </div>
                  <div class="filter-control">
-                    <div class="filter-label"><span>Point Size</span><span class="filter-value" id="pointSizeValue">3</span></div>
+                    <div class="filter-label">
+                        <span class="active-mapping-indicator-container">Point Size<span class="active-mapping-dot" data-effect-id="pc_pointSize"></span></span>
+                        <span class="filter-value" id="pointSizeValue">3</span>
+                    </div>
                     <input type="range" min="1" max="10" value="3" step="1" class="filter-slider" id="pointSizeSlider">
                 </div>
                 <div class="filter-control">
                     <div class="filter-label"><span>Tilt Sensitivity</span><span class="filter-value" id="tiltSensitivityValue">10</span></div>
                     <input type="range" min="0" max="50" value="10" step="1" class="filter-slider" id="tiltSensitivitySlider">
+                </div>
+                <div class="filter-control"> <!-- NEW: Point Cloud Processing Resolution -->
+                    <div class="filter-label"><span>Processing Detail</span><span class="filter-value" id="pcProcessingValue">Medium</span></div>
+                    <select id="pcProcessingResolutionSlider" class="filter-slider" style="height: auto; padding: 5px;">
+                        <option value="60">Low (60px)</option>
+                        <option value="120" selected>Medium (120px)</option>
+                        <option value="180">High (180px)</option>
+                        <option value="240">Max (240px)</option>
+                    </select>
                 </div>
             </div>
         </div>
@@ -112,19 +151,13 @@
                 <div class="sensor-title">Motion Controls</div>
                 <button id="sensorToggleBtn" class="sensor-toggle">Enable Sensors</button>
             </div>
-            <!-- The sensorMappingInfo div content is now controlled by ui.js -->
             <div class="mapping-info" id="sensorMappingInfo"></div>
             <div class="sensor-values">
                 <div class="sensor-value"><div class="value-label">Alpha (°)</div><div id="orientAlpha" class="value-number">0.00</div></div>
                 <div class="sensor-value"><div class="value-label">Beta (°)</div><div id="orientBeta" class="value-number">0.00</div></div>
                 <div class="sensor-value"><div class="value-label">Gamma (°)</div><div id="orientGamma" class="value-number">0.00</div></div>
-                <!-- You can add more divs here to display proximity and mic volume if desired -->
-                <!-- e.g.,
-                <div class="sensor-value"><div class="value-label">Proximity (cm)</div><div id="proximityValue" class="value-number">0.00</div></div>
-                <div class="sensor-value"><div class="value-label">Mic Vol (%)</div><div id="micVolumeValue" class="value-number">0.00</div></div>
-                 -->
             </div>
-            <div style="display: flex; justify-content: center;"> <!-- Centering compass -->
+            <div style="display: flex; justify-content: center;"> 
                 <div class="compass">
                     <div id="compassNeedle" class="compass-needle"></div>
                     <div class="compass-center"></div>
@@ -207,7 +240,7 @@
                     </div>
                     
                     <div>
-                        <label for="sensitivityRange">Sensitivity: <span id="sensitivityValue">1.0</span></label>
+                        <label for="sensitivityRange">Sensitivity: <span id="sensitivityValueDisplay">1.0</span></label> <!-- Renamed for clarity -->
                         <input type="range" id="sensitivityRange" name="sensitivity" min="0.1" max="5" step="0.1" value="1.0">
                     </div>
                     
@@ -240,16 +273,16 @@
             </div>
         </div>
     </div>
-    <!-- Scripts: Order matters for dependencies if not using ES6 modules -->
+
    <script src="js/utils.js"></script>
-<script src="js/mapping_config.js"></script> 
+<script src="js/mapping_config.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/player.js"></script>
 <script src="js/pointcloud.js"></script>
 <script src="js/sensors.js"></script>
-<script src="js/mapping_manager.js"></script> 
-<script src="js/mapping_panel.js"></script> 
-<script src="js/mappings.js"></script> 
+<script src="js/mapping_manager.js"></script>
+<script src="js/mapping_panel.js"></script>
+<script src="js/mappings.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>
