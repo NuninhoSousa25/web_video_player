@@ -85,7 +85,7 @@
                 </div>
                 <div class="filter-control">
                     <div class="filter-label"><span>Displacement Scale</span><span class="filter-value" id="displacementValue">50</span></div>
-                    <input type="range" min="0" max="200" value="50" step="1" class="filter-slider" id="displacementSlider">
+                    <input type="range" min="0" max="360" value="50" step="1" class="filter-slider" id="displacementSlider">
                 </div>
                  <div class="filter-control">
                     <div class="filter-label"><span>Point Size</span><span class="filter-value" id="pointSizeValue">3</span></div>
@@ -112,13 +112,17 @@
                 <div class="sensor-title">Motion Controls</div>
                 <button id="sensorToggleBtn" class="sensor-toggle">Enable Sensors</button>
             </div>
-            <div class="mapping-info" id="sensorMappingInfo">
-                <!-- Content will be set by JavaScript -->
-            </div>
+            <!-- The sensorMappingInfo div content is now controlled by ui.js -->
+            <div class="mapping-info" id="sensorMappingInfo"></div>
             <div class="sensor-values">
                 <div class="sensor-value"><div class="value-label">Alpha (°)</div><div id="orientAlpha" class="value-number">0.00</div></div>
                 <div class="sensor-value"><div class="value-label">Beta (°)</div><div id="orientBeta" class="value-number">0.00</div></div>
                 <div class="sensor-value"><div class="value-label">Gamma (°)</div><div id="orientGamma" class="value-number">0.00</div></div>
+                <!-- You can add more divs here to display proximity and mic volume if desired -->
+                <!-- e.g.,
+                <div class="sensor-value"><div class="value-label">Proximity (cm)</div><div id="proximityValue" class="value-number">0.00</div></div>
+                <div class="sensor-value"><div class="value-label">Mic Vol (%)</div><div id="micVolumeValue" class="value-number">0.00</div></div>
+                 -->
             </div>
             <div style="display: flex; justify-content: center;"> <!-- Centering compass -->
                 <div class="compass">
@@ -238,14 +242,14 @@
     </div>
     <!-- Scripts: Order matters for dependencies if not using ES6 modules -->
    <script src="js/utils.js"></script>
-<script src="js/mapping_config.js"></script> <!-- NEW -->
+<script src="js/mapping_config.js"></script> 
 <script src="js/ui.js"></script>
 <script src="js/player.js"></script>
 <script src="js/pointcloud.js"></script>
 <script src="js/sensors.js"></script>
-<script src="js/mapping_manager.js"></script> <!-- NEW -->
-<script src="js/mapping_panel.js"></script> <!-- NEW -->
-<script src="js/mappings.js"></script> <!-- Will be heavily modified -->
+<script src="js/mapping_manager.js"></script> 
+<script src="js/mapping_panel.js"></script> 
+<script src="js/mappings.js"></script> 
 <script src="js/main.js"></script>
 </body>
 </html>
