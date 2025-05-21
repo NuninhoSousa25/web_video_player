@@ -1,21 +1,21 @@
 // js/ui.js
 const UI = (function() {
 
-    function updateFilterDisplayValues(brightnessSlider, saturationSlider, contrastSlider, hueSlider, // Added hueSlider
-                                       brightnessValueEl, saturationValueEl, contrastValueEl, hueValueEl) { // Added hueValueEl
+    function updateFilterDisplayValues(brightnessSlider, saturationSlider, contrastSlider, hueSlider,
+                                       brightnessValueEl, saturationValueEl, contrastValueEl, hueValueEl) {
         if (brightnessValueEl && brightnessSlider) brightnessValueEl.textContent = `${brightnessSlider.value}%`;
         if (saturationValueEl && saturationSlider) saturationValueEl.textContent = `${saturationSlider.value}%`;
         if (contrastValueEl && contrastSlider) contrastValueEl.textContent = `${contrastSlider.value}%`;
-        if (hueValueEl && hueSlider) hueValueEl.textContent = `${hueSlider.value}deg`; // Update for hue
+        if (hueValueEl && hueSlider) hueValueEl.textContent = `${hueSlider.value}deg`;
     }
 
     function updatePointCloudParamDisplays(config, densityValueEl, displacementValueEl, pointSizeValueEl, 
-                                           tiltSensitivityValueEl, pcProcessingValueEl) { // Added pcProcessingValueEl
+                                           parallaxSensitivityValueEl, pcProcessingValueEl) { // Renamed tiltSensitivityValueEl
         if(densityValueEl) densityValueEl.textContent = config.density;
         if(displacementValueEl) displacementValueEl.textContent = config.displacementScale;
         if(pointSizeValueEl) pointSizeValueEl.textContent = config.pointSize;
-        if(tiltSensitivityValueEl) tiltSensitivityValueEl.textContent = config.tiltSensitivity;
-        if(pcProcessingValueEl) { // Update processing resolution display
+        if(parallaxSensitivityValueEl) parallaxSensitivityValueEl.textContent = config.parallaxSensitivity; // Use parallaxSensitivity
+        if(pcProcessingValueEl) { 
             const selectedOption = document.getElementById('pcProcessingResolutionSlider')?.selectedOptions[0];
             pcProcessingValueEl.textContent = selectedOption ? selectedOption.text.split(' ')[0] : config.maxProcessingDimension + 'px';
         }
@@ -52,19 +52,24 @@ const UI = (function() {
     }
 
     function showVideoFullscreenControlsBriefly(fullscreenControlsOverlay) {
-        fullscreenControlsOverlay.classList.add('active');
-        setTimeout(() => fullscreenControlsOverlay.classList.remove('active'), 3000);
+        // This function seems to be unused now based on player.js changes,
+        // but keeping it in case it's needed elsewhere or for future refactoring.
+        // Player.js now has its own showFullscreenControls method.
+        if (fullscreenControlsOverlay.classList.contains('active')) { // Check if it's the video overlay
+            clearTimeout(fullscreenControlsOverlay.fsTimeout); // Assuming fsTimeout is set on the element
+            fullscreenControlsOverlay.classList.add('active');
+            fullscreenControlsOverlay.fsTimeout = setTimeout(() => {
+                fullscreenControlsOverlay.classList.remove('active');
+            }, 3000);
+        }
     }
 
-    // NEW: Function to update visual indicators for active mappings
     function updateActiveMappingIndicators() {
         const activeMappings = MappingManager.getActiveMappings();
         const allDots = document.querySelectorAll('.active-mapping-dot');
 
-        // Reset all dots
         allDots.forEach(dot => dot.classList.remove('active'));
 
-        // Activate dots for currently mapped and enabled effects
         activeMappings.forEach(mapping => {
             if (mapping.enabled) {
                 const dot = document.querySelector(`.active-mapping-dot[data-effect-id="${mapping.effectId}"]`);
@@ -73,10 +78,6 @@ const UI = (function() {
                 }
             }
         });
-
-        // Also consider effects directly manipulated by UI (not by sensors)
-        // This part could be expanded if you want dots for non-default UI slider values too
-        // For now, this focuses on sensor-driven mappings.
     }
 
 
@@ -89,6 +90,6 @@ const UI = (function() {
         updatePlayPauseButtons,
         updateSensorMappingInfoText,
         showVideoFullscreenControlsBriefly,
-        updateActiveMappingIndicators // Expose new function
+        updateActiveMappingIndicators 
     };
 })();
