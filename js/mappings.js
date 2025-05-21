@@ -6,7 +6,183 @@
 // Define global sensors and effects data
 // Available sensors and their configuration
 const availableSensors = [
-    { id: 'alpha', name: 'Rotation (Alpha)', description: 'Device rotation around z-axis (compass direction)', unit: '°', min: 0, max: 360, default: 180 }
+    { id: 'alpha', name: 'Rotation (Alpha)', description: 'Device rotation around z-axis (compass direction)', unit: '°', min: 0, max: 360, default: 180 },
+    { id: 'beta', name: 'Tilt Forward/Back (Beta)', description: 'Device tilt front/back', unit: '°', min: -90, max: 90, default: 0 },
+    { id: 'gamma', name: 'Tilt Left/Right (Gamma)', description: 'Device tilt left/right', unit: '°', min: -90, max: 90, default: 0 },
+    { id: 'mic', name: 'Microphone Level', description: 'Audio input volume level', unit: '%', min: 0, max: 100, default: 0 },
+    { id: 'light', name: 'Ambient Light', description: 'Environmental light level from light sensor', unit: 'lux', min: 0, max: 1000, default: 500 },
+    { id: 'accelX', name: 'Acceleration X', description: 'Linear acceleration along x-axis', unit: 'm/s²', min: -10, max: 10, default: 0 },
+    { id: 'accelY', name: 'Acceleration Y', description: 'Linear acceleration along y-axis', unit: 'm/s²', min: -10, max: 10, default: 0 },
+    { id: 'accelZ', name: 'Acceleration Z', description: 'Linear acceleration along z-axis', unit: 'm/s²', min: -10, max: 10, default: 0 }
+];
+
+// Available effects and their configuration
+const availableEffects = [
+    { id: 'brightness', name: 'Brightness', description: 'Video brightness filter', unit: '%', min: 25, max: 200, default: 100, effectType: 'video' },
+    { id: 'contrast', name: 'Contrast', description: 'Video contrast filter', unit: '%', min: 25, max: 200, default: 100, effectType: 'video' },
+    { id: 'saturation', name: 'Saturation', description: 'Video saturation filter', unit: '%', min: 25, max: 200, default: 100, effectType: 'video' },
+    { id: 'hueRotate', name: 'Hue Rotation', description: 'Color hue rotation', unit: '°', min: 0, max: 360, default: 0, effectType: 'video' },
+    { id: 'blur', name: 'Blur', description: 'Gaussian blur effect', unit: 'px', min: 0, max: 20, default: 0, effectType: 'video' },
+    { id: 'sepia', name: 'Sepia', description: 'Sepia tone effect', unit: '%', min: 0, max: 100, default: 0, effectType: 'video' },
+    { id: 'playbackRate', name: 'Playback Speed', description: 'Video playback rate', unit: 'x', min: 0.25, max: 2, default: 1, effectType: 'video' },
+    { id: 'pointCloudDisplacement', name: 'Point Cloud Displacement', description: 'Point cloud z-axis displacement', unit: '', min: 0, max: 200, default: 50, effectType: 'pointCloud' },
+    { id: 'pointCloudDensity', name: 'Point Cloud Density', description: 'Point cloud sampling density', unit: '', min: 8, max: 128, default: 32, effectType: 'pointCloud' },
+    { id: 'pointCloudSize', name: 'Point Size', description: 'Size of point cloud particles', unit: 'px', min: 1, max: 10, default: 3, effectType: 'pointCloud' }
+];
+
+// Default sensor mappings
+let defaultSensorMappings = [
+    { 
+        id: 1, 
+        sensorId: 'alpha', 
+        effectId: 'saturation', 
+        enabled: true, 
+        sensitivity: 1.0, 
+        invert: false, 
+        minOutput: 50, 
+        maxOutput: 150 
+    },
+    { 
+        id: 2, 
+        sensorId: 'beta', 
+        effectId: 'brightness', 
+        enabled: true, 
+        sensitivity: 1.0, 
+        invert: false, 
+        minOutput: 50, 
+        maxOutput: 150 
+    },
+    { 
+        id: 3, 
+        sensorId: 'gamma', 
+        effectId: 'contrast', 
+        enabled: true, 
+        sensitivity: 1.0, 
+        invert: false, 
+        minOutput: 50, 
+        maxOutput: 150 
+    },
+    {
+        id: 4,
+        sensorId: 'mic',
+        effectId: 'blur',
+        enabled: true,
+        sensitivity: 1.0,
+        invert: false,
+        minOutput: 0,
+        maxOutput: 10
+    },
+    {
+        id: 5,
+        sensorId: 'light',
+        effectId: 'hueRotate',
+        enabled: true,
+        sensitivity: 1.0,
+        invert: false,
+        minOutput: 0,
+        maxOutput: 360
+    }
+];
+
+// Mapping module state
+let sensorMappings = [];
+let mappingViewMode = 'list'; // 'list' or 'grid'
+let currentEditingMapping = null;
+
+// DOM Elements
+let mappingListView;
+let mappingGridView;
+let listViewBtn;
+let gridViewBtn;
+let addMappingBtn;
+let mappingModal;
+let modalSensorSelect;
+let modalEffectSelect;
+let modalSensorDescription;
+let modalEffectDescription;
+let modalSensitivitySlider;
+let modalSensitivityValue;
+let modalRangeMin;
+let modalRangeMax;
+let modalInvertMapping;
+let closeModalBtn;
+let modalCancelBtn;
+let modalSaveBtn;
+
+// Initialize the mappings module
+function initializeMappings() {
+    // Get DOM elements
+    mappingListView = utils.getElement('mappingListView');
+    mappingGridView = utils.getElement('mappingGridView');
+    listViewBtn = utils.getElement('listViewBtn');
+    gridViewBtn = utils.getElement('gridViewBtn');
+    addMappingBtn = utils.getElement('addMappingBtn');
+    mappingModal = utils.getElement('mappingModal');
+    modalSensorSelect = utils.getElement('modalSensorSelect');
+    modalEffectSelect = utils.getElement('modalEffectSelect');
+    modalSensorDescription = utils.getElement('modalSensorDescription');
+    modalEffectDescription = utils.getElement('modalEffectDescription');
+    modalSensitivitySlider = utils.getElement('modalSensitivitySlider');
+    modalSensitivityValue = utils.getElement('modalSensitivityValue');
+    modalRangeMin = utils.getElement('modalRangeMin');
+    modalRangeMax = utils.getElement('modalRangeMax');
+    modalInvertMapping = utils.getElement('modalInvertMapping');
+    closeModalBtn = utils.getElement('closeModalBtn');
+    modalCancelBtn = utils.getElement('modalCancelBtn');
+    modalSaveBtn = utils.getElement('modalSaveBtn');
+
+    // Load mappings from localStorage or use defaults
+    loadMappingsFromLocalStorage();
+    
+    // Populate select inputs in the modal
+    populateSelectInputs();
+    
+    // Set up event listeners
+    setupEventListeners();
+    
+    // Render initial mappings UI
+    renderMappings();
+}
+
+// Set up all event listeners for the mapping UI
+function setupEventListeners() {
+    // View toggle
+    listViewBtn.addEventListener('click', () => {
+        mappingViewMode = 'list';
+        updateMappingViewUI();
+    });
+    
+    gridViewBtn.addEventListener('click', () => {
+        mappingViewMode = 'grid';
+        updateMappingViewUI();
+    });
+    
+    // Add mapping button
+    addMappingBtn.addEventListener('click', showAddMappingModal);
+    
+    // Modal close buttons
+    closeModalBtn.addEventListener('click', hideModal);
+    modalCancelBtn.addEventListener('click', hideModal);
+    
+    // Modal save button
+    modalSaveBtn.addEventListener('click', saveMapping);
+    
+    // Effect change updates descriptions and range values
+    modalEffectSelect.addEventListener('change', () => {
+        updateModalDescriptions();
+        updateRangeValuesForEffect(modalEffectSelect.value);
+    });
+    
+    // Sensor change updates description
+    modalSensorSelect.addEventListener('change', () => {
+        updateModalDescriptions();
+    });
+    
+    // Sensitivity slider updates value display
+    modalSensitivitySlider.addEventListener('input', () => {
+        modalSensitivityValue.textContent = parseFloat(modalSensitivitySlider.value).toFixed(1);
+    });
+}
 
 // Populate the sensor and effect select inputs in the modal
 function populateSelectInputs() {
@@ -459,179 +635,4 @@ window.mappings = {
     getEffectById,
     availableSensors,
     availableEffects
-};,
-    { id: 'beta', name: 'Tilt Forward/Back (Beta)', description: 'Device tilt front/back', unit: '°', min: -90, max: 90, default: 0 },
-    { id: 'gamma', name: 'Tilt Left/Right (Gamma)', description: 'Device tilt left/right', unit: '°', min: -90, max: 90, default: 0 },
-    { id: 'mic', name: 'Microphone Level', description: 'Audio input volume level', unit: '%', min: 0, max: 100, default: 0 },
-    { id: 'light', name: 'Ambient Light', description: 'Environmental light level from light sensor', unit: 'lux', min: 0, max: 1000, default: 500 },
-    { id: 'accelX', name: 'Acceleration X', description: 'Linear acceleration along x-axis', unit: 'm/s²', min: -10, max: 10, default: 0 },
-    { id: 'accelY', name: 'Acceleration Y', description: 'Linear acceleration along y-axis', unit: 'm/s²', min: -10, max: 10, default: 0 },
-    { id: 'accelZ', name: 'Acceleration Z', description: 'Linear acceleration along z-axis', unit: 'm/s²', min: -10, max: 10, default: 0 }
-];
-
-// Available effects and their configuration
-const availableEffects = [
-    { id: 'brightness', name: 'Brightness', description: 'Video brightness filter', unit: '%', min: 25, max: 200, default: 100, effectType: 'video' },
-    { id: 'contrast', name: 'Contrast', description: 'Video contrast filter', unit: '%', min: 25, max: 200, default: 100, effectType: 'video' },
-    { id: 'saturation', name: 'Saturation', description: 'Video saturation filter', unit: '%', min: 25, max: 200, default: 100, effectType: 'video' },
-    { id: 'hueRotate', name: 'Hue Rotation', description: 'Color hue rotation', unit: '°', min: 0, max: 360, default: 0, effectType: 'video' },
-    { id: 'blur', name: 'Blur', description: 'Gaussian blur effect', unit: 'px', min: 0, max: 20, default: 0, effectType: 'video' },
-    { id: 'sepia', name: 'Sepia', description: 'Sepia tone effect', unit: '%', min: 0, max: 100, default: 0, effectType: 'video' },
-    { id: 'playbackRate', name: 'Playback Speed', description: 'Video playback rate', unit: 'x', min: 0.25, max: 2, default: 1, effectType: 'video' },
-    { id: 'pointCloudDisplacement', name: 'Point Cloud Displacement', description: 'Point cloud z-axis displacement', unit: '', min: 0, max: 200, default: 50, effectType: 'pointCloud' },
-    { id: 'pointCloudDensity', name: 'Point Cloud Density', description: 'Point cloud sampling density', unit: '', min: 8, max: 128, default: 32, effectType: 'pointCloud' },
-    { id: 'pointCloudSize', name: 'Point Size', description: 'Size of point cloud particles', unit: 'px', min: 1, max: 10, default: 3, effectType: 'pointCloud' }
-];
-
-// Default sensor mappings
-let defaultSensorMappings = [
-    { 
-        id: 1, 
-        sensorId: 'alpha', 
-        effectId: 'saturation', 
-        enabled: true, 
-        sensitivity: 1.0, 
-        invert: false, 
-        minOutput: 50, 
-        maxOutput: 150 
-    },
-    { 
-        id: 2, 
-        sensorId: 'beta', 
-        effectId: 'brightness', 
-        enabled: true, 
-        sensitivity: 1.0, 
-        invert: false, 
-        minOutput: 50, 
-        maxOutput: 150 
-    },
-    { 
-        id: 3, 
-        sensorId: 'gamma', 
-        effectId: 'contrast', 
-        enabled: true, 
-        sensitivity: 1.0, 
-        invert: false, 
-        minOutput: 50, 
-        maxOutput: 150 
-    },
-    {
-        id: 4,
-        sensorId: 'mic',
-        effectId: 'blur',
-        enabled: true,
-        sensitivity: 1.0,
-        invert: false,
-        minOutput: 0,
-        maxOutput: 10
-    },
-    {
-        id: 5,
-        sensorId: 'light',
-        effectId: 'hueRotate',
-        enabled: true,
-        sensitivity: 1.0,
-        invert: false,
-        minOutput: 0,
-        maxOutput: 360
-    }
-];
-
-// Mapping module state
-let sensorMappings = [];
-let mappingViewMode = 'list'; // 'list' or 'grid'
-let currentEditingMapping = null;
-
-// DOM Elements
-let mappingListView;
-let mappingGridView;
-let listViewBtn;
-let gridViewBtn;
-let addMappingBtn;
-let mappingModal;
-let modalSensorSelect;
-let modalEffectSelect;
-let modalSensorDescription;
-let modalEffectDescription;
-let modalSensitivitySlider;
-let modalSensitivityValue;
-let modalRangeMin;
-let modalRangeMax;
-let modalInvertMapping;
-let closeModalBtn;
-let modalCancelBtn;
-let modalSaveBtn;
-
-// Initialize the mappings module
-function initializeMappings() {
-    // Get DOM elements
-    mappingListView = utils.getElement('mappingListView');
-    mappingGridView = utils.getElement('mappingGridView');
-    listViewBtn = utils.getElement('listViewBtn');
-    gridViewBtn = utils.getElement('gridViewBtn');
-    addMappingBtn = utils.getElement('addMappingBtn');
-    mappingModal = utils.getElement('mappingModal');
-    modalSensorSelect = utils.getElement('modalSensorSelect');
-    modalEffectSelect = utils.getElement('modalEffectSelect');
-    modalSensorDescription = utils.getElement('modalSensorDescription');
-    modalEffectDescription = utils.getElement('modalEffectDescription');
-    modalSensitivitySlider = utils.getElement('modalSensitivitySlider');
-    modalSensitivityValue = utils.getElement('modalSensitivityValue');
-    modalRangeMin = utils.getElement('modalRangeMin');
-    modalRangeMax = utils.getElement('modalRangeMax');
-    modalInvertMapping = utils.getElement('modalInvertMapping');
-    closeModalBtn = utils.getElement('closeModalBtn');
-    modalCancelBtn = utils.getElement('modalCancelBtn');
-    modalSaveBtn = utils.getElement('modalSaveBtn');
-
-    // Load mappings from localStorage or use defaults
-    loadMappingsFromLocalStorage();
-    
-    // Populate select inputs in the modal
-    populateSelectInputs();
-    
-    // Set up event listeners
-    setupEventListeners();
-    
-    // Render initial mappings UI
-    renderMappings();
-}
-
-// Set up all event listeners for the mapping UI
-function setupEventListeners() {
-    // View toggle
-    listViewBtn.addEventListener('click', () => {
-        mappingViewMode = 'list';
-        updateMappingViewUI();
-    });
-    
-    gridViewBtn.addEventListener('click', () => {
-        mappingViewMode = 'grid';
-        updateMappingViewUI();
-    });
-    
-    // Add mapping button
-    addMappingBtn.addEventListener('click', showAddMappingModal);
-    
-    // Modal close buttons
-    closeModalBtn.addEventListener('click', hideModal);
-    modalCancelBtn.addEventListener('click', hideModal);
-    
-    // Modal save button
-    modalSaveBtn.addEventListener('click', saveMapping);
-    
-    // Effect change updates descriptions and range values
-    modalEffectSelect.addEventListener('change', () => {
-        updateModalDescriptions();
-        updateRangeValuesForEffect(modalEffectSelect.value);
-    });
-    
-    // Sensor change updates description
-    modalSensorSelect.addEventListener('change', () => {
-        updateModalDescriptions();
-    });
-    
-    // Sensitivity slider updates value display
-    modalSensitivitySlider.addEventListener('input', () => {
-        modalSensitivityValue.textContent = parseFloat(modalSensitivitySlider.value).toFixed(1);
-    });
+};
