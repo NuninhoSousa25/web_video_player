@@ -3,66 +3,52 @@ const Mappings = (function() {
     let playerModuleRef;
     let pointCloudModuleRef;
     let currentModeGetter = () => 'videoPlayer';
+    let sensorsModuleRef;
 
-    function mapOrientationInput(rawAlpha, rawBeta, rawGamma, sensorParams, sensorsAreOff = false) {
-        if (sensorsAreOff) {
-            // If sensors are turned off, reset point cloud tilt
-            if (pointCloudModuleRef) pointCloudModuleRef.updateTiltAngles(0, 0);
-            // Optionally, you could reset video filters to default here if desired,
-            // but the current logic seems to keep them as they were.
+    // This function will be called by Sensors.js whenever sensor data updates
+    function applyAllActiveMappings() {
+        if (!sensorsModuleRef || !sensorsModuleRef.isGloballyEnabled()) {
+            // If sensors are off, consider resetting effects to their defaults or last user-set values
+            // For now, we'll just not apply any sensor-driven changes.
+            // Player filters might still be user-controlled via sliders.
             return;
         }
 
-        const effectiveAlpha = ((rawAlpha - sensorParams.calibration.alpha - sensorParams.manual.alpha + 360) % 360);
-        let effectiveBeta = rawBeta - sensorParams.calibration.beta - sensorParams.manual.beta;
-        let effectiveGamma = rawGamma - sensorParams.calibration.gamma - sensorParams.manual.gamma;
-
-        const finalAlpha = sensorParams.inverted ? (360 - effectiveAlpha + 360) % 360 : effectiveAlpha;
-        let finalBeta = sensorParams.inverted ? -effectiveBeta : effectiveBeta;
-        let finalGamma = sensorParams.inverted ? -effectiveGamma : effectiveGamma;
+        const activeMappings = MappingManager.getActiveMappings();
         
-        if (currentModeGetter() === 'videoPlayer' && playerModuleRef) {
-            const { brightnessSlider, saturationSlider, contrastSlider } = playerModuleRef.getFilterSliderElements();
-            const lastFilters = playerModuleRef.getLastFilterValues(); // For smoothing
+        activeMappings.forEach(mapping => {
+            if (!mapping.enabled) return;
 
-            const alphaNormalized = ((finalAlpha + 180) % 360) - 180; // -180 to 180
-            let newSaturation = 100 + Math.round((alphaNormalized * sensorParams.sensitivities.alpha) / 180 * 75); 
-            let newBrightness = 100 + Math.round((finalBeta * sensorParams.sensitivities.beta) / 90 * 75); 
-            let newContrast = 100 + Math.round((finalGamma * sensorParams.sensitivities.gamma) / 90 * 75);    
+            const sensorValue = sensorsModuleRef.getSensorValue(mapping.sensorId);
+            if (sensorValue === undefined || sensorValue === null) return; // Sensor data not available
 
-            newSaturation = Math.max(25, Math.min(200, newSaturation));
-            newBrightness = Math.max(25, Math.min(200, newBrightness));
-            newContrast = Math.max(25, Math.min(200, newContrast));
+            const effectDetails = getEffectById(mapping.effectId);
+            if (!effectDetails) return;
             
-            // Apply smoothing and update slider values
-            // Note: This will trigger the 'input' event on sliders, which in Player.js will call applyVideoFilters
-            brightnessSlider.value = Utils.applySmoothing(parseFloat(lastFilters.brightness), newBrightness, sensorParams.smoothingFactor);
-            saturationSlider.value = Utils.applySmoothing(parseFloat(lastFilters.saturation), newSaturation, sensorParams.smoothingFactor);
-            contrastSlider.value = Utils.applySmoothing(parseFloat(lastFilters.contrast), newContrast, sensorParams.smoothingFactor);
-            
-            // Trigger input event manually if direct value setting doesn't, or rely on Player.js's listeners.
-            // For robustness, explicit update can be good.
-            const inputEvent = new Event('input', { bubbles: true, cancelable: true });
-            brightnessSlider.dispatchEvent(inputEvent);
-            saturationSlider.dispatchEvent(inputEvent);
-            contrastSlider.dispatchEvent(inputEvent);
-            // UI.updateFilterDisplayValues() will be called by Player.js's slider input listeners.
-            // Player.applyVideoFilters() will also be called.
+            // Calculate the target value for the effect
+            const targetEffectValue = MappingManager.calculateEffectValue(sensorValue, mapping);
 
-        } else if (currentModeGetter() === 'pointCloud' && pointCloudModuleRef) {
-            pointCloudModuleRef.updateTiltAngles(finalBeta, finalGamma);
-        }
+            // Apply the effect
+            if (effectDetails.target === 'player' && playerModuleRef) {
+                playerModuleRef.setEffect(effectDetails.id, targetEffectValue);
+            } else if (effectDetails.target === 'pointcloud' && pointCloudModuleRef) {
+                pointCloudModuleRef.setEffect(effectDetails.id, targetEffectValue);
+            }
+        });
     }
 
-    function init(player, pointcloud, modeGetterFn) {
+
+    function init(player, pointcloud, sensors, modeGetterFn) {
         playerModuleRef = player;
         pointCloudModuleRef = pointcloud;
+        sensorsModuleRef = sensors; // Store reference to Sensors module
         currentModeGetter = modeGetterFn;
+        // `Sensors.js` will call `applyAllActiveMappings` via the callback
     }
 
     // Public API
     return {
         init,
-        processOrientation: mapOrientationInput
+        applyAllActiveMappings // This is the key function now
     };
 })();
