@@ -1,0 +1,239 @@
+// js/mapping_panel.js
+const MappingPanel = (function() {
+    let panelElement, closeButton, toggleButton, mappingsListElement,
+        editFormContainer, editForm, editFormTitle, mappingIdInput,
+        sensorSelect, effectSelect, sensitivityRange, sensitivityValueDisplay,
+        outputMinInput, outputMaxInput, invertCheckbox, enabledCheckbox,
+        addNewMappingBtn, cancelEditBtn,
+        sensorDescriptionEl, effectDescriptionEl, effectUnitMinEl, effectUnitMaxEl;
+
+    let currentEditingId = null;
+
+    function cacheDOMElements() {
+        panelElement = document.getElementById('sensorMappingPanel');
+        closeButton = document.getElementById('closeMappingPanelBtn');
+        toggleButton = document.getElementById('toggleMappingPanelBtn'); // Added this
+        
+        mappingsListElement = document.getElementById('mappingsList');
+        addNewMappingBtn = document.getElementById('addNewMappingBtn');
+
+        editFormContainer = document.getElementById('mappingEditFormContainer');
+        editForm = document.getElementById('mappingEditForm');
+        editFormTitle = document.getElementById('editFormTitle');
+        mappingIdInput = document.getElementById('mappingId');
+        sensorSelect = document.getElementById('sensorSelect');
+        effectSelect = document.getElementById('effectSelect');
+        sensitivityRange = document.getElementById('sensitivityRange');
+        sensitivityValueDisplay = document.getElementById('sensitivityValue');
+        outputMinInput = document.getElementById('outputMin');
+        outputMaxInput = document.getElementById('outputMax');
+        invertCheckbox = document.getElementById('invertMapping');
+        enabledCheckbox = document.getElementById('mappingEnabled');
+        cancelEditBtn = document.getElementById('cancelEditBtn');
+
+        sensorDescriptionEl = document.getElementById('sensorDescription');
+        effectDescriptionEl = document.getElementById('effectDescription');
+        effectUnitMinEl = document.getElementById('effectUnitMin');
+        effectUnitMaxEl = document.getElementById('effectUnitMax');
+    }
+
+    function populateSelectOptions() {
+        sensorSelect.innerHTML = AVAILABLE_SENSORS.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+        effectSelect.innerHTML = AVAILABLE_EFFECTS.map(e => `<option value="${e.id}">${e.name}</option>`).join('');
+    }
+
+    function renderMappingsList() {
+        const mappings = MappingManager.getMappings();
+        mappingsListElement.innerHTML = ''; // Clear existing
+        if (mappings.length === 0) {
+            mappingsListElement.innerHTML = '<li>No mappings defined. Click "Add New Mapping".</li>';
+            return;
+        }
+
+        mappings.forEach(mapping => {
+            const sensor = getSensorById(mapping.sensorId);
+            const effect = getEffectById(mapping.effectId);
+            if (!sensor || !effect) return;
+
+            const li = document.createElement('li');
+            li.className = mapping.enabled ? 'enabled' : 'disabled';
+            li.dataset.mappingId = mapping.id;
+
+            let sensitivityDisplay = mapping.sensitivity ? mapping.sensitivity.toFixed(1) : '1.0';
+
+            li.innerHTML = `
+                <div class="mapping-info">
+                    <span class="mapping-name">${sensor.name} → ${effect.name}</span>
+                    <div class="mapping-actions">
+                        <button class="toggle-enable-btn" data-id="${mapping.id}">${mapping.enabled ? 'Disable' : 'Enable'}</button>
+                        <button class="edit-btn" data-id="${mapping.id}">Edit</button>
+                        <button class="delete-btn" data-id="${mapping.id}">Delete</button>
+                    </div>
+                </div>
+                <div class="mapping-details">
+                    Sensitivity: ${sensitivityDisplay}, Output: ${mapping.rangeMin}${effect.unit} to ${mapping.rangeMax}${effect.unit}${mapping.invert ? ' (Inverted)' : ''}
+                </div>
+            `;
+            mappingsListElement.appendChild(li);
+        });
+    }
+    
+    function showPanel() { panelElement.classList.remove('hidden'); }
+    function hidePanel() { panelElement.classList.add('hidden'); hideEditForm(); }
+    function togglePanel() { panelElement.classList.toggle('hidden'); if(panelElement.classList.contains('hidden')) hideEditForm(); }
+
+
+    function showEditForm(mappingData = null) {
+        currentEditingId = mappingData ? mappingData.id : null;
+        editFormTitle.textContent = mappingData ? 'Edit Mapping' : 'Add New Mapping';
+        
+        if (mappingData) {
+            mappingIdInput.value = mappingData.id;
+            sensorSelect.value = mappingData.sensorId;
+            effectSelect.value = mappingData.effectId;
+            sensitivityRange.value = mappingData.sensitivity || 1.0;
+            outputMinInput.value = mappingData.rangeMin;
+            outputMaxInput.value = mappingData.rangeMax;
+            invertCheckbox.checked = mappingData.invert || false;
+            enabledCheckbox.checked = mappingData.enabled !== undefined ? mappingData.enabled : true;
+        } else { // Defaults for new mapping
+            editForm.reset(); // Clear form
+            mappingIdInput.value = '';
+            sensorSelect.value = AVAILABLE_SENSORS[0].id;
+            effectSelect.value = AVAILABLE_EFFECTS[0].id;
+            sensitivityRange.value = 1.0;
+            const defaultEffect = getEffectById(effectSelect.value);
+            outputMinInput.value = defaultEffect.min; // Use absolute min/max of effect for new mapping
+            outputMaxInput.value = defaultEffect.max;
+            invertCheckbox.checked = false;
+            enabledCheckbox.checked = true;
+        }
+        updateSensitivityDisplay();
+        updateDescriptionAndUnits();
+        editFormContainer.classList.remove('hidden');
+    }
+
+    function hideEditForm() {
+        editFormContainer.classList.add('hidden');
+        currentEditingId = null;
+    }
+
+    function updateSensitivityDisplay() {
+        sensitivityValueDisplay.textContent = parseFloat(sensitivityRange.value).toFixed(1);
+    }
+    
+    function updateDescriptionAndUnits() {
+        const selectedSensor = getSensorById(sensorSelect.value);
+        const selectedEffect = getEffectById(effectSelect.value);
+
+        if (selectedSensor) sensorDescriptionEl.textContent = selectedSensor.description;
+        if (selectedEffect) {
+            effectDescriptionEl.textContent = selectedEffect.description;
+            effectUnitMinEl.textContent = selectedEffect.unit;
+            effectUnitMaxEl.textContent = selectedEffect.unit;
+            
+            // When effect changes, update default range inputs if it's a new mapping or ranges seem off
+            if (!currentEditingId || 
+                parseFloat(outputMinInput.value) < selectedEffect.min || 
+                parseFloat(outputMaxInput.value) > selectedEffect.max ||
+                outputMinInput.value === '' || outputMaxInput.value === '') { // If new or invalid
+                outputMinInput.min = selectedEffect.min;
+                outputMinInput.max = selectedEffect.max;
+                outputMaxInput.min = selectedEffect.min;
+                outputMaxInput.max = selectedEffect.max;
+                // If it's a new mapping, set outputMin/Max to effect's default span
+                if (!currentEditingId) {
+                    outputMinInput.value = selectedEffect.min;
+                    outputMaxInput.value = selectedEffect.max;
+                }
+            }
+        }
+    }
+
+
+    function handleFormSubmit(event) {
+        event.preventDefault();
+        const formData = {
+            sensorId: sensorSelect.value,
+            effectId: effectSelect.value,
+            sensitivity: parseFloat(sensitivityRange.value),
+            rangeMin: parseFloat(outputMinInput.value),
+            rangeMax: parseFloat(outputMaxInput.value),
+            invert: invertCheckbox.checked,
+            enabled: enabledCheckbox.checked,
+        };
+
+        const effectDetails = getEffectById(formData.effectId);
+        if (formData.rangeMin < effectDetails.min) formData.rangeMin = effectDetails.min;
+        if (formData.rangeMax > effectDetails.max) formData.rangeMax = effectDetails.max;
+        if (formData.rangeMin > formData.rangeMax) { // Swap if min > max
+            [formData.rangeMin, formData.rangeMax] = [formData.rangeMax, formData.rangeMin];
+        }
+
+
+        if (currentEditingId) {
+            MappingManager.updateMapping(currentEditingId, formData);
+        } else {
+            MappingManager.addMapping(formData);
+        }
+        renderMappingsList();
+        hideEditForm();
+    }
+
+    function handleListClick(event) {
+        const target = event.target;
+        const mappingId = parseInt(target.dataset.id);
+
+        if (target.classList.contains('edit-btn')) {
+            const mapping = MappingManager.getMappingById(mappingId);
+            if (mapping) showEditForm(mapping);
+        } else if (target.classList.contains('delete-btn')) {
+            if (confirm('Are you sure you want to delete this mapping?')) {
+                MappingManager.deleteMapping(mappingId);
+                renderMappingsList();
+            }
+        } else if (target.classList.contains('toggle-enable-btn')) {
+             const mapping = MappingManager.getMappingById(mappingId);
+             if (mapping) {
+                 MappingManager.updateMapping(mappingId, { enabled: !mapping.enabled });
+                 renderMappingsList();
+             }
+        }
+    }
+
+    function setupEventListeners() {
+        if(toggleButton) toggleButton.addEventListener('click', togglePanel);
+        if(closeButton) closeButton.addEventListener('click', hidePanel);
+        if(addNewMappingBtn) addNewMappingBtn.addEventListener('click', () => showEditForm());
+        if(cancelEditBtn) cancelEditBtn.addEventListener('click', hideEditForm);
+        if(editForm) editForm.addEventListener('submit', handleFormSubmit);
+        if(mappingsListElement) mappingsListElement.addEventListener('click', handleListClick);
+        
+        if(sensitivityRange) sensitivityRange.addEventListener('input', updateSensitivityDisplay);
+        if(sensorSelect) sensorSelect.addEventListener('change', updateDescriptionAndUnits);
+        if(effectSelect) effectSelect.addEventListener('change', () => {
+            // When effect changes, reset outputMin/Max to new effect's full range for user to adjust
+             const selectedEffect = getEffectById(effectSelect.value);
+             if(selectedEffect) {
+                outputMinInput.value = selectedEffect.min;
+                outputMaxInput.value = selectedEffect.max;
+             }
+            updateDescriptionAndUnits();
+        });
+    }
+
+    function init() {
+        cacheDOMElements();
+        populateSelectOptions();
+        renderMappingsList();
+        setupEventListeners();
+    }
+
+    return {
+        init,
+        renderMappingsList, // Expose if needed by other modules (e.g. on load)
+        show: showPanel,
+        hide: hidePanel,
+        toggle: togglePanel
+    };
+})();
