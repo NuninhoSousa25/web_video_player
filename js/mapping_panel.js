@@ -2,7 +2,7 @@
 const MappingPanel = (function() {
     let panelElement, closeButton, toggleButton, mappingsListElement,
         editFormContainer, editForm, editFormTitle, mappingIdInput,
-        sensorSelect, effectSelect, sensitivityRange, sensitivityValueDisplay,
+        sensorSelect, effectSelect, sensitivityRange, sensitivityValueDisplay, // sensitivityValueDisplay is the span
         outputMinInput, outputMaxInput, invertCheckbox, enabledCheckbox,
         addNewMappingBtn, cancelEditBtn,
         sensorDescriptionEl, effectDescriptionEl, effectUnitMinEl, effectUnitMaxEl;
@@ -12,7 +12,7 @@ const MappingPanel = (function() {
     function cacheDOMElements() {
         panelElement = document.getElementById('sensorMappingPanel');
         closeButton = document.getElementById('closeMappingPanelBtn');
-        toggleButton = document.getElementById('toggleMappingPanelBtn'); // Added this
+        toggleButton = document.getElementById('toggleMappingPanelBtn'); 
         
         mappingsListElement = document.getElementById('mappingsList');
         addNewMappingBtn = document.getElementById('addNewMappingBtn');
@@ -24,7 +24,7 @@ const MappingPanel = (function() {
         sensorSelect = document.getElementById('sensorSelect');
         effectSelect = document.getElementById('effectSelect');
         sensitivityRange = document.getElementById('sensitivityRange');
-        sensitivityValueDisplay = document.getElementById('sensitivityValue');
+        sensitivityValueDisplay = document.getElementById('sensitivityValueDisplay'); // Corrected ID
         outputMinInput = document.getElementById('outputMin');
         outputMaxInput = document.getElementById('outputMax');
         invertCheckbox = document.getElementById('invertMapping');
@@ -44,9 +44,10 @@ const MappingPanel = (function() {
 
     function renderMappingsList() {
         const mappings = MappingManager.getMappings();
-        mappingsListElement.innerHTML = ''; // Clear existing
+        mappingsListElement.innerHTML = ''; 
         if (mappings.length === 0) {
             mappingsListElement.innerHTML = '<li>No mappings defined. Click "Add New Mapping".</li>';
+            UI.updateActiveMappingIndicators(); // Update indicators even if list is empty
             return;
         }
 
@@ -71,11 +72,12 @@ const MappingPanel = (function() {
                     </div>
                 </div>
                 <div class="mapping-details">
-                    Sensitivity: ${sensitivityDisplay}, Output: ${mapping.rangeMin}${effect.unit} to ${mapping.rangeMax}${effect.unit}${mapping.invert ? ' (Inverted)' : ''}
+                    Sensitivity: ${sensitivityDisplay}, Output: ${mapping.rangeMin}${effect.unit || ''} to ${mapping.rangeMax}${effect.unit || ''}${mapping.invert ? ' (Inverted)' : ''}
                 </div>
             `;
             mappingsListElement.appendChild(li);
         });
+        UI.updateActiveMappingIndicators(); // Update indicators after rendering list
     }
     
     function showPanel() { panelElement.classList.remove('hidden'); }
@@ -96,14 +98,14 @@ const MappingPanel = (function() {
             outputMaxInput.value = mappingData.rangeMax;
             invertCheckbox.checked = mappingData.invert || false;
             enabledCheckbox.checked = mappingData.enabled !== undefined ? mappingData.enabled : true;
-        } else { // Defaults for new mapping
-            editForm.reset(); // Clear form
+        } else { 
+            editForm.reset(); 
             mappingIdInput.value = '';
             sensorSelect.value = AVAILABLE_SENSORS[0].id;
             effectSelect.value = AVAILABLE_EFFECTS[0].id;
             sensitivityRange.value = 1.0;
             const defaultEffect = getEffectById(effectSelect.value);
-            outputMinInput.value = defaultEffect.min; // Use absolute min/max of effect for new mapping
+            outputMinInput.value = defaultEffect.min; 
             outputMaxInput.value = defaultEffect.max;
             invertCheckbox.checked = false;
             enabledCheckbox.checked = true;
@@ -119,32 +121,34 @@ const MappingPanel = (function() {
     }
 
     function updateSensitivityDisplay() {
-        sensitivityValueDisplay.textContent = parseFloat(sensitivityRange.value).toFixed(1);
+        if (sensitivityValueDisplay && sensitivityRange) { // Check elements exist
+            sensitivityValueDisplay.textContent = parseFloat(sensitivityRange.value).toFixed(1);
+        }
     }
     
     function updateDescriptionAndUnits() {
         const selectedSensor = getSensorById(sensorSelect.value);
         const selectedEffect = getEffectById(effectSelect.value);
 
-        if (selectedSensor) sensorDescriptionEl.textContent = selectedSensor.description;
+        if (selectedSensor && sensorDescriptionEl) sensorDescriptionEl.textContent = selectedSensor.description;
         if (selectedEffect) {
-            effectDescriptionEl.textContent = selectedEffect.description;
-            effectUnitMinEl.textContent = selectedEffect.unit;
-            effectUnitMaxEl.textContent = selectedEffect.unit;
+            if(effectDescriptionEl) effectDescriptionEl.textContent = selectedEffect.description;
+            if(effectUnitMinEl) effectUnitMinEl.textContent = selectedEffect.unit || '';
+            if(effectUnitMaxEl) effectUnitMaxEl.textContent = selectedEffect.unit || '';
             
-            // When effect changes, update default range inputs if it's a new mapping or ranges seem off
             if (!currentEditingId || 
-                parseFloat(outputMinInput.value) < selectedEffect.min || 
-                parseFloat(outputMaxInput.value) > selectedEffect.max ||
-                outputMinInput.value === '' || outputMaxInput.value === '') { // If new or invalid
-                outputMinInput.min = selectedEffect.min;
-                outputMinInput.max = selectedEffect.max;
-                outputMaxInput.min = selectedEffect.min;
-                outputMaxInput.max = selectedEffect.max;
-                // If it's a new mapping, set outputMin/Max to effect's default span
+                (outputMinInput && outputMaxInput && selectedEffect && (
+                    parseFloat(outputMinInput.value) < selectedEffect.min || 
+                    parseFloat(outputMaxInput.value) > selectedEffect.max ||
+                    outputMinInput.value === '' || outputMaxInput.value === ''
+                ))) {
+                if (outputMinInput) outputMinInput.min = selectedEffect.min;
+                if (outputMinInput) outputMinInput.max = selectedEffect.max;
+                if (outputMaxInput) outputMaxInput.min = selectedEffect.min;
+                if (outputMaxInput) outputMaxInput.max = selectedEffect.max;
                 if (!currentEditingId) {
-                    outputMinInput.value = selectedEffect.min;
-                    outputMaxInput.value = selectedEffect.max;
+                    if (outputMinInput) outputMinInput.value = selectedEffect.min;
+                    if (outputMaxInput) outputMaxInput.value = selectedEffect.max;
                 }
             }
         }
@@ -166,7 +170,7 @@ const MappingPanel = (function() {
         const effectDetails = getEffectById(formData.effectId);
         if (formData.rangeMin < effectDetails.min) formData.rangeMin = effectDetails.min;
         if (formData.rangeMax > effectDetails.max) formData.rangeMax = effectDetails.max;
-        if (formData.rangeMin > formData.rangeMax) { // Swap if min > max
+        if (formData.rangeMin > formData.rangeMax) { 
             [formData.rangeMin, formData.rangeMax] = [formData.rangeMax, formData.rangeMin];
         }
 
@@ -176,13 +180,15 @@ const MappingPanel = (function() {
         } else {
             MappingManager.addMapping(formData);
         }
-        renderMappingsList();
+        renderMappingsList(); // This will also call UI.updateActiveMappingIndicators()
         hideEditForm();
     }
 
     function handleListClick(event) {
         const target = event.target;
+        if (!target.dataset.id) return; // Ensure data-id exists
         const mappingId = parseInt(target.dataset.id);
+
 
         if (target.classList.contains('edit-btn')) {
             const mapping = MappingManager.getMappingById(mappingId);
@@ -190,13 +196,13 @@ const MappingPanel = (function() {
         } else if (target.classList.contains('delete-btn')) {
             if (confirm('Are you sure you want to delete this mapping?')) {
                 MappingManager.deleteMapping(mappingId);
-                renderMappingsList();
+                renderMappingsList(); // This will also call UI.updateActiveMappingIndicators()
             }
         } else if (target.classList.contains('toggle-enable-btn')) {
              const mapping = MappingManager.getMappingById(mappingId);
              if (mapping) {
                  MappingManager.updateMapping(mappingId, { enabled: !mapping.enabled });
-                 renderMappingsList();
+                 renderMappingsList(); // This will also call UI.updateActiveMappingIndicators()
              }
         }
     }
@@ -212,11 +218,10 @@ const MappingPanel = (function() {
         if(sensitivityRange) sensitivityRange.addEventListener('input', updateSensitivityDisplay);
         if(sensorSelect) sensorSelect.addEventListener('change', updateDescriptionAndUnits);
         if(effectSelect) effectSelect.addEventListener('change', () => {
-            // When effect changes, reset outputMin/Max to new effect's full range for user to adjust
              const selectedEffect = getEffectById(effectSelect.value);
              if(selectedEffect) {
-                outputMinInput.value = selectedEffect.min;
-                outputMaxInput.value = selectedEffect.max;
+                if(outputMinInput) outputMinInput.value = selectedEffect.min;
+                if(outputMaxInput) outputMaxInput.value = selectedEffect.max;
              }
             updateDescriptionAndUnits();
         });
@@ -227,11 +232,12 @@ const MappingPanel = (function() {
         populateSelectOptions();
         renderMappingsList();
         setupEventListeners();
+        UI.updateActiveMappingIndicators(); // Initial call
     }
 
     return {
         init,
-        renderMappingsList, // Expose if needed by other modules (e.g. on load)
+        renderMappingsList, 
         show: showPanel,
         hide: hidePanel,
         toggle: togglePanel
