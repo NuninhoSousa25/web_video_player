@@ -1,5 +1,12 @@
 // js/sensors.js
 const Sensors = (function() {
+    // Constants
+    const DEFAULT_SMOOTHING_FACTOR = 0.3;
+    const DEFAULT_PROXIMITY_MAX = 25;
+    const CIRCULAR_SENSORS = ['alpha', 'compassHeading'];
+    const SENSOR_UPDATE_FREQUENCY = 2; // Hz
+
+    // DOM Elements
     let sensorToggleBtn, orientAlphaEl, orientBetaEl, orientGammaEl, compassNeedle,
         // micVolumeDisplayEl, // Example if you add mic volume display
         alphaSensitivitySlider, betaSensitivitySlider, gammaSensitivitySlider, smoothingSlider,
@@ -8,34 +15,49 @@ const Sensors = (function() {
         alphaOffsetValueEl, betaOffsetValueEl, gammaOffsetValueEl,
         calibrateBtn, invertBtn, sensorSectionControls;
 
+    // Module References
     let playerModuleRef;
     let pointCloudModuleRef; // Added reference for PointCloud parallax
 
+    // State
     let globallyEnabled = false;
     let permissionGranted = {
         orientation: false,
         motion: false,
         proximity: false, 
-        microphone: false 
+        microphone: false,
+        gyroscope: false,
+        gravity: false,
+        ambientLight: false,
+        magnetometer: false
     };
     
-    let latestSensorData = {
+    // Sensor Data
+    const createInitialSensorData = () => ({
         alpha: 0, beta: 0, gamma: 0,
         accelX: 0, accelY: 0, accelZ: 0,
-        proximity: getSensorById('proximity') ? getSensorById('proximity').typicalMax : 25, 
+        proximity: getSensorById('proximity')?.typicalMax || DEFAULT_PROXIMITY_MAX,
         micVolume: 0,
-        compassHeading: 0 
-    };
+        compassHeading: 0,
+        gyroX: 0, gyroY: 0, gyroZ: 0,
+        gravityX: 0, gravityY: 0, gravityZ: 0,
+        ambientLight: 0,
+        magneticX: 0, magneticY: 0, magneticZ: 0
+    });
 
-    let smoothedSensorData = { ...latestSensorData }; // For applying smoothing
+    let latestSensorData = createInitialSensorData();
+    let smoothedSensorData = { ...latestSensorData };
 
+    // Calibration and Configuration
     let calibrationValues = { alpha: 0, beta: 0, gamma: 0 };
     let manualOffsets = { alpha: 0, beta: 0, gamma: 0 };
     let controlsInverted = false;
-    let smoothingFactor = 0.3; // Default smoothing factor
+    let smoothingFactor = DEFAULT_SMOOTHING_FACTOR;
 
+    // Callbacks
     let onSensorUpdateCallback = () => {}; // This calls Mappings.applyAllActiveMappings
 
+    // Sensor Instances
     let proximitySensorInstance = null;
 
     let audioContext = null;
@@ -163,30 +185,49 @@ const Sensors = (function() {
         }
     }
     
-    function applySmoothing(currentSmoothed, rawNewValue) {
-        if (smoothingFactor === 0) return rawNewValue; // No smoothing
-        // Ensure values are numbers before calculation
-        const current = Number(currentSmoothed) || 0;
-        const raw = Number(rawNewValue) || 0;
-        return current * smoothingFactor + raw * (1 - smoothingFactor);
-    }
-
-
     function updateSensorDisplay() {
-        if(orientAlphaEl) orientAlphaEl.textContent = (smoothedSensorData.alpha != null ? smoothedSensorData.alpha.toFixed(2) : '0.00');
-        if(orientBetaEl) orientBetaEl.textContent = (smoothedSensorData.beta != null ? smoothedSensorData.beta.toFixed(2) : '0.00');
-        if(orientGammaEl) orientGammaEl.textContent = (smoothedSensorData.gamma != null ? smoothedSensorData.gamma.toFixed(2) : '0.00');
+        const updateValue = (elementId, value, decimals = 2) => {
+            const element = document.getElementById(elementId);
+            if (element) {
+                element.textContent = value != null ? value.toFixed(decimals) : '0.00';
+            }
+        };
+
+        // Update orientation values
+        updateValue('orientAlpha', smoothedSensorData.alpha);
+        updateValue('orientBeta', smoothedSensorData.beta);
+        updateValue('orientGamma', smoothedSensorData.gamma);
         
-        const proximityValueEl = document.getElementById('proximityValue');
-        if(proximityValueEl) proximityValueEl.textContent = (smoothedSensorData.proximity != null ? smoothedSensorData.proximity.toFixed(1) : '0.00');
+        // Update proximity value (1 decimal place)
+        updateValue('proximityValue', smoothedSensorData.proximity, 1);
         
-        if (compassNeedle) compassNeedle.style.transform = `rotate(${(smoothedSensorData.alpha || 0)}deg)`;
-        // if (micVolumeDisplayEl) micVolumeDisplayEl.textContent = Math.round(smoothedSensorData.micVolume);
+        // Update gyroscope values
+        updateValue('gyroXValue', smoothedSensorData.gyroX);
+        updateValue('gyroYValue', smoothedSensorData.gyroY);
+        updateValue('gyroZValue', smoothedSensorData.gyroZ);
+
+        // Update gravity values
+        updateValue('gravityXValue', smoothedSensorData.gravityX);
+        updateValue('gravityYValue', smoothedSensorData.gravityY);
+        updateValue('gravityZValue', smoothedSensorData.gravityZ);
+
+        // Update ambient light value (1 decimal place)
+        updateValue('ambientLightValue', smoothedSensorData.ambientLight, 1);
+
+        // Update magnetometer values (1 decimal place)
+        updateValue('magneticXValue', smoothedSensorData.magneticX, 1);
+        updateValue('magneticYValue', smoothedSensorData.magneticY, 1);
+        updateValue('magneticZValue', smoothedSensorData.magneticZ, 1);
+        
+        // Update compass needle
+        if (compassNeedle) {
+            compassNeedle.style.transform = `rotate(${smoothedSensorData.alpha || 0}deg)`;
+        }
     }
 
     function mapCircularValue(value, min, max) {
-        // For circular values (like angles), map them to a continuous range
-        // This prevents sharp transitions at 0/360 boundary
+        if (value == null) return 0;
+        
         const range = max - min;
         const halfRange = range / 2;
         
@@ -201,103 +242,123 @@ const Sensors = (function() {
         return normalized;
     }
 
+    function applySmoothing(currentSmoothed, rawNewValue) {
+        if (smoothingFactor === 0) return rawNewValue;
+        if (rawNewValue == null) return currentSmoothed;
+        
+        const current = Number(currentSmoothed) || 0;
+        const raw = Number(rawNewValue) || 0;
+        return current * smoothingFactor + raw * (1 - smoothingFactor);
+    }
+
     function processSensorDataAndUpdate() {
         // Apply smoothing to all relevant sensor data
         for (const key in latestSensorData) {
-            if (smoothedSensorData.hasOwnProperty(key)) {
-                // Handle circular values (alpha and compassHeading) differently
-                if (key === 'alpha' || key === 'compassHeading') {
-                    // Map to continuous range first
-                    const mappedValue = mapCircularValue(latestSensorData[key], 0, 360);
-                    const mappedSmoothed = mapCircularValue(smoothedSensorData[key], 0, 360);
-                    
-                    // Apply smoothing to mapped values
-                    smoothedSensorData[key] = applySmoothing(mappedSmoothed, mappedValue);
-                } else {
-                    smoothedSensorData[key] = applySmoothing(smoothedSensorData[key], latestSensorData[key]);
-                }
+            if (!smoothedSensorData.hasOwnProperty(key)) continue;
+
+            // Handle circular values differently
+            if (CIRCULAR_SENSORS.includes(key)) {
+                const mappedValue = mapCircularValue(latestSensorData[key], 0, 360);
+                const mappedSmoothed = mapCircularValue(smoothedSensorData[key], 0, 360);
+                smoothedSensorData[key] = applySmoothing(mappedSmoothed, mappedValue);
+            } else {
+                smoothedSensorData[key] = applySmoothing(smoothedSensorData[key], latestSensorData[key]);
             }
         }
 
         updateSensorDisplay();
 
         // Update PointCloud with smoothed beta and gamma for parallax
-        if (pointCloudModuleRef && typeof pointCloudModuleRef.updateSensorTilt === 'function') {
+        if (pointCloudModuleRef?.updateSensorTilt) {
             pointCloudModuleRef.updateSensorTilt(smoothedSensorData.beta, smoothedSensorData.gamma);
         }
 
-        if (onSensorUpdateCallback) {
-            onSensorUpdateCallback(); // This will use smoothedSensorData via getSensorValue
-        }
+        onSensorUpdateCallback?.();
     }
 
 
     function handleOrientationEvent(event) {
         if (!globallyEnabled) return;
         
-        let rawAlpha = event.alpha || 0;
-        let rawBeta = event.beta || 0;
-        let rawGamma = event.gamma || 0;
+        try {
+            const rawAlpha = event.alpha ?? 0;
+            const rawBeta = event.beta ?? 0;
+            const rawGamma = event.gamma ?? 0;
 
-        // Apply calibration FIRST to raw values
-        let calAlpha = ((rawAlpha - calibrationValues.alpha + 360) % 360);
-        let calBeta = rawBeta - calibrationValues.beta;
-        let calGamma = rawGamma - calibrationValues.gamma;
+            // Apply calibration and offsets
+            const calAlpha = ((rawAlpha - calibrationValues.alpha + 360) % 360);
+            const calBeta = rawBeta - calibrationValues.beta;
+            const calGamma = rawGamma - calibrationValues.gamma;
 
-        // Then apply manual offsets
-        let offsetAlpha = ((calAlpha - manualOffsets.alpha + 360) % 360);
-        let offsetBeta = calBeta - manualOffsets.beta;
-        let offsetGamma = calGamma - manualOffsets.gamma;
+            const offsetAlpha = ((calAlpha - manualOffsets.alpha + 360) % 360);
+            const offsetBeta = calBeta - manualOffsets.beta;
+            const offsetGamma = calGamma - manualOffsets.gamma;
 
-
-        if (controlsInverted) {
-            latestSensorData.alpha = (360 - offsetAlpha + 360) % 360;
-            latestSensorData.beta = -offsetBeta;
-            latestSensorData.gamma = -offsetGamma;
-        } else {
-            latestSensorData.alpha = offsetAlpha;
-            latestSensorData.beta = offsetBeta;
-            latestSensorData.gamma = offsetGamma;
+            // Apply inversion if needed
+            latestSensorData.alpha = controlsInverted ? (360 - offsetAlpha + 360) % 360 : offsetAlpha;
+            latestSensorData.beta = controlsInverted ? -offsetBeta : offsetBeta;
+            latestSensorData.gamma = controlsInverted ? -offsetGamma : offsetGamma;
+            latestSensorData.compassHeading = latestSensorData.alpha;
+            
+            processSensorDataAndUpdate();
+        } catch (error) {
+            console.error('Error processing orientation event:', error);
         }
-        latestSensorData.compassHeading = latestSensorData.alpha; 
-        
-        processSensorDataAndUpdate();
     }
 
     function handleMotionEvent(event) {
         if (!globallyEnabled) return;
-        const acc = event.accelerationIncludingGravity;
-        const accNoGravity = event.acceleration;
 
-        if (accNoGravity && accNoGravity.x !== null) {
-            latestSensorData.accelX = accNoGravity.x;
-            latestSensorData.accelY = accNoGravity.y;
-            latestSensorData.accelZ = accNoGravity.z;
-        } else if (acc && acc.x !== null) {
-            // Fallback, less ideal for some applications
-            latestSensorData.accelX = acc.x;
-            latestSensorData.accelY = acc.y;
-            latestSensorData.accelZ = acc.z;
+        try {
+            const { acceleration, accelerationIncludingGravity: accGravity, rotationRate } = event;
+
+            // Handle acceleration data
+            if (acceleration?.x != null) {
+                latestSensorData.accelX = acceleration.x;
+                latestSensorData.accelY = acceleration.y;
+                latestSensorData.accelZ = acceleration.z;
+            } else if (accGravity?.x != null) {
+                latestSensorData.accelX = accGravity.x;
+                latestSensorData.accelY = accGravity.y;
+                latestSensorData.accelZ = accGravity.z;
+            }
+
+            // Handle gyroscope data
+            if (rotationRate) {
+                latestSensorData.gyroX = rotationRate.alpha ?? 0;
+                latestSensorData.gyroY = rotationRate.beta ?? 0;
+                latestSensorData.gyroZ = rotationRate.gamma ?? 0;
+            }
+
+            // Handle gravity data
+            if (accGravity) {
+                latestSensorData.gravityX = accGravity.x ?? 0;
+                latestSensorData.gravityY = accGravity.y ?? 0;
+                latestSensorData.gravityZ = accGravity.z ?? 0;
+            }
+            
+            processSensorDataAndUpdate();
+        } catch (error) {
+            console.error('Error processing motion event:', error);
         }
-        
-        processSensorDataAndUpdate();
     }
 
     function handleProximityEvent() {
         if (!globallyEnabled || !proximitySensorInstance) return;
         
-        const proxSensorDetails = getSensorById('proximity');
-        const maxDistance = proxSensorDetails ? proxSensorDetails.typicalMax : 25;
-        
-        // Normalize the proximity value to 0-100% range
-        if (proximitySensorInstance.distance === null) {
-            latestSensorData.proximity = 0; // Object is very close or sensor is covered
-        } else {
-            // Convert distance to a percentage (0% = closest, 100% = furthest)
-            const normalizedDistance = Math.min(100, (proximitySensorInstance.distance / maxDistance) * 100);
-            latestSensorData.proximity = normalizedDistance;
+        try {
+            const proxSensorDetails = getSensorById('proximity');
+            const maxDistance = proxSensorDetails?.typicalMax ?? DEFAULT_PROXIMITY_MAX;
+            
+            // Normalize the proximity value to 0-100% range
+            latestSensorData.proximity = proximitySensorInstance.distance === null
+                ? 0 // Object is very close or sensor is covered
+                : Math.min(100, (proximitySensorInstance.distance / maxDistance) * 100);
+
+            processSensorDataAndUpdate();
+        } catch (error) {
+            console.error('Error processing proximity event:', error);
         }
-        processSensorDataAndUpdate();
     }
 
     function handleProximityError(event) {
@@ -323,46 +384,68 @@ const Sensors = (function() {
         permissionGranted.proximity = false;
     }
 
+    async function setupProximitySensor() {
+        if (!permissionGranted.proximity) return;
+
+        try {
+            const proximityOptions = { frequency: SENSOR_UPDATE_FREQUENCY };
+            proximitySensorInstance = new ProximitySensor(proximityOptions);
+            proximitySensorInstance.addEventListener('reading', handleProximityEvent);
+            proximitySensorInstance.addEventListener('error', handleProximityError);
+            await proximitySensorInstance.start();
+            console.log("Proximity sensor started successfully.");
+        } catch (error) {
+            console.warn('Failed to start proximity sensor:', error);
+            permissionGranted.proximity = false;
+            if (error.name === 'NotAllowedError') {
+                alert('Permission to use proximity sensor was denied. Please check your device settings.');
+            }
+        }
+    }
+
     async function setupMicrophoneSensor() {
         if (isMicSetup || !permissionGranted.microphone) return;
 
         try {
-            // First request microphone permission explicitly
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
             
-            // Then set up audio context
-            if (audioContext && audioContext.state === 'suspended') {
-                await audioContext.resume();
-            }
+            // Initialize or resume audio context
             if (!audioContext || audioContext.state === 'closed') {
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            } else if (audioContext.state === 'suspended') {
+                await audioContext.resume();
             }
             
+            // Set up audio processing
             analyserNode = audioContext.createAnalyser();
             microphoneSource = audioContext.createMediaStreamSource(stream);
             
             microphoneSource.connect(analyserNode);
             analyserNode.smoothingTimeConstant = 0.85;
             analyserNode.fftSize = 32;
-            const bufferLength = analyserNode.frequencyBinCount;
-            audioDataArray = new Uint8Array(bufferLength);
+            audioDataArray = new Uint8Array(analyserNode.frequencyBinCount);
             
             isMicSetup = true;
             console.log("Microphone sensor setup complete.");
             updateMicVolumeLoop();
-
-        } catch (err) {
-            console.error('Error setting up microphone sensor:', err);
-            if (err.name === 'NotAllowedError') {
-                alert('Microphone access was denied. Please allow microphone access to use this feature.');
-            } else if (err.name === 'NotFoundError') {
-                alert('No microphone found. Please connect a microphone and try again.');
-            } else {
-                alert('Could not access microphone. Please ensure permission is granted and try again.');
-            }
-            permissionGranted.microphone = false;
-            isMicSetup = false;
+        } catch (error) {
+            console.error('Error setting up microphone sensor:', error);
+            handleMicrophoneError(error);
         }
+    }
+
+    function handleMicrophoneError(error) {
+        permissionGranted.microphone = false;
+        isMicSetup = false;
+
+        const errorMessages = {
+            'NotAllowedError': 'Microphone access was denied. Please allow microphone access to use this feature.',
+            'NotFoundError': 'No microphone found. Please connect a microphone and try again.',
+            'NotReadableError': 'Could not access microphone. The device may be in use by another application.',
+            'default': 'Could not access microphone. Please ensure permission is granted and try again.'
+        };
+
+        alert(errorMessages[error.name] || errorMessages.default);
     }
 
     function updateMicVolumeLoop() {
@@ -391,6 +474,11 @@ const Sensors = (function() {
     async function requestSensorPermissions() {
         let orientationGrantedUser = false;
         let motionGrantedUser = false;
+        let gyroscopeAvailable = false;
+        let gravityAvailable = false;
+        let ambientLightAvailable = false;
+        let magnetometerAvailable = false;
+
         if (typeof DeviceOrientationEvent !== 'undefined' && DeviceOrientationEvent.requestPermission) {
             try {
                 const state = await DeviceOrientationEvent.requestPermission();
@@ -401,12 +489,40 @@ const Sensors = (function() {
         }
 
         if (typeof DeviceMotionEvent !== 'undefined' && DeviceMotionEvent.requestPermission) {
-             try {
+            try {
                 const state = await DeviceMotionEvent.requestPermission();
-                if (state === 'granted') motionGrantedUser = true;
+                if (state === 'granted') {
+                    motionGrantedUser = true;
+                    // Check for additional sensors in motion event
+                    const testEvent = new DeviceMotionEvent('test');
+                    gyroscopeAvailable = 'rotationRate' in testEvent;
+                    gravityAvailable = 'accelerationIncludingGravity' in testEvent;
+                }
             } catch (e) { console.warn("Motion permission request failed:", e); }
         } else if ('DeviceMotionEvent' in window) {
-            motionGrantedUser = true; 
+            motionGrantedUser = true;
+            gyroscopeAvailable = true;
+            gravityAvailable = true;
+        }
+
+        // Check for ambient light sensor
+        if ('AmbientLightSensor' in window) {
+            try {
+                const lightSensor = new AmbientLightSensor();
+                ambientLightAvailable = true;
+            } catch (e) {
+                console.warn("Ambient light sensor not available:", e);
+            }
+        }
+
+        // Check for magnetometer
+        if ('Magnetometer' in window) {
+            try {
+                const magnetometer = new Magnetometer();
+                magnetometerAvailable = true;
+            } catch (e) {
+                console.warn("Magnetometer not available:", e);
+            }
         }
 
         let proximityAPIAvailable = false;
@@ -436,149 +552,137 @@ const Sensors = (function() {
             console.warn("Microphone access (getUserMedia) not available.");
         }
         
-        return { orientationGrantedUser, motionGrantedUser, proximityAPIAvailable, microphoneCanBeRequested };
+        return { 
+            orientationGrantedUser, 
+            motionGrantedUser, 
+            proximityAPIAvailable, 
+            microphoneCanBeRequested,
+            gyroscopeAvailable,
+            gravityAvailable,
+            ambientLightAvailable,
+            magnetometerAvailable
+        };
     }
     
     async function enable() {
-        // Ensure AudioContext is resumed if it was suspended, typically needs a user gesture.
-        if (audioContext && audioContext.state === 'suspended') {
-            try {
+        try {
+            // Resume audio context if needed
+            if (audioContext?.state === 'suspended') {
                 await audioContext.resume();
-            } catch (e) {
-                console.warn("Could not resume audio context on enable:", e);
             }
-        }
 
-        const permissions = await requestSensorPermissions();
-        permissionGranted.orientation = permissions.orientationGrantedUser;
-        permissionGranted.motion = permissions.motionGrantedUser;
-        permissionGranted.proximity = permissions.proximityAPIAvailable;
-        permissionGranted.microphone = permissions.microphoneCanBeRequested;
+            // Request and check permissions
+            const permissions = await requestSensorPermissions();
+            Object.assign(permissionGranted, permissions);
 
-        if (!permissionGranted.orientation && !permissionGranted.motion && !permissionGranted.proximity && !permissionGranted.microphone) {
-            alert('No sensor permissions granted or APIs available.');
+            if (!Object.values(permissionGranted).some(Boolean)) {
+                throw new Error('No sensor permissions granted or APIs available.');
+            }
+
+            // Set up event listeners
+            if (permissionGranted.orientation) {
+                window.addEventListener('deviceorientation', handleOrientationEvent, true);
+            }
+            if (permissionGranted.motion) {
+                window.addEventListener('devicemotion', handleMotionEvent, true);
+            }
+
+            // Initialize sensors
+            await Promise.all([
+                setupProximitySensor(),
+                setupMicrophoneSensor()
+            ]);
+
+            globallyEnabled = true;
+            updateUIState(true);
+            console.log("Sensors enabled with permissions:", permissionGranted);
+        } catch (error) {
+            console.error('Failed to enable sensors:', error);
+            alert(error.message);
             disable();
-            return;
         }
-
-        // Set up event listeners for orientation and motion
-        if (permissionGranted.orientation) {
-            window.addEventListener('deviceorientation', handleOrientationEvent, true);
-        }
-        if (permissionGranted.motion) {
-            window.addEventListener('devicemotion', handleMotionEvent, true);
-        }
-
-        // Set up proximity sensor if available
-        if (permissionGranted.proximity) {
-            try {
-                const proximityOptions = { frequency: 2 };
-                proximitySensorInstance = new ProximitySensor(proximityOptions);
-                proximitySensorInstance.addEventListener('reading', handleProximityEvent);
-                proximitySensorInstance.addEventListener('error', handleProximityError);
-                proximitySensorInstance.start();
-                console.log("Proximity sensor started.");
-            } catch (error) {
-                console.warn('Proximity sensor could not be started:', error.name, error.message);
-                permissionGranted.proximity = false;
-                if (error.name === 'NotAllowedError') {
-                    alert('Permission to use proximity sensor was denied by a feature policy or user.');
-                }
-            }
-        }
-
-        // Set up microphone if available
-        if (permissionGranted.microphone) {
-            try {
-                if (!isMicSetup) {
-                    await setupMicrophoneSensor();
-                } else if (micVolumeUpdateId === null) {
-                    updateMicVolumeLoop();
-                }
-            } catch (error) {
-                console.error('Error setting up microphone:', error);
-                permissionGranted.microphone = false;
-            }
-        }
-
-        globallyEnabled = true;
-        if (sensorToggleBtn) {
-            sensorToggleBtn.textContent = 'Disable Sensors';
-            sensorToggleBtn.classList.add('active');
-        }
-        console.log("Sensors enabled with permissions:", permissionGranted);
     }
 
     function disable() {
+        // Remove event listeners
         window.removeEventListener('deviceorientation', handleOrientationEvent, true);
         window.removeEventListener('devicemotion', handleMotionEvent, true);
         
+        // Clean up proximity sensor
         if (proximitySensorInstance) {
             try {
                 proximitySensorInstance.removeEventListener('reading', handleProximityEvent);
                 proximitySensorInstance.removeEventListener('error', handleProximityError);
                 proximitySensorInstance.stop();
-            } catch (e) { console.warn("Error stopping proximity sensor:", e); }
+            } catch (error) {
+                console.warn("Error stopping proximity sensor:", error);
+            }
             proximitySensorInstance = null;
         }
         
+        // Clean up microphone
         if (micVolumeUpdateId) {
             cancelAnimationFrame(micVolumeUpdateId);
             micVolumeUpdateId = null;
         }
-        // Don't destroy microphoneSource or audioContext on disable, just stop tracks if needed
-        // and stop the update loop. This allows quicker re-enable.
-        // However, if you want to fully release mic:
-        if (microphoneSource && microphoneSource.mediaStream) {
-             microphoneSource.mediaStream.getTracks().forEach(track => track.stop()); // Stop tracks to release mic
-             // microphoneSource.disconnect(); // Disconnect if you plan to recreate source on enable
-             // microphoneSource = null; // If recreating
+        if (microphoneSource?.mediaStream) {
+            microphoneSource.mediaStream.getTracks().forEach(track => track.stop());
         }
-        // if (audioContext && audioContext.state !== 'closed') {
-        //     audioContext.suspend(); // Suspend instead of close for faster resume
-        // }
-        // isMicSetup can remain true if we only suspend/stop tracks
 
+        // Reset state
         globallyEnabled = false;
-        if (sensorToggleBtn) {
-            sensorToggleBtn.textContent = 'Enable Sensors';
-            sensorToggleBtn.classList.remove('active');
-        }
-        
-        const defaultProximity = getSensorById('proximity') ? getSensorById('proximity').typicalMax : 25;
-        latestSensorData = { 
-            alpha: 0, beta: 0, gamma: 0, 
-            accelX: 0, accelY: 0, accelZ: 0, 
-            proximity: defaultProximity, micVolume: 0, compassHeading: 0 
-        };
-        // Reset smoothed data too
+        latestSensorData = createInitialSensorData();
         smoothedSensorData = { ...latestSensorData };
-        updateSensorDisplay(); // Show reset values
         
-        // Update PointCloud with zeroed tilt if sensors are disabled
-        if (pointCloudModuleRef && typeof pointCloudModuleRef.updateSensorTilt === 'function') {
+        // Update UI and effects
+        updateUIState(false);
+        updateSensorDisplay();
+        
+        if (pointCloudModuleRef?.updateSensorTilt) {
             pointCloudModuleRef.updateSensorTilt(0, 0);
         }
-        if (onSensorUpdateCallback) onSensorUpdateCallback(); // To reset mappings to defaults if sensors are off
+        onSensorUpdateCallback?.();
+        
         console.log("Sensors disabled.");
     }
-    
-    function init(sensorUpdCb, pModuleRef, pcModuleRef) { // Added pcModuleRef
-        onSensorUpdateCallback = sensorUpdCb;
-        playerModuleRef = pModuleRef;
-        pointCloudModuleRef = pcModuleRef; // Store PointCloud module reference
-        cacheDOMElements();
-        if (smoothingSlider) smoothingFactor = parseFloat(smoothingSlider.value); // Init smoothingFactor
-        setupEventListeners();
-        updateConfigDisplay();
-        updateSensorDisplay(); 
+
+    function updateUIState(enabled) {
+        if (sensorToggleBtn) {
+            sensorToggleBtn.textContent = enabled ? 'Disable Sensors' : 'Enable Sensors';
+            sensorToggleBtn.classList.toggle('active', enabled);
+        }
+    }
+
+    function init(sensorUpdCb, pModuleRef, pcModuleRef) {
+        try {
+            onSensorUpdateCallback = sensorUpdCb;
+            playerModuleRef = pModuleRef;
+            pointCloudModuleRef = pcModuleRef;
+            
+            cacheDOMElements();
+            setupEventListeners();
+            
+            if (smoothingSlider) {
+                smoothingFactor = parseFloat(smoothingSlider.value);
+            }
+            
+            updateConfigDisplay();
+            updateSensorDisplay();
+        } catch (error) {
+            console.error('Error initializing sensors:', error);
+        }
     }
 
     function getSensorValue(sensorId) {
+        if (!sensorId || !smoothedSensorData.hasOwnProperty(sensorId)) {
+            return null;
+        }
+
         // For circular values, return the mapped value
-        if (sensorId === 'alpha' || sensorId === 'compassHeading') {
+        if (CIRCULAR_SENSORS.includes(sensorId)) {
             return mapCircularValue(smoothedSensorData[sensorId], 0, 360);
         }
+        
         // For other sensors, return the smoothed value directly
         return smoothedSensorData[sensorId];
     }
@@ -589,8 +693,8 @@ const Sensors = (function() {
     return {
         init,
         isGloballyEnabled: () => globallyEnabled,
-        getSensorValue, // This now returns smoothed data
-        hideControls, 
-        showControls,
+        getSensorValue,
+        hideControls: () => sensorSectionControls?.classList.add('hidden'),
+        showControls: () => sensorSectionControls?.classList.remove('hidden')
     };
 })();
