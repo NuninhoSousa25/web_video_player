@@ -6,11 +6,8 @@ const Mappings = (function() {
     let sensorsModuleRef;
 
     function applyAllActiveMappings() {
-        let activeMappingApplied = false; // Flag to see if any mapping was applied
-
         if (!sensorsModuleRef || !sensorsModuleRef.isGloballyEnabled()) {
             // If sensors are off, just update indicators to show no sensor mappings are active.
-            // UI-driven effects will persist.
             UI.updateActiveMappingIndicators(); 
             return;
         }
@@ -30,10 +27,8 @@ const Mappings = (function() {
 
             if (effectDetails.target === 'player' && playerModuleRef) {
                 playerModuleRef.setEffect(effectDetails.id, targetEffectValue);
-                activeMappingApplied = true;
             } else if (effectDetails.target === 'pointcloud' && pointCloudModuleRef) {
                 pointCloudModuleRef.setEffect(effectDetails.id, targetEffectValue);
-                activeMappingApplied = true;
             }
         });
         
