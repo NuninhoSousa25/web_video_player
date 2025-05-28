@@ -38,8 +38,27 @@ const MappingPanel = (function() {
     }
 
     function populateSelectOptions() {
-        sensorSelect.innerHTML = AVAILABLE_SENSORS.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
-        effectSelect.innerHTML = AVAILABLE_EFFECTS.map(e => `<option value="${e.id}">${e.name}</option>`).join('');
+        if (!sensorSelect || !effectSelect) return;
+        
+        // Clear existing options
+        sensorSelect.innerHTML = '';
+        effectSelect.innerHTML = '';
+        
+        // Add sensor options
+        AVAILABLE_SENSORS.forEach(sensor => {
+            const option = document.createElement('option');
+            option.value = sensor.id;
+            option.textContent = sensor.name;
+            sensorSelect.appendChild(option);
+        });
+        
+        // Add effect options
+        AVAILABLE_EFFECTS.forEach(effect => {
+            const option = document.createElement('option');
+            option.value = effect.id;
+            option.textContent = effect.name;
+            effectSelect.appendChild(option);
+        });
     }
 
     function renderMappingsList() {
