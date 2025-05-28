@@ -292,35 +292,41 @@ const Sensors = (function() {
         if (isMicSetup || !permissionGranted.microphone) return;
 
         try {
-            // Ensure AudioContext is not suspended (e.g., by browser auto-play policies)
+            // First request microphone permission explicitly
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+            
+            // Then set up audio context
             if (audioContext && audioContext.state === 'suspended') {
                 await audioContext.resume();
             }
-            if (!audioContext || audioContext.state === 'closed') { // Create if null or closed
+            if (!audioContext || audioContext.state === 'closed') {
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
             }
             
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
             analyserNode = audioContext.createAnalyser();
             microphoneSource = audioContext.createMediaStreamSource(stream);
             
             microphoneSource.connect(analyserNode);
-            // analyserNode.minDecibels = -90;
-            // analyserNode.maxDecibels = -10;
-            analyserNode.smoothingTimeConstant = 0.85; // Smoothing for analyser data
-            analyserNode.fftSize = 32; // Smallest size for performance, gives 16 frequency bins
-            const bufferLength = analyserNode.frequencyBinCount; // Will be 16
+            analyserNode.smoothingTimeConstant = 0.85;
+            analyserNode.fftSize = 32;
+            const bufferLength = analyserNode.frequencyBinCount;
             audioDataArray = new Uint8Array(bufferLength);
             
             isMicSetup = true;
             console.log("Microphone sensor setup complete.");
-            updateMicVolumeLoop(); 
+            updateMicVolumeLoop();
 
         } catch (err) {
             console.error('Error setting up microphone sensor:', err);
-            // alert('Could not access microphone. Please ensure permission is granted.');
-            permissionGranted.microphone = false; 
-            isMicSetup = false; // Ensure this is reset
+            if (err.name === 'NotAllowedError') {
+                alert('Microphone access was denied. Please allow microphone access to use this feature.');
+            } else if (err.name === 'NotFoundError') {
+                alert('No microphone found. Please connect a microphone and try again.');
+            } else {
+                alert('Could not access microphone. Please ensure permission is granted and try again.');
+            }
+            permissionGranted.microphone = false;
+            isMicSetup = false;
         }
     }
 
@@ -330,18 +336,19 @@ const Sensors = (function() {
             return;
         }
         
-        analyserNode.getByteFrequencyData(audioDataArray); 
+        analyserNode.getByteFrequencyData(audioDataArray);
         
-        let maxVal = 0;
+        // Calculate RMS (Root Mean Square) of the audio data for better volume representation
+        let sum = 0;
         for (let i = 0; i < audioDataArray.length; i++) {
-            if (audioDataArray[i] > maxVal) {
-                maxVal = audioDataArray[i];
-            }
+            sum += audioDataArray[i] * audioDataArray[i];
         }
-        // Normalize maxVal (0-255) to 0-100%
-        latestSensorData.micVolume = (maxVal / 255) * 100; 
+        const rms = Math.sqrt(sum / audioDataArray.length);
         
-        processSensorDataAndUpdate(); // Call the central update function
+        // Normalize to 0-100% with some amplification
+        latestSensorData.micVolume = Math.min(100, (rms / 128) * 100);
+        
+        processSensorDataAndUpdate();
         
         micVolumeUpdateId = requestAnimationFrame(updateMicVolumeLoop);
     }
@@ -399,36 +406,38 @@ const Sensors = (function() {
     
     async function enable() {
         // Ensure AudioContext is resumed if it was suspended, typically needs a user gesture.
-        // The "Enable Sensors" button click provides this gesture.
         if (audioContext && audioContext.state === 'suspended') {
-            await audioContext.resume().catch(e => console.warn("Could not resume audio context on enable:", e));
+            try {
+                await audioContext.resume();
+            } catch (e) {
+                console.warn("Could not resume audio context on enable:", e);
+            }
         }
 
         const permissions = await requestSensorPermissions();
         permissionGranted.orientation = permissions.orientationGrantedUser;
         permissionGranted.motion = permissions.motionGrantedUser;
-        permissionGranted.proximity = permissions.proximityAPIAvailable; 
-        permissionGranted.microphone = permissions.microphoneCanBeRequested; 
+        permissionGranted.proximity = permissions.proximityAPIAvailable;
+        permissionGranted.microphone = permissions.microphoneCanBeRequested;
 
         if (!permissionGranted.orientation && !permissionGranted.motion && !permissionGranted.proximity && !permissionGranted.microphone) {
             alert('No sensor permissions granted or APIs available.');
-            disable(); 
+            disable();
             return;
         }
-        
+
+        // Set up event listeners for orientation and motion
         if (permissionGranted.orientation) {
             window.addEventListener('deviceorientation', handleOrientationEvent, true);
-        } else {
-            console.warn("Device Orientation permission not granted or API not available.");
         }
         if (permissionGranted.motion) {
             window.addEventListener('devicemotion', handleMotionEvent, true);
-        } else {
-            console.warn("Device Motion permission not granted or API not available.");
         }
-        if (permissionGranted.proximity) { 
+
+        // Set up proximity sensor if available
+        if (permissionGranted.proximity) {
             try {
-                const proximityOptions = { frequency: 2 }; 
+                const proximityOptions = { frequency: 2 };
                 proximitySensorInstance = new ProximitySensor(proximityOptions);
                 proximitySensorInstance.addEventListener('reading', handleProximityEvent);
                 proximitySensorInstance.addEventListener('error', handleProximityError);
@@ -436,22 +445,29 @@ const Sensors = (function() {
                 console.log("Proximity sensor started.");
             } catch (error) {
                 console.warn('Proximity sensor could not be started:', error.name, error.message);
-                permissionGranted.proximity = false; 
-                if (error.name === 'NotAllowedError') { 
-                     alert('Permission to use proximity sensor was denied by a feature policy or user.');
+                permissionGranted.proximity = false;
+                if (error.name === 'NotAllowedError') {
+                    alert('Permission to use proximity sensor was denied by a feature policy or user.');
                 }
             }
         }
-        if (permissionGranted.microphone) { 
-            if (!isMicSetup) { // Avoid re-setting up if already done and just re-enabling
-                await setupMicrophoneSensor(); 
-            } else if (micVolumeUpdateId === null) { // If setup but loop stopped
-                 updateMicVolumeLoop(); // Restart loop
+
+        // Set up microphone if available
+        if (permissionGranted.microphone) {
+            try {
+                if (!isMicSetup) {
+                    await setupMicrophoneSensor();
+                } else if (micVolumeUpdateId === null) {
+                    updateMicVolumeLoop();
+                }
+            } catch (error) {
+                console.error('Error setting up microphone:', error);
+                permissionGranted.microphone = false;
             }
         }
-        
+
         globallyEnabled = true;
-        if(sensorToggleBtn) {
+        if (sensorToggleBtn) {
             sensorToggleBtn.textContent = 'Disable Sensors';
             sensorToggleBtn.classList.add('active');
         }
