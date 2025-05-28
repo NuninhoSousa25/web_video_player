@@ -7,7 +7,7 @@ const AVAILABLE_SENSORS = [
     { id: 'accelX', name: 'Acceleration X', description: 'Linear acceleration along X-axis', typicalMin: -10, typicalMax: 10, unit: 'm/s²' },
     { id: 'accelY', name: 'Acceleration Y', description: 'Linear acceleration along Y-axis', typicalMin: -10, typicalMax: 10, unit: 'm/s²' },
     { id: 'accelZ', name: 'Acceleration Z', description: 'Linear acceleration along Z-axis (excluding gravity)', typicalMin: -10, typicalMax: 10, unit: 'm/s²' },
-    { id: 'proximity', name: 'Proximity', description: 'Device proximity to an object. Lower values mean closer. (Typically 0-25cm, can vary by device)', typicalMin: 0, typicalMax: 25, unit: 'cm' },
+    { id: 'proximity', name: 'Proximity', description: 'Device proximity to an object (0% = closest, 100% = furthest)', typicalMin: 0, typicalMax: 100, unit: '%' },
     { id: 'micVolume', name: 'Microphone Volume', description: 'Audio input level from microphone (0-100%)', typicalMin: 0, typicalMax: 100, unit: '%' }
 ];
 
