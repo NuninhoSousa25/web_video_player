@@ -4,8 +4,8 @@ const App = (function() {
 
     let showVideoPlayerModeBtn, showPointCloudModeBtn,
         videoPlayerModeContent, pointCloudModeContent,
-        sensorMappingInfo;
-    
+        sensorMappingInfo; // Keep this, but its text content will be simplified
+
     let player, pointcloud, sensors, mappings, ui, utils, mappingPanel;
 
     function cacheGlobalDOMElements() {
@@ -13,7 +13,7 @@ const App = (function() {
         showPointCloudModeBtn = document.getElementById('showPointCloudModeBtn');
         videoPlayerModeContent = document.getElementById('videoPlayerModeContent');
         pointCloudModeContent = document.getElementById('pointCloudModeContent');
-        sensorMappingInfo = document.getElementById('sensorMappingInfo');
+        sensorMappingInfo = document.getElementById('sensorMappingInfo'); // Kept
     }
 
     function updateModeUI() {
@@ -28,9 +28,12 @@ const App = (function() {
 
         playerDOM.videoPlaceholder.classList.toggle('hidden', !!videoElement.src);
         playerDOM.videoPlayerControls.classList.toggle('hidden', !videoElement.src || currentMode !== 'videoPlayer');
-        playerDOM.videoFilterControls.classList.toggle('hidden', !videoElement.src || currentMode !== 'videoPlayer');
-
-        UI.updateSensorMappingInfoText(sensorMappingInfo, currentMode); // Already in place
+        // playerDOM.videoFilterControls is removed, no longer needed here
+        
+        // Simplified sensorMappingInfo content. UI.updateSensorMappingInfoText is removed.
+        if (sensorMappingInfo) {
+            sensorMappingInfo.textContent = 'Sensor effects are configured in the "Sensor Mapping Panel".';
+        }
         UI.updateActiveMappingIndicators(); // Update indicators on mode switch
     }
 
@@ -139,7 +142,10 @@ const App = (function() {
 
     return {
         init,
-        forceSwitchMode
+        forceSwitchMode,
+        // Expose modules for debugging/direct UI updates if needed, e.g. for UI.updateSensorMappingInfoText
+        sensors: sensors,
+        mappings: mappings 
     };
 })();
 
