@@ -24,7 +24,7 @@ const Sensors = (function() {
     let permissionGranted = {
         orientation: false,
         motion: false,
-        proximity: false, 
+        proximity: false,
         microphone: false,
         gyroscope: false,
         gravity: false,
@@ -478,6 +478,7 @@ const Sensors = (function() {
         let gravityAvailable = false;
         let ambientLightAvailable = false;
         let magnetometerAvailable = false;
+        let microphoneGranted = false;
 
         if (typeof DeviceOrientationEvent !== 'undefined' && DeviceOrientationEvent.requestPermission) {
             try {
@@ -535,18 +536,14 @@ const Sensors = (function() {
         let microphoneCanBeRequested = false;
         if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
             microphoneCanBeRequested = true;
-             // Initialize AudioContext here if not already, to handle user gesture requirement
-            if (!audioContext) {
-                try {
-                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                    if (audioContext.state === 'suspended') { // Attempt to resume if suspended
-                        // This might need to be tied to a user interaction like the enable button itself
-                        // For now, we just note it. User interaction on "Enable Sensors" should allow it.
-                    }
-                } catch (e) {
-                    console.error("Could not create AudioContext:", e);
-                    microphoneCanBeRequested = false;
-                }
+            try {
+                // Request microphone permission
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                microphoneGranted = true;
+                // Stop the stream immediately as we'll set it up properly later
+                stream.getTracks().forEach(track => track.stop());
+            } catch (e) {
+                console.warn("Microphone permission request failed:", e);
             }
         } else {
             console.warn("Microphone access (getUserMedia) not available.");
@@ -557,6 +554,7 @@ const Sensors = (function() {
             motionGrantedUser, 
             proximityAPIAvailable, 
             microphoneCanBeRequested,
+            microphoneGranted,
             gyroscopeAvailable,
             gravityAvailable,
             ambientLightAvailable,
@@ -573,7 +571,16 @@ const Sensors = (function() {
 
             // Request and check permissions
             const permissions = await requestSensorPermissions();
-            Object.assign(permissionGranted, permissions);
+            Object.assign(permissionGranted, {
+                orientation: permissions.orientationGrantedUser,
+                motion: permissions.motionGrantedUser,
+                proximity: permissions.proximityAPIAvailable,
+                microphone: permissions.microphoneGranted,
+                gyroscope: permissions.gyroscopeAvailable,
+                gravity: permissions.gravityAvailable,
+                ambientLight: permissions.ambientLightAvailable,
+                magnetometer: permissions.magnetometerAvailable
+            });
 
             if (!Object.values(permissionGranted).some(Boolean)) {
                 throw new Error('No sensor permissions granted or APIs available.');
