@@ -1,42 +1,26 @@
+
 // js/ui.js
 const UI = (function() {
 
-    function updateFilterDisplayValues(brightnessSlider, saturationSlider, contrastSlider, hueSlider,
-                                       brightnessValueEl, saturationValueEl, contrastValueEl, hueValueEl) {
-        if (brightnessValueEl && brightnessSlider) brightnessValueEl.textContent = `${brightnessSlider.value}%`;
-        if (saturationValueEl && saturationSlider) saturationValueEl.textContent = `${saturationSlider.value}%`;
-        if (contrastValueEl && contrastSlider) contrastValueEl.textContent = `${contrastSlider.value}%`;
-        if (hueValueEl && hueSlider) hueValueEl.textContent = `${hueSlider.value}deg`;
-    }
+    // Removed: updateFilterDisplayValues (video filters removed from UI)
+    // Removed: updateSensorConfigDisplayValues (sensor config removed from UI)
+    // Removed: updateLoopInfo (loop info text removed from UI)
+    // Removed: showVideoFullscreenControlsBriefly (handled internally by Player now)
 
     function updatePointCloudParamDisplays(config, densityValueEl, displacementValueEl, pointSizeValueEl, 
-                                           parallaxSensitivityValueEl, pcProcessingValueEl) { // Renamed tiltSensitivityValueEl
+                                           parallaxSensitivityValueEl, pcProcessingValueEl) { 
         if(densityValueEl) densityValueEl.textContent = config.density;
         if(displacementValueEl) displacementValueEl.textContent = config.displacementScale;
         if(pointSizeValueEl) pointSizeValueEl.textContent = config.pointSize;
-        if(parallaxSensitivityValueEl) parallaxSensitivityValueEl.textContent = config.parallaxSensitivity; // Use parallaxSensitivity
+        if(parallaxSensitivityValueEl) parallaxSensitivityValueEl.textContent = config.parallaxSensitivity; 
         if(pcProcessingValueEl) { 
             const selectedOption = document.getElementById('pcProcessingResolutionSlider')?.selectedOptions[0];
             pcProcessingValueEl.textContent = selectedOption ? selectedOption.text.split(' ')[0] : config.maxProcessingDimension + 'px';
         }
     }
     
-    function updateSensorConfigDisplayValues(sliders, values) {
-        values.alphaSens.textContent = parseFloat(sliders.alphaSensitivity.value).toFixed(1);
-        values.betaSens.textContent = parseFloat(sliders.betaSensitivity.value).toFixed(1);
-        values.gammaSens.textContent = parseFloat(sliders.gammaSensitivity.value).toFixed(1);
-        values.smoothing.textContent = parseFloat(sliders.smoothing.value).toFixed(1);
-        values.alphaOffset.textContent = `${sliders.alphaOffset.value}°`;
-        values.betaOffset.textContent = `${sliders.betaOffset.value}°`;
-        values.gammaOffset.textContent = `${sliders.gammaOffset.value}°`;
-    }
-
     function updateLoopButton(loopBtn, isLooping) {
         loopBtn.textContent = isLooping ? 'Loop: ON' : 'Loop: OFF';
-    }
-
-    function updateLoopInfo(loopInfoEl, videoPlayer, loopCount) {
-        loopInfoEl.textContent = videoPlayer.loop ? `Looped ${loopCount} time${loopCount === 1 ? '' : 's'}` : '';
     }
 
     function updatePlayPauseButtons(playPauseBtn, playPauseFullscreenBtn, isPlaying) {
@@ -45,26 +29,13 @@ const UI = (function() {
         if (playPauseFullscreenBtn) playPauseFullscreenBtn.textContent = text;
     }
     
-    function updateSensorMappingInfoText(sensorMappingInfoEl, currentMode) {
-         if (sensorMappingInfoEl) {
-             sensorMappingInfoEl.innerHTML = ``; 
-         }
-    }
-
-    function showVideoFullscreenControlsBriefly(fullscreenControlsOverlay) {
-        // This function seems to be unused now based on player.js changes,
-        // but keeping it in case it's needed elsewhere or for future refactoring.
-        // Player.js now has its own showFullscreenControls method.
-        if (fullscreenControlsOverlay.classList.contains('active')) { // Check if it's the video overlay
-            clearTimeout(fullscreenControlsOverlay.fsTimeout); // Assuming fsTimeout is set on the element
-            fullscreenControlsOverlay.classList.add('active');
-            fullscreenControlsOverlay.fsTimeout = setTimeout(() => {
-                fullscreenControlsOverlay.classList.remove('active');
-            }, 3000);
-        }
-    }
+    // Removed updateSensorMappingInfoText as its content is now static in main.js or removed.
 
     function updateActiveMappingIndicators() {
+        // This function now depends on App.player and App.pointcloud to check if effects are active
+        // This requires `App` to be initialized and modules to be accessible,
+        // which `main.js` does by exposing them in its return.
+        
         const activeMappings = MappingManager.getActiveMappings();
         const allDots = document.querySelectorAll('.active-mapping-dot');
 
@@ -72,9 +43,20 @@ const UI = (function() {
 
         activeMappings.forEach(mapping => {
             if (mapping.enabled) {
-                const dot = document.querySelector(`.active-mapping-dot[data-effect-id="${mapping.effectId}"]`);
-                if (dot) {
-                    dot.classList.add('active');
+                const effectDetails = getEffectById(mapping.effectId);
+                let isActive = false;
+                
+                if (effectDetails.target === 'player' && App.player) {
+                    isActive = App.player.isEffectActive(mapping.effectId);
+                } else if (effectDetails.target === 'pointcloud' && App.pointcloud) {
+                    isActive = App.pointcloud.isEffectActive(mapping.effectId);
+                }
+
+                if (isActive) {
+                    const dot = document.querySelector(`.active-mapping-dot[data-effect-id="${mapping.effectId}"]`);
+                    if (dot) {
+                        dot.classList.add('active');
+                    }
                 }
             }
         });
@@ -82,14 +64,9 @@ const UI = (function() {
 
 
     return {
-        updateFilterDisplayValues,
         updatePointCloudParamDisplays,
-        updateSensorConfigDisplayValues,
         updateLoopButton,
-        updateLoopInfo,
         updatePlayPauseButtons,
-        updateSensorMappingInfoText,
-        showVideoFullscreenControlsBriefly,
         updateActiveMappingIndicators 
     };
 })();
