@@ -35,10 +35,6 @@ const UI = (function() {
         loopBtn.textContent = isLooping ? 'Loop: ON' : 'Loop: OFF';
     }
 
-    function updateLoopInfo(loopInfoEl, videoPlayer, loopCount) {
-        loopInfoEl.textContent = videoPlayer.loop ? `Looped ${loopCount} time${loopCount === 1 ? '' : 's'}` : '';
-    }
-
     function updatePlayPauseButtons(playPauseBtn, playPauseFullscreenBtn, isPlaying) {
         const text = isPlaying ? 'Pause' : 'Play';
         if (playPauseBtn) playPauseBtn.textContent = text;
@@ -86,7 +82,6 @@ const UI = (function() {
         updatePointCloudParamDisplays,
         updateSensorConfigDisplayValues,
         updateLoopButton,
-        updateLoopInfo,
         updatePlayPauseButtons,
         updateSensorMappingInfoText,
         showVideoFullscreenControlsBriefly,
