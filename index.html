@@ -55,40 +55,11 @@
                     </div>
                     <input type="range" min="0" max="1" step="0.1" value="1" class="volume-slider" id="volumeSlider">
                 </div>
-                <div class="loop-info" id="loopInfo"></div>
+                <!-- <div class="loop-info" id="loopInfo"></div> -- removed -->
             </div>
             
-            <div class="filter-controls" id="videoFilterControls">
-                 <div class="filter-control">
-                    <div class="filter-label">
-                        <span class="active-mapping-indicator-container">Brightness<span class="active-mapping-dot" data-effect-id="brightness"></span></span>
-                        <span class="filter-value" id="brightnessValue">100%</span>
-                    </div>
-                    <input type="range" min="25" max="200" value="100" class="filter-slider" id="brightnessSlider">
-                </div>
-                <div class="filter-control">
-                    <div class="filter-label">
-                        <span class="active-mapping-indicator-container">Saturation<span class="active-mapping-dot" data-effect-id="saturation"></span></span>
-                        <span class="filter-value" id="saturationValue">100%</span>
-                    </div>
-                    <input type="range" min="25" max="200" value="100" class="filter-slider" id="saturationSlider">
-                </div>
-                <div class="filter-control">
-                    <div class="filter-label">
-                        <span class="active-mapping-indicator-container">Contrast<span class="active-mapping-dot" data-effect-id="contrast"></span></span>
-                        <span class="filter-value" id="contrastValue">100%</span>
-                    </div>
-                    <input type="range" min="25" max="200" value="100" class="filter-slider" id="contrastSlider">
-                </div>
-                <div class="filter-control">
-                    <div class="filter-label">
-                        <span class="active-mapping-indicator-container">Hue Rotate<span class="active-mapping-dot" data-effect-id="hue"></span></span>
-                        <span class="filter-value" id="hueValue">0deg</span>
-                    </div>
-                    <input type="range" min="0" max="360" value="0" class="filter-slider" id="hueSlider">
-                </div>
-                <button id="resetFiltersBtn" class="filter-reset">Reset All Filters</button>
-            </div>
+            <!-- Video Filter Controls removed -->
+            <!-- <div class="filter-controls" id="videoFilterControls">...</div> -->
         </div>
 
         <!-- Point Cloud Mode Content -->
@@ -155,60 +126,7 @@
                 <button id="sensorToggleBtn" class="sensor-toggle">Enable Sensors</button>
             </div>
             <div class="mapping-info" id="sensorMappingInfo"></div>
-            <div class="sensor-values">
-                <div class="sensor-value"><div class="value-label">Alpha (°)</div><div id="orientAlpha" class="value-number">0.00</div></div>
-                <div class="sensor-value"><div class="value-label">Beta (°)</div><div id="orientBeta" class="value-number">0.00</div></div>
-                <div class="sensor-value"><div class="value-label">Gamma (°)</div><div id="orientGamma" class="value-number">0.00</div></div>
-            </div>
-            <div style="display: flex; justify-content: center;"> 
-                <div class="compass">
-                    <div id="compassNeedle" class="compass-needle"></div>
-                    <div class="compass-center"></div>
-                    <div class="compass-marker">
-                        <span class="north">N</span><span class="east">E</span><span class="south">S</span><span class="west">W</span>
-                    </div>
-                </div>
-            </div>
-            <div class="sensor-configuration">
-                <div class="sensor-config-title">Sensor Sensitivity Settings</div>
-                <div class="sensor-config-controls">
-                    <div class="sensor-config-control">
-                        <div class="config-label"><span>Alpha Sensitivity</span><span class="config-value" id="alphaSensValue">1.0</span></div>
-                        <input type="range" min="0.1" max="2" step="0.1" value="1" class="config-slider" id="alphaSensitivitySlider">
-                    </div>
-                    <div class="sensor-config-control">
-                        <div class="config-label"><span>Beta Sensitivity</span><span class="config-value" id="betaSensValue">1.0</span></div>
-                        <input type="range" min="0.1" max="2" step="0.1" value="1" class="config-slider" id="betaSensitivitySlider">
-                    </div>
-                    <div class="sensor-config-control">
-                        <div class="config-label"><span>Gamma Sensitivity</span><span class="config-value" id="gammaSensValue">1.0</span></div>
-                        <input type="range" min="0.1" max="2" step="0.1" value="1" class="config-slider" id="gammaSensitivitySlider">
-                    </div>
-                    <div class="sensor-config-control">
-                        <div class="config-label"><span>Smoothing</span><span class="config-value" id="smoothingValue">0.3</span></div>
-                        <input type="range" min="0" max="0.9" step="0.1" value="0.3" class="config-slider" id="smoothingSlider">
-                    </div>
-                </div>
-                <div class="sensor-config-title">Manual Offset Adjustments</div>
-                <div class="sensor-config-controls">
-                    <div class="sensor-config-control">
-                        <div class="config-label"><span>Alpha Offset</span><span class="config-value" id="alphaOffsetValue">0°</span></div>
-                        <input type="range" min="-180" max="180" step="5" value="0" class="config-slider" id="alphaOffsetSlider">
-                    </div>
-                    <div class="sensor-config-control">
-                        <div class="config-label"><span>Beta Offset</span><span class="config-value" id="betaOffsetValue">0°</span></div>
-                        <input type="range" min="-45" max="45" step="1" value="0" class="config-slider" id="betaOffsetSlider">
-                    </div>
-                    <div class="sensor-config-control">
-                        <div class="config-label"><span>Gamma Offset</span><span class="config-value" id="gammaOffsetValue">0°</span></div>
-                        <input type="range" min="-45" max="45" step="1" value="0" class="config-slider" id="gammaOffsetSlider">
-                    </div>
-                </div>
-                <div class="sensor-actions">
-                    <button id="calibrateBtn" class="sensor-action-btn">Calibrate</button>
-                    <button id="invertBtn" class="sensor-action-btn">Invert Controls</button>
-                </div>
-            </div>
+            <!-- Everything below this point in sensorSectionControls is removed -->
         </div>
     </div>
     <div id="sensorMappingPanel" class="sensor-mapping-panel hidden">
