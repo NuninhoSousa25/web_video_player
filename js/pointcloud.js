@@ -4,7 +4,7 @@ const PointCloud = (function() {
         displacementSlider, displacementValue, pointSizeSlider, pointSizeValue,
         parallaxSensitivitySlider, parallaxSensitivityValue, 
         pcProcessingResolutionSlider, pcProcessingValue,
-        pcInvertDepthCheckbox; // New checkbox element
+        pcInvertDepthCheckbox; // This element remains
 
     let videoElementRef; 
     let currentModeGetter = () => 'videoPlayer'; 
@@ -50,6 +50,7 @@ const PointCloud = (function() {
         if (config.hasOwnProperty(effectDetails.prop)) {
             config[effectDetails.prop] = Math.max(effectDetails.min, Math.min(effectDetails.max, value));
             
+            // Update sliders/values that remain in UI
             if (effectId === 'pc_density' && densitySlider) densitySlider.value = value;
             else if (effectId === 'pc_displacement' && displacementSlider) displacementSlider.value = value;
             else if (effectId === 'pc_pointSize' && pointSizeSlider) pointSizeSlider.value = value;
@@ -64,6 +65,7 @@ const PointCloud = (function() {
     }
     
     function loadInitialPCEffects() {
+        // Load default/saved values for point cloud parameters
         setEffect('pc_density', parseInt(densitySlider.value) || getEffectById('pc_density').default);
         setEffect('pc_displacement', parseInt(displacementSlider.value) || getEffectById('pc_displacement').default);
         setEffect('pc_pointSize', parseInt(pointSizeSlider.value) || getEffectById('pc_pointSize').default);
@@ -80,7 +82,6 @@ const PointCloud = (function() {
     }
 
     function setupCanvasDimensions() {
-        // ... (no changes in this function from previous version) ...
         if (!videoElementRef || !videoElementRef.videoWidth || !videoElementRef.videoHeight || !pointCloudCanvas.parentElement) return;
         const videoAspectRatio = videoElementRef.videoWidth / videoElementRef.videoHeight;
         let canvasWidth = pointCloudCanvas.parentElement.clientWidth;
@@ -161,7 +162,6 @@ const PointCloud = (function() {
     }
 
     function renderFrame() {
-        // ... (no changes in this function from previous version) ...
         if (currentModeGetter() !== 'pointCloud' || !videoElementRef || !videoElementRef.src) {
              if (pointCloudAnimationFrameId) cancelAnimationFrame(pointCloudAnimationFrameId);
              pointCloudAnimationFrameId = null;
@@ -208,7 +208,6 @@ const PointCloud = (function() {
     }
     
     function togglePointCloudFullscreen() {
-        // ... (no changes in this function from previous version) ...
         if (!mainPointCloudContainer.classList.contains('fullscreen')) {
             enterPointCloudFullscreenMode();
         } else {
@@ -217,7 +216,6 @@ const PointCloud = (function() {
    }
    
    function enterPointCloudFullscreenMode() {
-       // ... (no changes in this function from previous version) ...
        if (mainPointCloudContainer.classList.contains('fullscreen')) return;
        mainPointCloudContainer.classList.add('fullscreen');
        document.body.style.overflow = 'hidden';
@@ -236,7 +234,6 @@ const PointCloud = (function() {
    }
    
    function exitPointCloudFullscreenMode() {
-       // ... (no changes in this function from previous version) ...
        if (!mainPointCloudContainer.classList.contains('fullscreen') && !document.fullscreenElement && !document.webkitIsFullScreen) return;
        
        const exitFsPromise = document.exitFullscreen ? 
