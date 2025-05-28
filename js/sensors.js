@@ -177,23 +177,42 @@ const Sensors = (function() {
         if(orientBetaEl) orientBetaEl.textContent = (smoothedSensorData.beta != null ? smoothedSensorData.beta.toFixed(2) : '0.00');
         if(orientGammaEl) orientGammaEl.textContent = (smoothedSensorData.gamma != null ? smoothedSensorData.gamma.toFixed(2) : '0.00');
         
+        const proximityValueEl = document.getElementById('proximityValue');
+        if(proximityValueEl) proximityValueEl.textContent = (smoothedSensorData.proximity != null ? smoothedSensorData.proximity.toFixed(1) : '0.00');
+        
         if (compassNeedle) compassNeedle.style.transform = `rotate(${(smoothedSensorData.alpha || 0)}deg)`;
         // if (micVolumeDisplayEl) micVolumeDisplayEl.textContent = Math.round(smoothedSensorData.micVolume);
+    }
+
+    function mapCircularValue(value, min, max) {
+        // For circular values (like angles), map them to a continuous range
+        // This prevents sharp transitions at 0/360 boundary
+        const range = max - min;
+        const halfRange = range / 2;
+        
+        // Normalize to 0-range
+        let normalized = ((value - min) % range + range) % range;
+        
+        // Map to -halfRange to +halfRange
+        if (normalized > halfRange) {
+            normalized = range - normalized;
+        }
+        
+        return normalized;
     }
 
     function processSensorDataAndUpdate() {
         // Apply smoothing to all relevant sensor data
         for (const key in latestSensorData) {
             if (smoothedSensorData.hasOwnProperty(key)) {
-                 // For alpha, handle wrap-around smoothing carefully if it becomes an issue.
-                 // Simple linear smoothing is usually fine for small changes.
+                // Handle circular values (alpha and compassHeading) differently
                 if (key === 'alpha' || key === 'compassHeading') {
-                     // A more robust alpha smoothing would handle the 0/360 crossover.
-                     // For now, simple smoothing.
-                    let diff = latestSensorData[key] - smoothedSensorData[key];
-                    if (diff > 180) diff -= 360;
-                    if (diff < -180) diff += 360;
-                    smoothedSensorData[key] = (smoothedSensorData[key] + diff * (1 - smoothingFactor) + 360) % 360;
+                    // Map to continuous range first
+                    const mappedValue = mapCircularValue(latestSensorData[key], 0, 360);
+                    const mappedSmoothed = mapCircularValue(smoothedSensorData[key], 0, 360);
+                    
+                    // Apply smoothing to mapped values
+                    smoothedSensorData[key] = applySmoothing(mappedSmoothed, mappedValue);
                 } else {
                     smoothedSensorData[key] = applySmoothing(smoothedSensorData[key], latestSensorData[key]);
                 }
@@ -268,10 +287,15 @@ const Sensors = (function() {
         if (!globallyEnabled || !proximitySensorInstance) return;
         
         const proxSensorDetails = getSensorById('proximity');
+        const maxDistance = proxSensorDetails ? proxSensorDetails.typicalMax : 25;
+        
+        // Normalize the proximity value to 0-100% range
         if (proximitySensorInstance.distance === null) {
-            latestSensorData.proximity = proxSensorDetails ? proxSensorDetails.typicalMax : 25;
+            latestSensorData.proximity = 0; // Object is very close or sensor is covered
         } else {
-            latestSensorData.proximity = proximitySensorInstance.distance;
+            // Convert distance to a percentage (0% = closest, 100% = furthest)
+            const normalizedDistance = Math.min(100, (proximitySensorInstance.distance / maxDistance) * 100);
+            latestSensorData.proximity = normalizedDistance;
         }
         processSensorDataAndUpdate();
     }
@@ -279,10 +303,21 @@ const Sensors = (function() {
     function handleProximityError(event) {
         console.error('Proximity sensor error:', event.error.name, event.error.message);
         if (event.error.name === 'NotAllowedError') {
-            alert('Access to the proximity sensor is not allowed by Feature Policy or user denial.');
+            alert('Access to the proximity sensor is not allowed. Please check your device settings.');
+        } else if (event.error.name === 'NotReadableError') {
+            alert('Proximity sensor is not readable. Please ensure your device has a working proximity sensor.');
+        } else {
+            alert('Error accessing proximity sensor: ' + event.error.message);
         }
+        
         if (proximitySensorInstance) {
-            try { proximitySensorInstance.stop(); } catch(e){}
+            try { 
+                proximitySensorInstance.removeEventListener('reading', handleProximityEvent);
+                proximitySensorInstance.removeEventListener('error', handleProximityError);
+                proximitySensorInstance.stop();
+            } catch(e) {
+                console.warn("Error stopping proximity sensor:", e);
+            }
             proximitySensorInstance = null;
         }
         permissionGranted.proximity = false;
@@ -540,7 +575,11 @@ const Sensors = (function() {
     }
 
     function getSensorValue(sensorId) {
-        // Mappings should use the smoothed data
+        // For circular values, return the mapped value
+        if (sensorId === 'alpha' || sensorId === 'compassHeading') {
+            return mapCircularValue(smoothedSensorData[sensorId], 0, 360);
+        }
+        // For other sensors, return the smoothed value directly
         return smoothedSensorData[sensorId];
     }
     
