@@ -2,14 +2,13 @@
 const Player = (function() {
     let videoPlayer, mainVideoContainer, videoPlaceholder, videoPlayerControls, videoFilterControls,
         playPauseBtn, loopBtn, fileInput, fileName, progressBar, mainProgressContainer,
-        currentTimeEl, durationEl, volumeSlider, loopInfo, brightnessSlider, saturationSlider,
+        currentTimeEl, durationEl, volumeSlider, brightnessSlider, saturationSlider,
         contrastSlider, hueSlider, 
         brightnessValue, saturationValue, contrastValue, hueValue, 
         resetFiltersBtn, videoFullscreenBtn, fullscreenControlsOverlay, progressBarFullscreen,
         playPauseFullscreen /* exitVideoFullscreenBtn removed */ ;
 
     let isLooping = true;
-    let loopCount = 0;
     let currentFilterStyles = {}; 
     let lastVideoTap = 0;
     let fsControlsTimeout; // For fullscreen controls auto-hide
@@ -32,7 +31,6 @@ const Player = (function() {
         currentTimeEl = document.getElementById('currentTime');
         durationEl = document.getElementById('duration');
         volumeSlider = document.getElementById('volumeSlider');
-        loopInfo = document.getElementById('loopInfo');
         brightnessSlider = document.getElementById('brightnessSlider');
         saturationSlider = document.getElementById('saturationSlider');
         contrastSlider = document.getElementById('contrastSlider');
@@ -194,8 +192,6 @@ const Player = (function() {
                 videoPlayer.src = videoURL;
                 fileName.textContent = file.name;
                 videoPlayer.loop = isLooping;
-                loopCount = 0;
-                UI.updateLoopInfo(loopInfo, videoPlayer, loopCount);
                 UI.updateLoopButton(loopBtn, isLooping);
                 videoPlaceholder.classList.add('hidden');
                 if (currentModeGetter() === 'videoPlayer') {
@@ -222,8 +218,6 @@ const Player = (function() {
             isLooping = !isLooping;
             videoPlayer.loop = isLooping;
             UI.updateLoopButton(loopBtn, isLooping);
-            UI.updateLoopInfo(loopInfo, videoPlayer, loopCount);
-            if (!isLooping) loopCount = 0; 
         });
 
         videoPlayer.addEventListener('timeupdate', function() {
@@ -246,8 +240,7 @@ const Player = (function() {
         
         videoPlayer.addEventListener('ended', function() {
             if (videoPlayer.loop) {
-                loopCount++;
-                UI.updateLoopInfo(loopInfo, videoPlayer, loopCount);
+                UI.updatePlayPauseButtons(playPauseBtn, playPauseFullscreen, false);
             } else {
                 UI.updatePlayPauseButtons(playPauseBtn, playPauseFullscreen, false);
             }
