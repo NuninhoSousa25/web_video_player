@@ -59,9 +59,11 @@ const Sensors = (function() {
     // Audio handling
     let audioContext = null;
     let analyserNode = null;
-    let microphoneStream = null;
+    let microphoneSource = null;
     let micVolumeUpdateId = null;
-    let isMicEnabled = false;
+    let isMicSetup = false;
+    let micRetryCount = 0;
+    let audioDataArray = null;
 
     function cacheDOMElements() {
         sensorToggleBtn = document.getElementById('sensorToggleBtn');
@@ -390,96 +392,161 @@ const Sensors = (function() {
         }
     }
 
-    async function initializeAudio() {
+    async function setupMicrophoneSensor() {
+        if (isMicSetup || !permissionGranted.microphone) return;
+
         try {
-            // Create new audio context
-            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            // Clean up any existing audio context
+            if (audioContext && audioContext.state === 'closed') {
+                audioContext = null;
+            }
+
+            // Initialize audio context on user interaction if needed
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+
+            // Request microphone with simpler constraints
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+                audio: {
+                    echoCancellation: false,
+                    noiseSuppression: false,
+                    autoGainControl: false
+                }
+            });
+            
+            // Resume audio context if suspended (common on mobile)
+            if (audioContext.state === 'suspended') {
+                await audioContext.resume();
+            }
+            
+            // Set up audio processing
             analyserNode = audioContext.createAnalyser();
-            analyserNode.fftSize = 256;
-
-            // Request microphone access
-            microphoneStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-
-            // Connect microphone to analyzer
-            const source = audioContext.createMediaStreamSource(microphoneStream);
-            source.connect(analyserNode);
-
-            isMicEnabled = true;
-            console.log("Audio initialized successfully");
-            return true;
+            microphoneSource = audioContext.createMediaStreamSource(stream);
+            
+            // Store the stream reference for cleanup
+            microphoneSource.mediaStream = stream;
+            
+            microphoneSource.connect(analyserNode);
+            analyserNode.smoothingTimeConstant = 0.3; // Less smoothing for more responsive input
+            analyserNode.fftSize = 512; // Higher resolution for better accuracy
+            audioDataArray = new Uint8Array(analyserNode.frequencyBinCount);
+            
+            isMicSetup = true;
+            micRetryCount = 0;
+            console.log("Microphone sensor setup complete.");
+            
+            // Reset the UI
+            if (micVolumeValueEl) {
+                micVolumeValueEl.style.color = '';
+            }
+            
+            // Start the volume monitoring loop
+            if (!micVolumeUpdateId) {
+                updateMicVolumeLoop();
+            }
         } catch (error) {
-            console.error("Audio initialization failed:", error);
-            alert(
-                error.name === "NotReadableError"
-                    ? "Could not access the microphone. It may be in use by another application, or your browser/device may not support it."
-                    : "Microphone error: " + error.message
-            );
-            cleanupAudio();
-            return false;
+            console.error('Error setting up microphone sensor:', error);
+            handleMicrophoneError(error);
         }
     }
 
-    function cleanupAudio() {
-        if (micVolumeUpdateId) {
-            cancelAnimationFrame(micVolumeUpdateId);
-            micVolumeUpdateId = null;
-        }
-        
-        if (microphoneStream) {
-            microphoneStream.getTracks().forEach(track => track.stop());
-            microphoneStream = null;
-        }
-        
-        if (audioContext) {
-            audioContext.close();
-            audioContext = null;
-        }
-        
-        analyserNode = null;
-        isMicEnabled = false;
-        
-        if (micVolumeValueEl) {
-            micVolumeValueEl.textContent = '0.00';
-            micVolumeValueEl.style.color = '';
-        }
-    }
-
-    function updateMicVolume() {
-        if (!isMicEnabled || !analyserNode) {
+    function updateMicVolumeLoop() {
+        if (!isMicSetup || !analyserNode || !globallyEnabled) {
             micVolumeUpdateId = null;
             return;
         }
-
+        
+        // Check if audio context is still valid
+        if (!audioContext || audioContext.state === 'closed') {
+            console.warn('Audio context closed, stopping mic loop');
+            micVolumeUpdateId = null;
+            isMicSetup = false;
+            return;
+        }
+        
         try {
-            const dataArray = new Uint8Array(analyserNode.frequencyBinCount);
-            analyserNode.getByteFrequencyData(dataArray);
+            // Get time domain data instead of frequency for volume
+            analyserNode.getByteTimeDomainData(audioDataArray);
             
-            // Calculate average volume
-            let sum = 0;
-            for (let i = 0; i < dataArray.length; i++) {
-                sum += dataArray[i];
+            // Calculate volume using peak detection
+            let max = 0;
+            let min = 255;
+            
+            for (let i = 0; i < audioDataArray.length; i++) {
+                const value = audioDataArray[i];
+                if (value > max) max = value;
+                if (value < min) min = value;
             }
-            const average = sum / dataArray.length;
             
-            // Convert to percentage (0-100)
-            const volume = Math.min(100, (average / 128) * 100);
+            // Calculate peak-to-peak amplitude
+            const amplitude = max - min;
             
-            // Update sensor data
-            latestSensorData.micVolume = volume;
+            // Normalize to 0-100% with a more sensitive scale
+            // 128 is silence, full scale is 0-255
+            const normalizedVolume = Math.min(100, (amplitude / 128) * 100);
+            
+            // Apply some amplification for typical speaking volumes
+            const amplifiedVolume = Math.min(100, normalizedVolume * 2);
+            
+            // Update with smoothing
+            latestSensorData.micVolume = applySmoothing(latestSensorData.micVolume, amplifiedVolume);
             
             // Update UI
             if (micVolumeValueEl) {
-                micVolumeValueEl.textContent = volume.toFixed(2);
+                micVolumeValueEl.textContent = latestSensorData.micVolume.toFixed(1);
             }
             
             processSensorDataAndUpdate();
         } catch (error) {
-            console.error("Error updating microphone volume:", error);
-            cleanupAudio();
+            console.error('Error in microphone volume loop:', error);
+            handleMicrophoneError(error);
             return;
         }
         
-        micVolumeUpdateId = requestAnimationFrame(updateMicVolume);
+        micVolumeUpdateId = requestAnimationFrame(updateMicVolumeLoop);
+    }
+
+    function handleMicrophoneError(error) {
+        console.error('Microphone error:', error);
+        isMicSetup = false;
+        
+        if (micVolumeValueEl) {
+            micVolumeValueEl.textContent = 'Error';
+            micVolumeValueEl.style.color = 'red';
+        }
+        
+        // Clean up any existing audio resources
+        if (microphoneSource) {
+            try {
+                microphoneSource.disconnect();
+                if (microphoneSource.mediaStream) {
+                    microphoneSource.mediaStream.getTracks().forEach(track => track.stop());
+                }
+            } catch (e) {
+                console.warn('Error cleaning up microphone source:', e);
+            }
+            microphoneSource = null;
+        }
+        
+        if (analyserNode) {
+            try {
+                analyserNode.disconnect();
+            } catch (e) {
+                console.warn('Error disconnecting analyser:', e);
+            }
+            analyserNode = null;
+        }
+        
+        if (audioContext && audioContext.state !== 'closed') {
+            audioContext.close().catch(e => {
+                console.warn('Error closing audio context:', e);
+            });
+            audioContext = null;
+        }
+        
+        micVolumeUpdateId = null;
+        audioDataArray = null;
     }
 
     async function requestSensorPermissions() {
@@ -565,12 +632,8 @@ const Sensors = (function() {
             // Initialize sensors
             await Promise.all([
                 setupProximitySensor(),
-                permissionGranted.microphone ? initializeAudio() : Promise.resolve(false)
+                permissionGranted.microphone ? setupMicrophoneSensor() : Promise.resolve(false)
             ]);
-
-            if (permissionGranted.microphone && isMicEnabled) {
-                updateMicVolume();
-            }
 
             globallyEnabled = true;
             updateUIState(true);
@@ -583,6 +646,57 @@ const Sensors = (function() {
     }
 
     function disable() {
+        globallyEnabled = false;
+        updateUIState(false);
+        
+        // Clean up microphone more thoroughly
+        if (micVolumeUpdateId) {
+            cancelAnimationFrame(micVolumeUpdateId);
+            micVolumeUpdateId = null;
+        }
+        
+        if (microphoneSource) {
+            try {
+                microphoneSource.disconnect();
+                if (microphoneSource.mediaStream) {
+                    microphoneSource.mediaStream.getTracks().forEach(track => {
+                        track.stop();
+                        console.log('Stopped audio track:', track.label);
+                    });
+                }
+            } catch (e) {
+                console.warn('Error cleaning up microphone source:', e);
+            }
+            microphoneSource = null;
+        }
+        
+        if (analyserNode) {
+            try {
+                analyserNode.disconnect();
+            } catch (e) {
+                console.warn('Error disconnecting analyser:', e);
+            }
+            analyserNode = null;
+        }
+        
+        // Close audio context after cleanup
+        if (audioContext && audioContext.state !== 'closed') {
+            audioContext.close().then(() => {
+                console.log('Audio context closed');
+                audioContext = null;
+            }).catch(e => {
+                console.warn('Error closing audio context:', e);
+            });
+        }
+        
+        isMicSetup = false;
+        audioDataArray = null;
+        
+        if (micVolumeValueEl) {
+            micVolumeValueEl.textContent = '0.0';
+            micVolumeValueEl.style.color = '';
+        }
+
         // Remove event listeners
         window.removeEventListener('deviceorientation', handleOrientationEvent, true);
         window.removeEventListener('devicemotion', handleMotionEvent, true);
@@ -599,11 +713,7 @@ const Sensors = (function() {
             proximitySensorInstance = null;
         }
         
-        // Clean up audio
-        cleanupAudio();
-
         // Reset state
-        globallyEnabled = false;
         latestSensorData = createInitialSensorData();
         smoothedSensorData = { ...latestSensorData };
         
@@ -662,6 +772,23 @@ const Sensors = (function() {
     
     function hideControls() { if (sensorSectionControls) sensorSectionControls.classList.add('hidden'); }
     function showControls() { if (sensorSectionControls) sensorSectionControls.classList.remove('hidden'); }
+
+    // Add visibility change handler
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden && audioContext) {
+            // Suspend audio context when page is hidden
+            if (audioContext.state === 'running') {
+                audioContext.suspend();
+            }
+        } else if (!document.hidden && audioContext && globallyEnabled) {
+            // Resume when page is visible again
+            if (audioContext.state === 'suspended') {
+                audioContext.resume().then(() => {
+                    console.log('Resumed audio context after visibility change');
+                });
+            }
+        }
+    });
 
     return {
         init,
