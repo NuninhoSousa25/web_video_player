@@ -13,7 +13,7 @@ const Sensors = (function() {
         alphaSensValueEl, betaSensValueEl, gammaSensValueEl, smoothingValueEl,
         alphaOffsetSlider, betaOffsetSlider, gammaOffsetSlider,
         alphaOffsetValueEl, betaOffsetValueEl, gammaOffsetValueEl,
-        calibrateBtn, invertBtn, sensorSectionControls;
+        calibrateBtn, invertBtn, sensorSectionControls, micVolumeValueEl;
 
     // Module References
     let playerModuleRef;
@@ -74,7 +74,7 @@ const Sensors = (function() {
         orientBetaEl = document.getElementById('orientBeta');
         orientGammaEl = document.getElementById('orientGamma');
         compassNeedle = document.getElementById('compassNeedle');
-        // micVolumeDisplayEl = document.getElementById('micVolumeDisplay'); // Example
+        micVolumeValueEl = document.getElementById('micVolumeValue');
         
         alphaSensitivitySlider = document.getElementById('alphaSensitivitySlider');
         betaSensitivitySlider = document.getElementById('betaSensitivitySlider');
@@ -445,6 +445,12 @@ const Sensors = (function() {
             'default': 'Could not access microphone. Please ensure permission is granted and try again.'
         };
 
+        // Update UI to show error state
+        if (micVolumeValueEl) {
+            micVolumeValueEl.textContent = 'Error';
+            micVolumeValueEl.style.color = '#ff4444';
+        }
+
         alert(errorMessages[error.name] || errorMessages.default);
     }
 
@@ -465,6 +471,11 @@ const Sensors = (function() {
         
         // Normalize to 0-100% with some amplification
         latestSensorData.micVolume = Math.min(100, (rms / 128) * 100);
+        
+        // Update UI
+        if (micVolumeValueEl) {
+            micVolumeValueEl.textContent = latestSensorData.micVolume.toFixed(2);
+        }
         
         processSensorDataAndUpdate();
         
@@ -634,6 +645,10 @@ const Sensors = (function() {
         }
         if (microphoneSource?.mediaStream) {
             microphoneSource.mediaStream.getTracks().forEach(track => track.stop());
+        }
+        if (micVolumeValueEl) {
+            micVolumeValueEl.textContent = '0.00';
+            micVolumeValueEl.style.color = '';
         }
 
         // Reset state
