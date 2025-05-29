@@ -27,8 +27,7 @@ const Sensors = (function() {
         proximity: false,
         microphone: false,
         gyroscope: false,
-        gravity: false,
-        ambientLight: false
+        gravity: false
     };
     
     // Sensor Data
@@ -39,8 +38,7 @@ const Sensors = (function() {
         micVolume: 0,
         compassHeading: 0,
         gyroX: 0, gyroY: 0, gyroZ: 0,
-        gravityX: 0, gravityY: 0, gravityZ: 0,
-        ambientLight: 0
+        gravityX: 0, gravityY: 0, gravityZ: 0
     });
 
     let latestSensorData = createInitialSensorData();
@@ -58,14 +56,12 @@ const Sensors = (function() {
     // Sensor Instances
     let proximitySensorInstance = null;
 
+    // Audio handling
     let audioContext = null;
     let analyserNode = null;
-    let microphoneSource = null;
-    let audioDataArray = null;
+    let microphoneStream = null;
     let micVolumeUpdateId = null;
-    let isMicSetup = false;
-    let micRetryCount = 0;
-    const MAX_MIC_RETRIES = 3;
+    let isMicEnabled = false;
 
     function cacheDOMElements() {
         sensorToggleBtn = document.getElementById('sensorToggleBtn');
@@ -209,9 +205,6 @@ const Sensors = (function() {
         updateValue('gravityXValue', smoothedSensorData.gravityX);
         updateValue('gravityYValue', smoothedSensorData.gravityY);
         updateValue('gravityZValue', smoothedSensorData.gravityZ);
-
-        // Update ambient light value (1 decimal place)
-        updateValue('ambientLightValue', smoothedSensorData.ambientLight, 1);
         
         // Update compass needle
         if (compassNeedle) {
@@ -397,150 +390,103 @@ const Sensors = (function() {
         }
     }
 
-    async function setupMicrophoneSensor() {
-        if (isMicSetup || !permissionGranted.microphone) return;
-
+    async function initializeAudio() {
         try {
-            // Clean up any existing audio context and streams
-            if (microphoneSource?.mediaStream) {
-                microphoneSource.mediaStream.getTracks().forEach(track => track.stop());
-                microphoneSource = null;
-            }
-            if (audioContext?.state === 'closed') {
-                audioContext = null;
-            }
-
-            // Initialize new audio context
-            if (!audioContext) {
-                audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            }
-
-            // Request microphone access with more permissive constraints
-            const stream = await navigator.mediaDevices.getUserMedia({ 
-                audio: {
-                    echoCancellation: false,
-                    noiseSuppression: false,
-                    autoGainControl: false,
-                    channelCount: 1,
-                    sampleRate: 44100
-                }
-            });
-            
-            // Resume audio context if needed
-            if (audioContext.state === 'suspended') {
-                await audioContext.resume();
-            }
-            
-            // Set up audio processing
+            // Create new audio context
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
             analyserNode = audioContext.createAnalyser();
-            microphoneSource = audioContext.createMediaStreamSource(stream);
-            
-            microphoneSource.connect(analyserNode);
-            analyserNode.smoothingTimeConstant = 0.85;
             analyserNode.fftSize = 256;
-            audioDataArray = new Uint8Array(analyserNode.frequencyBinCount);
-            
-            isMicSetup = true;
-            micRetryCount = 0;
-            console.log("Microphone sensor setup complete.");
-            
-            // Start the volume monitoring loop
-            if (!micVolumeUpdateId) {
-                updateMicVolumeLoop();
-            }
+
+            // Request microphone access
+            microphoneStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+            // Connect microphone to analyzer
+            const source = audioContext.createMediaStreamSource(microphoneStream);
+            source.connect(analyserNode);
+
+            isMicEnabled = true;
+            console.log("Audio initialized successfully");
+            return true;
         } catch (error) {
-            console.error('Error setting up microphone sensor:', error);
-            handleMicrophoneError(error);
+            console.error("Audio initialization failed:", error);
+            alert(
+                error.name === "NotReadableError"
+                    ? "Could not access the microphone. It may be in use by another application, or your browser/device may not support it."
+                    : "Microphone error: " + error.message
+            );
+            cleanupAudio();
+            return false;
         }
     }
 
-    function handleMicrophoneError(error) {
-        permissionGranted.microphone = false;
-        isMicSetup = false;
-
-        // Clean up any existing audio resources
+    function cleanupAudio() {
         if (micVolumeUpdateId) {
             cancelAnimationFrame(micVolumeUpdateId);
             micVolumeUpdateId = null;
         }
-        if (microphoneSource?.mediaStream) {
-            microphoneSource.mediaStream.getTracks().forEach(track => track.stop());
-            microphoneSource = null;
+        
+        if (microphoneStream) {
+            microphoneStream.getTracks().forEach(track => track.stop());
+            microphoneStream = null;
         }
-        if (audioContext?.state === 'running') {
+        
+        if (audioContext) {
             audioContext.close();
             audioContext = null;
         }
-
-        const errorMessages = {
-            'NotAllowedError': 'Microphone access was denied. Please allow microphone access to use this feature.',
-            'NotFoundError': 'No microphone found. Please connect a microphone and try again.',
-            'NotReadableError': 'Could not access microphone. The device may be in use by another application.',
-            'default': 'Could not access microphone. Please ensure permission is granted and try again.'
-        };
-
-        // Update UI to show error state
+        
+        analyserNode = null;
+        isMicEnabled = false;
+        
         if (micVolumeValueEl) {
-            micVolumeValueEl.textContent = 'Error';
-            micVolumeValueEl.style.color = '#ff4444';
+            micVolumeValueEl.textContent = '0.00';
+            micVolumeValueEl.style.color = '';
         }
-
-        // Retry logic for NotReadableError
-        if (error.name === 'NotReadableError' && micRetryCount < MAX_MIC_RETRIES) {
-            micRetryCount++;
-            console.log(`Retrying microphone setup (attempt ${micRetryCount}/${MAX_MIC_RETRIES})...`);
-            setTimeout(() => {
-                if (globallyEnabled) {
-                    setupMicrophoneSensor();
-                }
-            }, 1000 * micRetryCount); // Increasing delay between retries
-            return;
-        }
-
-        alert(errorMessages[error.name] || errorMessages.default);
     }
 
-    function updateMicVolumeLoop() {
-        if (!isMicSetup || !analyserNode || !globallyEnabled || !audioContext || audioContext.state === 'closed') {
+    function updateMicVolume() {
+        if (!isMicEnabled || !analyserNode) {
             micVolumeUpdateId = null;
             return;
         }
-        
+
         try {
-            analyserNode.getByteFrequencyData(audioDataArray);
+            const dataArray = new Uint8Array(analyserNode.frequencyBinCount);
+            analyserNode.getByteFrequencyData(dataArray);
             
-            // Calculate RMS (Root Mean Square) of the audio data for better volume representation
+            // Calculate average volume
             let sum = 0;
-            for (let i = 0; i < audioDataArray.length; i++) {
-                sum += audioDataArray[i] * audioDataArray[i];
+            for (let i = 0; i < dataArray.length; i++) {
+                sum += dataArray[i];
             }
-            const rms = Math.sqrt(sum / audioDataArray.length);
+            const average = sum / dataArray.length;
             
-            // Normalize to 0-100% with some amplification and smoothing
-            const rawVolume = Math.min(100, (rms / 128) * 100);
-            latestSensorData.micVolume = applySmoothing(latestSensorData.micVolume, rawVolume);
+            // Convert to percentage (0-100)
+            const volume = Math.min(100, (average / 128) * 100);
+            
+            // Update sensor data
+            latestSensorData.micVolume = volume;
             
             // Update UI
             if (micVolumeValueEl) {
-                micVolumeValueEl.textContent = latestSensorData.micVolume.toFixed(2);
+                micVolumeValueEl.textContent = volume.toFixed(2);
             }
             
             processSensorDataAndUpdate();
         } catch (error) {
-            console.error('Error in microphone volume loop:', error);
-            handleMicrophoneError(error);
+            console.error("Error updating microphone volume:", error);
+            cleanupAudio();
             return;
         }
         
-        micVolumeUpdateId = requestAnimationFrame(updateMicVolumeLoop);
+        micVolumeUpdateId = requestAnimationFrame(updateMicVolume);
     }
-    
+
     async function requestSensorPermissions() {
         let orientationGrantedUser = false;
         let motionGrantedUser = false;
         let gyroscopeAvailable = false;
         let gravityAvailable = false;
-        let ambientLightAvailable = false;
         let microphoneGranted = false;
 
         if (typeof DeviceOrientationEvent !== 'undefined' && DeviceOrientationEvent.requestPermission) {
@@ -569,64 +515,30 @@ const Sensors = (function() {
             gravityAvailable = true;
         }
 
-        // Check for ambient light sensor
-        if ('AmbientLightSensor' in window) {
-            try {
-                const lightSensor = new AmbientLightSensor();
-                ambientLightAvailable = true;
-            } catch (e) {
-                console.warn("Ambient light sensor not available:", e);
-            }
-        }
-
         let proximityAPIAvailable = false;
         if ('ProximitySensor' in window) {
            proximityAPIAvailable = true; 
         } else {
             console.warn("Proximity Sensor API not available in this browser/context.");
         }
-        
-        let microphoneCanBeRequested = false;
+
+        // Only check if getUserMedia exists, don't request it here!
         if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-            microphoneCanBeRequested = true;
-            try {
-                // Request microphone permission
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    audio: {
-                        echoCancellation: true,
-                        noiseSuppression: true,
-                        autoGainControl: true
-                    }
-                });
-                microphoneGranted = true;
-                // Stop the stream immediately as we'll set it up properly later
-                stream.getTracks().forEach(track => track.stop());
-            } catch (e) {
-                console.warn("Microphone permission request failed:", e);
-            }
-        } else {
-            console.warn("Microphone access (getUserMedia) not available.");
+            microphoneGranted = true;
         }
-        
+
         return { 
             orientationGrantedUser, 
             motionGrantedUser, 
             proximityAPIAvailable, 
-            microphoneCanBeRequested,
             microphoneGranted,
             gyroscopeAvailable,
-            gravityAvailable,
-            ambientLightAvailable
+            gravityAvailable
         };
     }
     
     async function enable() {
         try {
-            // Resume audio context if needed
-            if (audioContext?.state === 'suspended') {
-                await audioContext.resume();
-            }
-
             // Request and check permissions
             const permissions = await requestSensorPermissions();
             Object.assign(permissionGranted, {
@@ -635,8 +547,7 @@ const Sensors = (function() {
                 proximity: permissions.proximityAPIAvailable,
                 microphone: permissions.microphoneGranted,
                 gyroscope: permissions.gyroscopeAvailable,
-                gravity: permissions.gravityAvailable,
-                ambientLight: permissions.ambientLightAvailable
+                gravity: permissions.gravityAvailable
             });
 
             if (!Object.values(permissionGranted).some(Boolean)) {
@@ -654,8 +565,12 @@ const Sensors = (function() {
             // Initialize sensors
             await Promise.all([
                 setupProximitySensor(),
-                setupMicrophoneSensor()
+                permissionGranted.microphone ? initializeAudio() : Promise.resolve(false)
             ]);
+
+            if (permissionGranted.microphone && isMicEnabled) {
+                updateMicVolume();
+            }
 
             globallyEnabled = true;
             updateUIState(true);
@@ -684,18 +599,8 @@ const Sensors = (function() {
             proximitySensorInstance = null;
         }
         
-        // Clean up microphone
-        if (micVolumeUpdateId) {
-            cancelAnimationFrame(micVolumeUpdateId);
-            micVolumeUpdateId = null;
-        }
-        if (microphoneSource?.mediaStream) {
-            microphoneSource.mediaStream.getTracks().forEach(track => track.stop());
-        }
-        if (micVolumeValueEl) {
-            micVolumeValueEl.textContent = '0.00';
-            micVolumeValueEl.style.color = '';
-        }
+        // Clean up audio
+        cleanupAudio();
 
         // Reset state
         globallyEnabled = false;
