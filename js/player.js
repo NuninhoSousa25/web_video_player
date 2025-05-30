@@ -12,6 +12,7 @@ const Player = (function() {
     let currentFilterStyles = {}; 
     let lastVideoTap = 0;
     let fsControlsTimeout; // For fullscreen controls auto-hide
+    let wakeLock = null; // For screen wake lock
 
     let currentModeGetter = () => 'videoPlayer'; 
     let pointCloudModuleRef; 
@@ -150,38 +151,69 @@ const Player = (function() {
         }
     }
 
-    function enterVideoFullscreenMode() {
+    async function enterVideoFullscreenMode() {
         if (mainVideoContainer.classList.contains('fullscreen')) return;
-        mainVideoContainer.classList.add('fullscreen');
-        document.body.style.overflow = 'hidden';
-        videoFullscreenBtn.textContent = 'Exit Full'; // Keep this for the button in normal view
-        showFullscreenControls(); // Show controls briefly
-        if (mainVideoContainer.requestFullscreen) {
-            mainVideoContainer.requestFullscreen().catch(err => {
-                console.error("FS Error:", err);
-                // If request fails, revert UI
-                mainVideoContainer.classList.remove('fullscreen');
-                document.body.style.overflow = '';
-                videoFullscreenBtn.textContent = 'Fullscreen';
-            });
-        } else if (mainVideoContainer.webkitRequestFullscreen) { // Safari
-             mainVideoContainer.webkitRequestFullscreen();
+        
+        try {
+            // Request wake lock before entering fullscreen
+            if ('wakeLock' in navigator) {
+                try {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                    console.log('Wake lock is active');
+                } catch (err) {
+                    console.warn('Wake lock request failed:', err);
+                }
+            }
+
+            const enterFsPromise = mainVideoContainer.requestFullscreen ? 
+                                 mainVideoContainer.requestFullscreen() : 
+                                 (mainVideoContainer.webkitRequestFullscreen ? 
+                                  mainVideoContainer.webkitRequestFullscreen() : 
+                                  Promise.reject('Fullscreen not supported'));
+
+            mainVideoContainer.classList.add('fullscreen');
+            document.body.style.overflow = 'hidden';
+
+            await enterFsPromise;
+            setupVideoDimensions();
+            showFullscreenControls();
+        } catch (err) {
+            console.error("Video Enter FS Error:", err);
+            mainVideoContainer.classList.remove('fullscreen');
+            document.body.style.overflow = '';
+            setupVideoDimensions();
         }
     }
 
     function exitVideoFullscreenMode() {
         if (!mainVideoContainer.classList.contains('fullscreen') && !document.fullscreenElement && !document.webkitIsFullScreen) return;
+        
+        // Release wake lock when exiting fullscreen
+        if (wakeLock) {
+            wakeLock.release()
+                .then(() => {
+                    console.log('Wake lock released');
+                    wakeLock = null;
+                })
+                .catch(err => {
+                    console.warn('Error releasing wake lock:', err);
+                });
+        }
+
+        const exitFsPromise = document.exitFullscreen ? 
+                             document.exitFullscreen() : 
+                             (document.webkitExitFullscreen ? document.webkitExitFullscreen() : Promise.reject());
 
         mainVideoContainer.classList.remove('fullscreen');
         document.body.style.overflow = '';
-        videoFullscreenBtn.textContent = 'Fullscreen';
-        fullscreenControlsOverlay.classList.remove('active');
-        
-        if (document.exitFullscreen) {
-            document.exitFullscreen().catch(err => console.error("Exit FS Error:", err));
-        } else if (document.webkitExitFullscreen) { // Safari
-            document.webkitExitFullscreen();
-        }
+
+        exitFsPromise.then(() => {
+            setTimeout(setupVideoDimensions, 50);
+        }).catch(err => {
+            console.error("Video Exit FS Error:", err);
+            setupVideoDimensions();
+        });
+        setupVideoDimensions();
     }
     
     function setupEventListeners() {
@@ -343,6 +375,21 @@ const Player = (function() {
             brightnessValue, saturationValue, contrastValue, hueValue
         );
         UI.updateLoopButton(loopBtn, isLooping);
+
+        // Add visibility change handler for wake lock
+        document.addEventListener('visibilitychange', async () => {
+            if (document.visibilityState === 'visible' && mainVideoContainer.classList.contains('fullscreen')) {
+                // Re-request wake lock when page becomes visible again
+                if ('wakeLock' in navigator && !wakeLock) {
+                    try {
+                        wakeLock = await navigator.wakeLock.request('screen');
+                        console.log('Wake lock re-activated');
+                    } catch (err) {
+                        console.warn('Wake lock re-request failed:', err);
+                    }
+                }
+            }
+        });
     }
 
     return {
