@@ -280,106 +280,22 @@ const Sensors = (function() {
 
         updateSensorDisplay();
 
-        if (pointCloudModuleRef?.updateSensorTilt) {
-            pointCloudModuleRef.updateSensorTilt(0, 0);
-        }
-        onSensorUpdateCallback?.();
-        
-        Logger.info("Sensors disabled successfully");
-    }
-
-    function updateUIState(enabled) {
-        if (sensorToggleBtn) {
-            sensorToggleBtn.textContent = enabled ? 'Disable Sensors' : 'Enable Sensors';
-            sensorToggleBtn.classList.toggle('active', enabled);
-        }
-    }
-
-    function init(sensorUpdCb, pModuleRef, pcModuleRef) {
-        try {
-            Logger.info("Initializing sensors module...");
-            
-            onSensorUpdateCallback = sensorUpdCb;
-            playerModuleRef = pModuleRef;
-            pointCloudModuleRef = pcModuleRef;
-            
-            cacheDOMElements();
-            setupEventListeners();
-            
-            if (smoothingSlider) {
-                smoothingFactor = parseFloat(smoothingSlider.value);
-            }
-            
-            updateConfigDisplay();
-            updateSensorDisplay();
-            
-            // Add visibility change handler for audio context management
-            document.addEventListener('visibilitychange', () => {
-                if (document.hidden && audioContext && audioContext.state === 'running') {
-                    audioContext.suspend().then(() => {
-                        Logger.info('Audio context suspended due to page visibility change');
-                    }).catch(e => {
-                        Logger.warn('Error suspending audio context:', e);
-                    });
-                } else if (!document.hidden && audioContext && audioContext.state === 'suspended' && globallyEnabled) {
-                    audioContext.resume().then(() => {
-                        Logger.info('Audio context resumed after page became visible');
-                    }).catch(e => {
-                        Logger.warn('Error resuming audio context:', e);
-                    });
-                }
-            });
-            
-            Logger.info("Sensors module initialized successfully");
-            
-        } catch (error) {
-            Logger.error('Error initializing sensors:', error);
-        }
-    }
-
-    function getSensorValue(sensorId) {
-        if (!sensorId || !smoothedSensorData.hasOwnProperty(sensorId)) {
-            return null;
+        if (pointCloudModuleRef && pointCloudModuleRef.updateSensorTilt) {
+            pointCloudModuleRef.updateSensorTilt(smoothedSensorData.beta, smoothedSensorData.gamma);
         }
 
-        // For circular values, return the mapped value
-        if (SENSOR_CONFIG.CIRCULAR_SENSORS.includes(sensorId)) {
-            return mapCircularValue(smoothedSensorData[sensorId], 0, 360);
+        if (onSensorUpdateCallback) {
+            onSensorUpdateCallback();
         }
-        
-        // For other sensors, return the smoothed value directly
-        return smoothedSensorData[sensorId];
-    }
-    
-    function hideControls() { 
-        if (sensorSectionControls) sensorSectionControls.classList.add('hidden'); 
-    }
-    
-    function showControls() { 
-        if (sensorSectionControls) sensorSectionControls.classList.remove('hidden'); 
-    }
-
-    // Public API
-    return {
-        init,
-        isGloballyEnabled: () => globallyEnabled,
-        getSensorValue,
-        hideControls,
-        showControls
-    };
-})();.updateSensorTilt(smoothedSensorData.beta, smoothedSensorData.gamma);
-        }
-
-        onSensorUpdateCallback?.();
     }
 
     function handleOrientationEvent(event) {
         if (!globallyEnabled) return;
         
         try {
-            const rawAlpha = event.alpha ?? 0;
-            const rawBeta = event.beta ?? 0;
-            const rawGamma = event.gamma ?? 0;
+            const rawAlpha = event.alpha || 0;
+            const rawBeta = event.beta || 0;
+            const rawGamma = event.gamma || 0;
 
             const calAlpha = ((rawAlpha - calibrationValues.alpha + 360) % 360);
             const calBeta = rawBeta - calibrationValues.beta;
@@ -404,28 +320,30 @@ const Sensors = (function() {
         if (!globallyEnabled) return;
 
         try {
-            const { acceleration, accelerationIncludingGravity: accGravity, rotationRate } = event;
+            const acceleration = event.acceleration;
+            const accGravity = event.accelerationIncludingGravity;
+            const rotationRate = event.rotationRate;
 
-            if (acceleration?.x != null) {
+            if (acceleration && acceleration.x != null) {
                 latestSensorData.accelX = acceleration.x;
                 latestSensorData.accelY = acceleration.y;
                 latestSensorData.accelZ = acceleration.z;
-            } else if (accGravity?.x != null) {
+            } else if (accGravity && accGravity.x != null) {
                 latestSensorData.accelX = accGravity.x;
                 latestSensorData.accelY = accGravity.y;
                 latestSensorData.accelZ = accGravity.z;
             }
 
             if (rotationRate) {
-                latestSensorData.gyroX = rotationRate.alpha ?? 0;
-                latestSensorData.gyroY = rotationRate.beta ?? 0;
-                latestSensorData.gyroZ = rotationRate.gamma ?? 0;
+                latestSensorData.gyroX = rotationRate.alpha || 0;
+                latestSensorData.gyroY = rotationRate.beta || 0;
+                latestSensorData.gyroZ = rotationRate.gamma || 0;
             }
 
             if (accGravity) {
-                latestSensorData.gravityX = accGravity.x ?? 0;
-                latestSensorData.gravityY = accGravity.y ?? 0;
-                latestSensorData.gravityZ = accGravity.z ?? 0;
+                latestSensorData.gravityX = accGravity.x || 0;
+                latestSensorData.gravityY = accGravity.y || 0;
+                latestSensorData.gravityZ = accGravity.z || 0;
             }
             
             processSensorDataAndUpdate();
@@ -439,7 +357,7 @@ const Sensors = (function() {
         
         try {
             const proxSensorDetails = getSensorById('proximity');
-            const maxDistance = proxSensorDetails?.typicalMax ?? SENSOR_CONFIG.DEFAULT_PROXIMITY_MAX;
+            const maxDistance = (proxSensorDetails && proxSensorDetails.typicalMax) ? proxSensorDetails.typicalMax : SENSOR_CONFIG.DEFAULT_PROXIMITY_MAX;
             
             latestSensorData.proximity = proximitySensorInstance.distance === null
                 ? 0
@@ -857,5 +775,93 @@ const Sensors = (function() {
         // Update UI and effects
         updateSensorDisplay();
         
-        if (pointCloudModuleRef?.updateSensorTilt) {
-            pointCloudModuleRef
+        if (pointCloudModuleRef && pointCloudModuleRef.updateSensorTilt) {
+            pointCloudModuleRef.updateSensorTilt(0, 0);
+        }
+        if (onSensorUpdateCallback) {
+            onSensorUpdateCallback();
+        }
+        
+        Logger.info("Sensors disabled successfully");
+    }
+
+    function updateUIState(enabled) {
+        if (sensorToggleBtn) {
+            sensorToggleBtn.textContent = enabled ? 'Disable Sensors' : 'Enable Sensors';
+            sensorToggleBtn.classList.toggle('active', enabled);
+        }
+    }
+
+    function init(sensorUpdCb, pModuleRef, pcModuleRef) {
+        try {
+            Logger.info("Initializing sensors module...");
+            
+            onSensorUpdateCallback = sensorUpdCb;
+            playerModuleRef = pModuleRef;
+            pointCloudModuleRef = pcModuleRef;
+            
+            cacheDOMElements();
+            setupEventListeners();
+            
+            if (smoothingSlider) {
+                smoothingFactor = parseFloat(smoothingSlider.value);
+            }
+            
+            updateConfigDisplay();
+            updateSensorDisplay();
+            
+            // Add visibility change handler for audio context management
+            document.addEventListener('visibilitychange', () => {
+                if (document.hidden && audioContext && audioContext.state === 'running') {
+                    audioContext.suspend().then(() => {
+                        Logger.info('Audio context suspended due to page visibility change');
+                    }).catch(e => {
+                        Logger.warn('Error suspending audio context:', e);
+                    });
+                } else if (!document.hidden && audioContext && audioContext.state === 'suspended' && globallyEnabled) {
+                    audioContext.resume().then(() => {
+                        Logger.info('Audio context resumed after page became visible');
+                    }).catch(e => {
+                        Logger.warn('Error resuming audio context:', e);
+                    });
+                }
+            });
+            
+            Logger.info("Sensors module initialized successfully");
+            
+        } catch (error) {
+            Logger.error('Error initializing sensors:', error);
+        }
+    }
+
+    function getSensorValue(sensorId) {
+        if (!sensorId || !smoothedSensorData.hasOwnProperty(sensorId)) {
+            return null;
+        }
+
+        // For circular values, return the mapped value
+        if (SENSOR_CONFIG.CIRCULAR_SENSORS.includes(sensorId)) {
+            return mapCircularValue(smoothedSensorData[sensorId], 0, 360);
+        }
+        
+        // For other sensors, return the smoothed value directly
+        return smoothedSensorData[sensorId];
+    }
+    
+    function hideControls() { 
+        if (sensorSectionControls) sensorSectionControls.classList.add('hidden'); 
+    }
+    
+    function showControls() { 
+        if (sensorSectionControls) sensorSectionControls.classList.remove('hidden'); 
+    }
+
+    // Public API
+    return {
+        init,
+        isGloballyEnabled: () => globallyEnabled,
+        getSensorValue,
+        hideControls,
+        showControls
+    };
+})();
