@@ -409,3 +409,82 @@
             .sensor-mapping-panel .panel-content { padding: 10px; }
         }
         .hidden { display: none !important; }
+
+
+/* Enhanced video container for rotation */
+.video-container { 
+    position: relative; 
+    width: 100%; 
+    background-color: #000; 
+    overflow: hidden; /* Prevent video from overflowing during rotation */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+video { 
+    display: block;
+    transition: transform 0.3s ease; /* Smooth rotation animation */
+    max-width: none; /* Allow video to exceed container width when rotated */
+    max-height: none; /* Allow video to exceed container height when rotated */
+}
+
+/* Fullscreen video handling */
+.video-container.fullscreen video {
+    transition: transform 0.3s ease;
+}
+
+/* Better responsive controls for mobile */
+.main-controls { 
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center; 
+    flex-wrap: wrap; /* Allow wrapping on smaller screens */
+    gap: 8px; /* Add spacing between buttons */
+}
+
+.toggle-button { 
+    min-width: 80px; 
+    font-size: 12px; /* Smaller font for more buttons */
+    padding: 8px 12px;
+}
+
+/* Mobile responsive adjustments */
+@media (max-width: 480px) {
+    .main-controls { 
+        flex-direction: column; 
+        gap: 6px; 
+    }
+    
+    .toggle-button { 
+        min-width: 70px; 
+        font-size: 11px; 
+        padding: 6px 10px; 
+    }
+    
+    /* Stack buttons in pairs on mobile */
+    .main-controls {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px;
+    }
+    
+    /* Make the play button span full width */
+    #playPauseBtn {
+        grid-column: 1 / -1;
+    }
+}
+
+/* Tablet adjustments */
+@media (max-width: 768px) and (min-width: 481px) {
+    .main-controls {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+    }
+    
+    .toggle-button {
+        min-width: 60px;
+        font-size: 11px;
+    }
+}
