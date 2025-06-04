@@ -6,14 +6,18 @@ const Player = (function() {
         contrastSlider, hueSlider, 
         brightnessValue, saturationValue, contrastValue, hueValue, 
         resetFiltersBtn, videoFullscreenBtn, fullscreenControlsOverlay, progressBarFullscreen,
-        playPauseFullscreen, rotateBtn;
+        playPauseFullscreen, rotateBtn, fitToScreenBtn;
 
     let isLooping = true;
     let currentFilterStyles = {}; 
     let lastVideoTap = 0;
-    let fsControlsTimeout; // For fullscreen controls auto-hide
-    let wakeLock = null; // For screen wake lock
-    let videoRotation = 0; // 0, 90, 180, 270 degrees
+    let fsControlsTimeout;
+    let wakeLock = null;
+    
+    // Video rotation and scaling state
+    let currentRotation = 0; // 0, 90, 180, 270 degrees
+    let fitToScreen = false;
+    let originalVideoSize = { width: 0, height: 0 };
 
     let currentModeGetter = () => 'videoPlayer'; 
     let pointCloudModuleRef; 
@@ -46,78 +50,170 @@ const Player = (function() {
         fullscreenControlsOverlay = document.getElementById('fullscreenControlsOverlay');
         progressBarFullscreen = document.getElementById('progressBarFullscreen');
         playPauseFullscreen = document.getElementById('playPauseFullscreen');
+        rotateBtn = document.getElementById('rotateBtn');
+        fitToScreenBtn = document.getElementById('fitToScreenBtn');
         fullscreenProgressContainer = fullscreenControlsOverlay.querySelector('.progress-container');
-        
-        // Create rotation button dynamically
-        createRotationButton();
     }
     
-    function createRotationButton() {
-        // Create rotate button for fullscreen controls
-        rotateBtn = document.createElement('button');
-        rotateBtn.id = 'rotateVideoBtn';
-        rotateBtn.className = 'toggle-button';
-        rotateBtn.innerHTML = '↻ 90°';
-        rotateBtn.title = 'Rotate video 90 degrees';
+    function calculateVideoTransform() {
+        let transform = '';
+        let containerWidth = mainVideoContainer.clientWidth;
+        let containerHeight = mainVideoContainer.clientHeight;
         
-        // Add to fullscreen controls
-        const mainControls = fullscreenControlsOverlay.querySelector('.main-controls');
-        if (mainControls) {
-            mainControls.appendChild(rotateBtn);
-        }
-        
-        // Also add to regular controls for convenience
-        const regularMainControls = videoPlayerControls.querySelector('.main-controls');
-        if (regularMainControls) {
-            const rotateBtn2 = rotateBtn.cloneNode(true);
-            rotateBtn2.id = 'rotateVideoBtn2';
-            regularMainControls.appendChild(rotateBtn2);
-            
-            // Event listener for regular controls rotate button
-            rotateBtn2.addEventListener('click', rotateVideo);
-        }
-        
-        // Event listener for fullscreen rotate button
-        rotateBtn.addEventListener('click', rotateVideo);
-    }
-    
-    function rotateVideo() {
-        videoRotation = (videoRotation + 90) % 360;
-        applyVideoRotation();
-        
-        // Update button text
-        const nextRotation = (videoRotation + 90) % 360;
-        const buttonText = `↻ ${nextRotation === 0 ? '0' : nextRotation}°`;
-        if (rotateBtn) rotateBtn.innerHTML = buttonText;
-        
-        const rotateBtn2 = document.getElementById('rotateVideoBtn2');
-        if (rotateBtn2) rotateBtn2.innerHTML = buttonText;
-        
-        // Show controls briefly in fullscreen to confirm rotation
+        // In fullscreen, use window dimensions
         if (mainVideoContainer.classList.contains('fullscreen')) {
-            showFullscreenControls();
+            containerWidth = window.innerWidth;
+            containerHeight = window.innerHeight;
         }
-    }
-    
-    function applyVideoRotation() {
-        if (!videoPlayer) return;
         
-        let transform = `rotate(${videoRotation}deg)`;
+        // Apply rotation
+        if (currentRotation !== 0) {
+            transform += `rotate(${currentRotation}deg) `;
+        }
         
-        // Adjust container dimensions for 90/270 degree rotations
-        if (videoRotation === 90 || videoRotation === 270) {
-            // For portrait-oriented rotations, we might need to scale the video
-            // to fit properly in the landscape container
-            const isFullscreen = mainVideoContainer.classList.contains('fullscreen');
-            if (isFullscreen) {
-                // In fullscreen, center and scale appropriately
-                transform += ' scale(0.8)'; // Adjust scale as needed
-                videoPlayer.style.transformOrigin = 'center center';
+        // Apply scaling if fit to screen is enabled
+        if (fitToScreen && originalVideoSize.width > 0 && originalVideoSize.height > 0) {
+            let videoWidth = originalVideoSize.width;
+            let videoHeight = originalVideoSize.height;
+            
+            // For 90° and 270° rotations, swap width and height for calculations
+            if (currentRotation === 90 || currentRotation === 270) {
+                [videoWidth, videoHeight] = [videoHeight, videoWidth];
+            }
+            
+            const scaleX = containerWidth / videoWidth;
+            const scaleY = containerHeight / videoHeight;
+            const scale = Math.min(scaleX, scaleY);
+            
+            if (scale !== 1) {
+                transform += `scale(${scale}) `;
             }
         }
         
+        return transform.trim();
+    }
+    
+    function applyVideoTransform() {
+        if (!videoPlayer) return;
+        
+        const transform = calculateVideoTransform();
         videoPlayer.style.transform = transform;
         videoPlayer.style.transformOrigin = 'center center';
+        
+        // Update container dimensions if needed
+        updateContainerDimensions();
+    }
+    
+    function updateContainerDimensions() {
+        if (!videoPlayer || !originalVideoSize.width) return;
+        
+        let videoWidth = originalVideoSize.width;
+        let videoHeight = originalVideoSize.height;
+        
+        // For 90° and 270° rotations, swap dimensions
+        if (currentRotation === 90 || currentRotation === 270) {
+            [videoWidth, videoHeight] = [videoHeight, videoWidth];
+        }
+        
+        if (fitToScreen) {
+            // When fit to screen, let the container fill available space
+            if (mainVideoContainer.classList.contains('fullscreen')) {
+                videoPlayer.style.width = '100vw';
+                videoPlayer.style.height = '100vh';
+            } else {
+                videoPlayer.style.width = '100%';
+                videoPlayer.style.height = 'auto';
+            }
+        } else {
+            // Use natural dimensions (affected by rotation)
+            const aspectRatio = videoWidth / videoHeight;
+            const containerWidth = mainVideoContainer.clientWidth || 500;
+            
+            if (mainVideoContainer.classList.contains('fullscreen')) {
+                const windowAspectRatio = window.innerWidth / window.innerHeight;
+                if (aspectRatio > windowAspectRatio) {
+                    videoPlayer.style.width = '100vw';
+                    videoPlayer.style.height = 'auto';
+                } else {
+                    videoPlayer.style.width = 'auto';
+                    videoPlayer.style.height = '100vh';
+                }
+            } else {
+                videoPlayer.style.width = `${Math.min(containerWidth, videoWidth)}px`;
+                videoPlayer.style.height = 'auto';
+            }
+        }
+    }
+    
+    function rotateVideo() {
+        currentRotation = (currentRotation + 90) % 360;
+        applyVideoTransform();
+        updateRotateButtonText();
+        
+        // Save rotation preference
+        localStorage.setItem('videoPlayerRotation', currentRotation.toString());
+        
+        // Update point cloud dimensions if in point cloud mode
+        if (currentModeGetter() === 'pointCloud' && pointCloudModuleRef) {
+            setTimeout(() => {
+                pointCloudModuleRef.setupCanvasDimensions();
+            }, 100);
+        }
+    }
+    
+    function toggleFitToScreen() {
+        fitToScreen = !fitToScreen;
+        applyVideoTransform();
+        updateFitToScreenButtonText();
+        
+        // Save fit preference
+        localStorage.setItem('videoPlayerFitToScreen', fitToScreen.toString());
+        
+        // Update point cloud dimensions if in point cloud mode
+        if (currentModeGetter() === 'pointCloud' && pointCloudModuleRef) {
+            setTimeout(() => {
+                pointCloudModuleRef.setupCanvasDimensions();
+            }, 100);
+        }
+    }
+    
+    function updateRotateButtonText() {
+        if (rotateBtn) {
+            const rotationText = currentRotation === 0 ? '0°' : `${currentRotation}°`;
+            rotateBtn.textContent = `Rotate: ${rotationText}`;
+        }
+    }
+    
+    function updateFitToScreenButtonText() {
+        if (fitToScreenBtn) {
+            fitToScreenBtn.textContent = fitToScreen ? 'Fit: ON' : 'Fit: OFF';
+        }
+    }
+    
+    function resetVideoTransform() {
+        currentRotation = 0;
+        fitToScreen = false;
+        applyVideoTransform();
+        updateRotateButtonText();
+        updateFitToScreenButtonText();
+        localStorage.removeItem('videoPlayerRotation');
+        localStorage.removeItem('videoPlayerFitToScreen');
+    }
+    
+    function loadVideoTransformSettings() {
+        const savedRotation = localStorage.getItem('videoPlayerRotation');
+        const savedFitToScreen = localStorage.getItem('videoPlayerFitToScreen');
+        
+        if (savedRotation) {
+            currentRotation = parseInt(savedRotation) || 0;
+        }
+        
+        if (savedFitToScreen) {
+            fitToScreen = savedFitToScreen === 'true';
+        }
+        
+        updateRotateButtonText();
+        updateFitToScreenButtonText();
     }
     
     function applyCombinedVideoFilters() {
@@ -186,6 +282,9 @@ const Player = (function() {
             setEffect('playbackRate', getEffectById('playbackRate').default);
         }
         applyCombinedVideoFilters(); 
+        
+        // Load video transform settings
+        loadVideoTransformSettings();
     }
 
     function togglePlayPause() {
@@ -208,18 +307,9 @@ const Player = (function() {
         if (mainVideoContainer.classList.contains('fullscreen')) {
             clearTimeout(fsControlsTimeout);
             fullscreenControlsOverlay.classList.add('active');
-            
-            // Auto-hide after 4 seconds (longer to accommodate rotation)
             fsControlsTimeout = setTimeout(() => {
                 fullscreenControlsOverlay.classList.remove('active');
-            }, 4000);
-        }
-    }
-    
-    function hideFullscreenControls() {
-        if (mainVideoContainer.classList.contains('fullscreen')) {
-            clearTimeout(fsControlsTimeout);
-            fullscreenControlsOverlay.classList.remove('active');
+            }, 3000);
         }
     }
     
@@ -245,29 +335,25 @@ const Player = (function() {
                 }
             }
 
-            mainVideoContainer.classList.add('fullscreen');
-            document.body.style.overflow = 'hidden';
-
             const enterFsPromise = mainVideoContainer.requestFullscreen ? 
                                  mainVideoContainer.requestFullscreen() : 
                                  (mainVideoContainer.webkitRequestFullscreen ? 
                                   mainVideoContainer.webkitRequestFullscreen() : 
                                   Promise.reject('Fullscreen not supported'));
 
+            mainVideoContainer.classList.add('fullscreen');
+            document.body.style.overflow = 'hidden';
+
             await enterFsPromise;
-            
-            // Apply current rotation in fullscreen
-            applyVideoRotation();
-            
-            // Hide all UI elements except fullscreen controls
-            hideAllUIElements();
-            
+            updateContainerDimensions();
+            applyVideoTransform();
             showFullscreenControls();
         } catch (err) {
             console.error("Video Enter FS Error:", err);
             mainVideoContainer.classList.remove('fullscreen');
             document.body.style.overflow = '';
-            showAllUIElements();
+            updateContainerDimensions();
+            applyVideoTransform();
         }
     }
 
@@ -293,52 +379,18 @@ const Player = (function() {
         mainVideoContainer.classList.remove('fullscreen');
         document.body.style.overflow = '';
 
-        // Reset video rotation and show UI elements
-        videoPlayer.style.transform = `rotate(${videoRotation}deg)`;
-        showAllUIElements();
-
         exitFsPromise.then(() => {
-            // Small delay to ensure proper layout
             setTimeout(() => {
-                applyVideoRotation();
+                updateContainerDimensions();
+                applyVideoTransform();
             }, 50);
         }).catch(err => {
             console.error("Video Exit FS Error:", err);
+            updateContainerDimensions();
+            applyVideoTransform();
         });
-    }
-    
-    function hideAllUIElements() {
-        // Hide all UI elements except the fullscreen video container
-        const elementsToHide = [
-            document.querySelector('.player-header'),
-            document.querySelector('.mode-switcher'),
-            document.querySelector('.file-controls'),
-            document.querySelector('.sensor-section'),
-            document.querySelector('.mapping-panel-toggle-container')
-        ];
-        
-        elementsToHide.forEach(element => {
-            if (element) {
-                element.style.display = 'none';
-            }
-        });
-    }
-    
-    function showAllUIElements() {
-        // Show all UI elements when exiting fullscreen
-        const elementsToShow = [
-            document.querySelector('.player-header'),
-            document.querySelector('.mode-switcher'),
-            document.querySelector('.file-controls'),
-            document.querySelector('.sensor-section'),
-            document.querySelector('.mapping-panel-toggle-container')
-        ];
-        
-        elementsToShow.forEach(element => {
-            if (element) {
-                element.style.display = '';
-            }
-        });
+        updateContainerDimensions();
+        applyVideoTransform();
     }
     
     function setupEventListeners() {
@@ -355,16 +407,38 @@ const Player = (function() {
                     videoPlayerControls.classList.remove('hidden');
                     videoFilterControls.classList.remove('hidden');
                 }
+                
+                // Reset rotation and fit when loading new video
+                resetVideoTransform();
             }
         });
 
         videoPlayer.addEventListener('loadedmetadata', function() {
             durationEl.textContent = Utils.formatTime(videoPlayer.duration);
+            
+            // Store original video dimensions
+            originalVideoSize.width = videoPlayer.videoWidth;
+            originalVideoSize.height = videoPlayer.videoHeight;
+            
+            // Apply initial transform
+            setTimeout(() => {
+                applyVideoTransform();
+            }, 100);
+            
             if (currentModeGetter() === 'pointCloud' && pointCloudModuleRef) { 
                 pointCloudModuleRef.setupCanvasDimensions();
             }
             if (videoPlayer.src && videoPlayer.paused) {
                videoPlayer.play().catch(Utils.handlePlayError);
+            }
+        });
+
+        // Add resize listener to handle window resize
+        window.addEventListener('resize', () => {
+            if (videoPlayer.src) {
+                setTimeout(() => {
+                    applyVideoTransform();
+                }, 100);
             }
         });
 
@@ -376,6 +450,15 @@ const Player = (function() {
             videoPlayer.loop = isLooping;
             UI.updateLoopButton(loopBtn, isLooping);
         });
+
+        // Add rotation and fit to screen button listeners
+        if (rotateBtn) {
+            rotateBtn.addEventListener('click', rotateVideo);
+        }
+        
+        if (fitToScreenBtn) {
+            fitToScreenBtn.addEventListener('click', toggleFitToScreen);
+        }
 
         videoPlayer.addEventListener('timeupdate', function() {
             if (!videoPlayer.duration) return;
@@ -466,7 +549,6 @@ const Player = (function() {
             }
             lastVideoTap = currentTime;
         });
-        
         videoPlayer.addEventListener('dblclick', () => { 
             if (currentModeGetter() === 'videoPlayer') {
                  if (mainVideoContainer.classList.contains('fullscreen')) {
@@ -479,42 +561,12 @@ const Player = (function() {
 
         videoFullscreenBtn.addEventListener('click', toggleVideoFullscreen);
 
-        // Fullscreen controls interaction
-        mainVideoContainer.addEventListener('click', (e) => {
-            // Only show controls if clicking on the container, not on control elements
-            if (e.target === mainVideoContainer || e.target === videoPlayer) {
-                showFullscreenControls();
-            }
-        });
-        
+        // Show fullscreen controls on tap/mouse move when in fullscreen
+        mainVideoContainer.addEventListener('click', showFullscreenControls);
         mainVideoContainer.addEventListener('mousemove', showFullscreenControls);
-        
         mainVideoContainer.addEventListener('touchstart', (e) => {
             if (mainVideoContainer.classList.contains('fullscreen')) {
                 showFullscreenControls();
-            }
-        });
-        
-        // Hide controls when clicking away or after inactivity
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' || e.key === 'f' || e.key === 'F') {
-                if (mainVideoContainer.classList.contains('fullscreen')) {
-                    hideFullscreenControls();
-                }
-            }
-        });
-
-        // Add visibility change handler for wake lock
-        document.addEventListener('visibilitychange', async () => {
-            if (document.visibilityState === 'visible' && mainVideoContainer.classList.contains('fullscreen')) {
-                if ('wakeLock' in navigator && !wakeLock) {
-                    try {
-                        wakeLock = await navigator.wakeLock.request('screen');
-                        console.log('Wake lock re-activated');
-                    } catch (err) {
-                        console.warn('Wake lock re-request failed:', err);
-                    }
-                }
             }
         });
     }
@@ -530,6 +582,21 @@ const Player = (function() {
             brightnessValue, saturationValue, contrastValue, hueValue
         );
         UI.updateLoopButton(loopBtn, isLooping);
+
+        // Add visibility change handler for wake lock
+        document.addEventListener('visibilitychange', async () => {
+            if (document.visibilityState === 'visible' && mainVideoContainer.classList.contains('fullscreen')) {
+                // Re-request wake lock when page becomes visible again
+                if ('wakeLock' in navigator && !wakeLock) {
+                    try {
+                        wakeLock = await navigator.wakeLock.request('screen');
+                        console.log('Wake lock re-activated');
+                    } catch (err) {
+                        console.warn('Wake lock re-request failed:', err);
+                    }
+                }
+            }
+        });
     }
 
     return {
@@ -559,6 +626,12 @@ const Player = (function() {
                 return videoPlayer.playbackRate !== effect.default;
             }
             return false;
-        }
+        },
+        // New public methods for rotation and scaling
+        rotateVideo,
+        toggleFitToScreen,
+        resetVideoTransform,
+        getCurrentRotation: () => currentRotation,
+        isFitToScreen: () => fitToScreen
     };
 })();
