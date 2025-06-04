@@ -393,7 +393,7 @@ const Sensors = (function() {
         }
     }
 
-    async function initializeAudio() {
+    async function setupMicrophoneSensor() {
         try {
             // Clean up any existing audio context and streams
             if (microphoneSource?.mediaStream) {
