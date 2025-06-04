@@ -1,14 +1,43 @@
 // js/sensors.js
 const Sensors = (function() {
     // Constants
-    const DEFAULT_SMOOTHING_FACTOR = 0.3;
-    const DEFAULT_PROXIMITY_MAX = 25;
-    const CIRCULAR_SENSORS = ['alpha', 'compassHeading'];
-    const SENSOR_UPDATE_FREQUENCY = 2; // Hz
+    const SENSOR_CONFIG = {
+        DEFAULT_SMOOTHING_FACTOR: 0.3,
+        DEFAULT_PROXIMITY_MAX: 25,
+        UPDATE_FREQUENCY: 2, // Hz
+        CIRCULAR_SENSORS: ['alpha', 'compassHeading'],
+        MAX_MIC_RETRIES: 3
+    };
+
+    const MIC_CONFIG = {
+        ANALYZER: {
+            smoothingTimeConstant: 0.85,
+            fftSize: 256
+        },
+        AUDIO: {
+            echoCancellation: false,
+            noiseSuppression: false,
+            autoGainControl: false,
+            channelCount: 1,
+            sampleRate: 44100
+        }
+    };
+
+    const ERROR_MESSAGES = {
+        MICROPHONE: {
+            'NotAllowedError': 'Microphone access was denied. Please allow microphone access to use this feature.',
+            'NotFoundError': 'No microphone found. Please connect a microphone and try again.',
+            'NotReadableError': 'Could not access microphone. The device may be in use by another application.',
+            'default': 'Could not access microphone. Please ensure permission is granted and try again.'
+        },
+        SENSORS: {
+            'noPermissions': 'No sensor permissions granted or APIs available.',
+            'proximityNotAvailable': 'Proximity Sensor API not available in this browser/context.'
+        }
+    };
 
     // DOM Elements
     let sensorToggleBtn, orientAlphaEl, orientBetaEl, orientGammaEl, compassNeedle,
-        // micVolumeDisplayEl, // Example if you add mic volume display
         alphaSensitivitySlider, betaSensitivitySlider, gammaSensitivitySlider, smoothingSlider,
         alphaSensValueEl, betaSensValueEl, gammaSensValueEl, smoothingValueEl,
         alphaOffsetSlider, betaOffsetSlider, gammaOffsetSlider,
@@ -17,7 +46,7 @@ const Sensors = (function() {
 
     // Module References
     let playerModuleRef;
-    let pointCloudModuleRef; // Added reference for PointCloud parallax
+    let pointCloudModuleRef;
 
     // State
     let globallyEnabled = false;
@@ -34,7 +63,7 @@ const Sensors = (function() {
     const createInitialSensorData = () => ({
         alpha: 0, beta: 0, gamma: 0,
         accelX: 0, accelY: 0, accelZ: 0,
-        proximity: getSensorById('proximity')?.typicalMax || DEFAULT_PROXIMITY_MAX,
+        proximity: getSensorById('proximity')?.typicalMax || SENSOR_CONFIG.DEFAULT_PROXIMITY_MAX,
         micVolume: 0,
         compassHeading: 0,
         gyroX: 0, gyroY: 0, gyroZ: 0,
@@ -48,10 +77,10 @@ const Sensors = (function() {
     let calibrationValues = { alpha: 0, beta: 0, gamma: 0 };
     let manualOffsets = { alpha: 0, beta: 0, gamma: 0 };
     let controlsInverted = false;
-    let smoothingFactor = DEFAULT_SMOOTHING_FACTOR;
+    let smoothingFactor = SENSOR_CONFIG.DEFAULT_SMOOTHING_FACTOR;
 
     // Callbacks
-    let onSensorUpdateCallback = () => {}; // This calls Mappings.applyAllActiveMappings
+    let onSensorUpdateCallback = () => {};
 
     // Sensor Instances
     let proximitySensorInstance = null;
@@ -64,7 +93,19 @@ const Sensors = (function() {
     let micVolumeUpdateId = null;
     let isMicSetup = false;
     let micRetryCount = 0;
-    const MAX_MIC_RETRIES = 3;
+
+    // Utility Functions
+    const Logger = {
+        error: (message, error) => {
+            console.error(`[Sensors] ${message}`, error);
+        },
+        warn: (message) => {
+            console.warn(`[Sensors] ${message}`);
+        },
+        info: (message) => {
+            console.log(`[Sensors] ${message}`);
+        }
+    };
 
     function cacheDOMElements() {
         sensorToggleBtn = document.getElementById('sensorToggleBtn');
@@ -247,7 +288,7 @@ const Sensors = (function() {
             if (!smoothedSensorData.hasOwnProperty(key)) continue;
 
             // Handle circular values differently
-            if (CIRCULAR_SENSORS.includes(key)) {
+            if (SENSOR_CONFIG.CIRCULAR_SENSORS.includes(key)) {
                 const mappedValue = mapCircularValue(latestSensorData[key], 0, 360);
                 const mappedSmoothed = mapCircularValue(smoothedSensorData[key], 0, 360);
                 smoothedSensorData[key] = applySmoothing(mappedSmoothed, mappedValue);
@@ -292,7 +333,7 @@ const Sensors = (function() {
             
             processSensorDataAndUpdate();
         } catch (error) {
-            console.error('Error processing orientation event:', error);
+            Logger.error('Error processing orientation event:', error);
         }
     }
 
@@ -329,7 +370,7 @@ const Sensors = (function() {
             
             processSensorDataAndUpdate();
         } catch (error) {
-            console.error('Error processing motion event:', error);
+            Logger.error('Error processing motion event:', error);
         }
     }
 
@@ -338,7 +379,7 @@ const Sensors = (function() {
         
         try {
             const proxSensorDetails = getSensorById('proximity');
-            const maxDistance = proxSensorDetails?.typicalMax ?? DEFAULT_PROXIMITY_MAX;
+            const maxDistance = proxSensorDetails?.typicalMax ?? SENSOR_CONFIG.DEFAULT_PROXIMITY_MAX;
             
             // Normalize the proximity value to 0-100% range
             latestSensorData.proximity = proximitySensorInstance.distance === null
@@ -347,12 +388,12 @@ const Sensors = (function() {
 
             processSensorDataAndUpdate();
         } catch (error) {
-            console.error('Error processing proximity event:', error);
+            Logger.error('Error processing proximity event:', error);
         }
     }
 
     function handleProximityError(event) {
-        console.error('Proximity sensor error:', event.error.name, event.error.message);
+        Logger.error('Proximity sensor error:', event.error.name, event.error.message);
         if (event.error.name === 'NotAllowedError') {
             alert('Access to the proximity sensor is not allowed. Please check your device settings.');
         } else if (event.error.name === 'NotReadableError') {
@@ -367,7 +408,7 @@ const Sensors = (function() {
                 proximitySensorInstance.removeEventListener('error', handleProximityError);
                 proximitySensorInstance.stop();
             } catch(e) {
-                console.warn("Error stopping proximity sensor:", e);
+                Logger.warn("Error stopping proximity sensor:", e);
             }
             proximitySensorInstance = null;
         }
@@ -378,14 +419,14 @@ const Sensors = (function() {
         if (!permissionGranted.proximity) return;
 
         try {
-            const proximityOptions = { frequency: SENSOR_UPDATE_FREQUENCY };
+            const proximityOptions = { frequency: SENSOR_CONFIG.UPDATE_FREQUENCY };
             proximitySensorInstance = new ProximitySensor(proximityOptions);
             proximitySensorInstance.addEventListener('reading', handleProximityEvent);
             proximitySensorInstance.addEventListener('error', handleProximityError);
             await proximitySensorInstance.start();
-            console.log("Proximity sensor started successfully.");
+            Logger.info("Proximity sensor started successfully.");
         } catch (error) {
-            console.warn('Failed to start proximity sensor:', error);
+            Logger.warn('Failed to start proximity sensor:', error);
             permissionGranted.proximity = false;
             if (error.name === 'NotAllowedError') {
                 alert('Permission to use proximity sensor was denied. Please check your device settings.');
@@ -393,31 +434,88 @@ const Sensors = (function() {
         }
     }
 
-    async function setupMicrophoneSensor() {
+    function handleError(error, context) {
+        Logger.error(`Error in ${context}:`, error);
+        
+        // Handle specific error types
+        if (error.name === 'NotAllowedError') {
+            alert(ERROR_MESSAGES.MICROPHONE.NotAllowedError);
+        } else if (error.name === 'NotReadableError') {
+            alert(ERROR_MESSAGES.MICROPHONE.NotReadableError);
+        } else {
+            alert(`An error occurred: ${error.message}`);
+        }
+    }
+
+    function cleanupAudio() {
         try {
-            // Clean up any existing audio context and streams
-            if (microphoneSource?.mediaStream) {
-                microphoneSource.mediaStream.getTracks().forEach(track => track.stop());
+            // Stop the volume monitoring loop
+            if (micVolumeUpdateId) {
+                cancelAnimationFrame(micVolumeUpdateId);
+                micVolumeUpdateId = null;
+            }
+
+            // Clean up microphone source
+            if (microphoneSource) {
+                try {
+                    microphoneSource.disconnect();
+                    if (microphoneSource.mediaStream) {
+                        microphoneSource.mediaStream.getTracks().forEach(track => {
+                            track.stop();
+                            Logger.info(`Stopped audio track: ${track.label}`);
+                        });
+                    }
+                } catch (e) {
+                    Logger.warn('Error cleaning up microphone source:', e);
+                }
                 microphoneSource = null;
             }
-            if (audioContext?.state === 'closed') {
-                audioContext = null;
+
+            // Clean up analyzer
+            if (analyserNode) {
+                try {
+                    analyserNode.disconnect();
+                } catch (e) {
+                    Logger.warn('Error disconnecting analyser:', e);
+                }
+                analyserNode = null;
             }
+
+            // Close audio context
+            if (audioContext && audioContext.state !== 'closed') {
+                audioContext.close().then(() => {
+                    Logger.info('Audio context closed');
+                    audioContext = null;
+                }).catch(e => {
+                    Logger.warn('Error closing audio context:', e);
+                });
+            }
+
+            // Reset state
+            isMicSetup = false;
+            audioDataArray = null;
+            
+            // Update UI
+            if (micVolumeValueEl) {
+                micVolumeValueEl.textContent = '0.00';
+                micVolumeValueEl.style.color = '';
+            }
+        } catch (error) {
+            handleError(error, 'cleanupAudio');
+        }
+    }
+
+    async function setupMicrophoneSensor() {
+        try {
+            // Clean up any existing audio setup
+            cleanupAudio();
 
             // Initialize new audio context
-            if (!audioContext) {
-                audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            }
-
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            
             // Request microphone access with more permissive constraints
             const stream = await navigator.mediaDevices.getUserMedia({ 
-                audio: {
-                    echoCancellation: false,
-                    noiseSuppression: false,
-                    autoGainControl: false,
-                    channelCount: 1,
-                    sampleRate: 44100
-                }
+                audio: MIC_CONFIG.AUDIO
             });
             
             // Resume audio context if needed
@@ -429,49 +527,31 @@ const Sensors = (function() {
             analyserNode = audioContext.createAnalyser();
             microphoneSource = audioContext.createMediaStreamSource(stream);
             
-            microphoneSource.connect(analyserNode);
-            analyserNode.smoothingTimeConstant = 0.85;
-            analyserNode.fftSize = 256;
+            // Configure analyzer
+            analyserNode.smoothingTimeConstant = MIC_CONFIG.ANALYZER.smoothingTimeConstant;
+            analyserNode.fftSize = MIC_CONFIG.ANALYZER.fftSize;
             audioDataArray = new Uint8Array(analyserNode.frequencyBinCount);
+            
+            // Connect nodes
+            microphoneSource.connect(analyserNode);
             
             isMicSetup = true;
             micRetryCount = 0;
-            console.log("Microphone sensor setup complete.");
+            Logger.info("Microphone sensor setup complete.");
             
             // Start the volume monitoring loop
             if (!micVolumeUpdateId) {
                 updateMicVolumeLoop();
             }
         } catch (error) {
-            console.error('Error setting up microphone sensor:', error);
+            handleError(error, 'setupMicrophoneSensor');
             handleMicrophoneError(error);
         }
     }
 
     function handleMicrophoneError(error) {
         permissionGranted.microphone = false;
-        isMicSetup = false;
-
-        // Clean up any existing audio resources
-        if (micVolumeUpdateId) {
-            cancelAnimationFrame(micVolumeUpdateId);
-            micVolumeUpdateId = null;
-        }
-        if (microphoneSource?.mediaStream) {
-            microphoneSource.mediaStream.getTracks().forEach(track => track.stop());
-            microphoneSource = null;
-        }
-        if (audioContext?.state === 'running') {
-            audioContext.close();
-            audioContext = null;
-        }
-
-        const errorMessages = {
-            'NotAllowedError': 'Microphone access was denied. Please allow microphone access to use this feature.',
-            'NotFoundError': 'No microphone found. Please connect a microphone and try again.',
-            'NotReadableError': 'Could not access microphone. The device may be in use by another application.',
-            'default': 'Could not access microphone. Please ensure permission is granted and try again.'
-        };
+        cleanupAudio();
 
         // Update UI to show error state
         if (micVolumeValueEl) {
@@ -480,9 +560,9 @@ const Sensors = (function() {
         }
 
         // Retry logic for NotReadableError
-        if (error.name === 'NotReadableError' && micRetryCount < MAX_MIC_RETRIES) {
+        if (error.name === 'NotReadableError' && micRetryCount < SENSOR_CONFIG.MAX_MIC_RETRIES) {
             micRetryCount++;
-            console.log(`Retrying microphone setup (attempt ${micRetryCount}/${MAX_MIC_RETRIES})...`);
+            Logger.info(`Retrying microphone setup (attempt ${micRetryCount}/${SENSOR_CONFIG.MAX_MIC_RETRIES})...`);
             setTimeout(() => {
                 if (globallyEnabled) {
                     setupMicrophoneSensor();
@@ -491,7 +571,7 @@ const Sensors = (function() {
             return;
         }
 
-        alert(errorMessages[error.name] || errorMessages.default);
+        alert(ERROR_MESSAGES.MICROPHONE[error.name] || ERROR_MESSAGES.MICROPHONE.default);
     }
 
     function updateMicVolumeLoop() {
@@ -522,7 +602,7 @@ const Sensors = (function() {
             
             processSensorDataAndUpdate();
         } catch (error) {
-            console.error("Error updating microphone volume:", error);
+            handleError(error, 'updateMicVolumeLoop');
             cleanupAudio();
             return;
         }
@@ -567,7 +647,7 @@ const Sensors = (function() {
         if ('ProximitySensor' in window) {
            proximityAPIAvailable = true; 
         } else {
-            console.warn("Proximity Sensor API not available in this browser/context.");
+            console.warn(ERROR_MESSAGES.SENSORS.proximityNotAvailable);
         }
 
         // Only check if getUserMedia exists, don't request it here!
@@ -599,7 +679,7 @@ const Sensors = (function() {
             });
 
             if (!Object.values(permissionGranted).some(Boolean)) {
-                throw new Error('No sensor permissions granted or APIs available.');
+                throw new Error(ERROR_MESSAGES.SENSORS.noPermissions);
             }
 
             // Set up event listeners
@@ -618,9 +698,9 @@ const Sensors = (function() {
 
             globallyEnabled = true;
             updateUIState(true);
-            console.log("Sensors enabled with permissions:", permissionGranted);
+            Logger.info("Sensors enabled with permissions:", permissionGranted);
         } catch (error) {
-            console.error('Failed to enable sensors:', error);
+            Logger.error('Failed to enable sensors:', error);
             alert(error.message);
             disable();
         }
@@ -642,11 +722,11 @@ const Sensors = (function() {
                 if (microphoneSource.mediaStream) {
                     microphoneSource.mediaStream.getTracks().forEach(track => {
                         track.stop();
-                        console.log('Stopped audio track:', track.label);
+                        Logger.info('Stopped audio track:', track.label);
                     });
                 }
             } catch (e) {
-                console.warn('Error cleaning up microphone source:', e);
+                Logger.warn('Error cleaning up microphone source:', e);
             }
             microphoneSource = null;
         }
@@ -655,7 +735,7 @@ const Sensors = (function() {
             try {
                 analyserNode.disconnect();
             } catch (e) {
-                console.warn('Error disconnecting analyser:', e);
+                Logger.warn('Error disconnecting analyser:', e);
             }
             analyserNode = null;
         }
@@ -663,10 +743,10 @@ const Sensors = (function() {
         // Close audio context after cleanup
         if (audioContext && audioContext.state !== 'closed') {
             audioContext.close().then(() => {
-                console.log('Audio context closed');
+                Logger.info('Audio context closed');
                 audioContext = null;
             }).catch(e => {
-                console.warn('Error closing audio context:', e);
+                Logger.warn('Error closing audio context:', e);
             });
         }
         
@@ -689,7 +769,7 @@ const Sensors = (function() {
                 proximitySensorInstance.removeEventListener('error', handleProximityError);
                 proximitySensorInstance.stop();
             } catch (error) {
-                console.warn("Error stopping proximity sensor:", error);
+                Logger.warn("Error stopping proximity sensor:", error);
             }
             proximitySensorInstance = null;
         }
@@ -720,7 +800,7 @@ const Sensors = (function() {
         }
         onSensorUpdateCallback?.();
         
-        console.log("Sensors disabled.");
+        Logger.info("Sensors disabled.");
     }
 
     function updateUIState(enabled) {
@@ -746,7 +826,7 @@ const Sensors = (function() {
             updateConfigDisplay();
             updateSensorDisplay();
         } catch (error) {
-            console.error('Error initializing sensors:', error);
+            Logger.error('Error initializing sensors:', error);
         }
     }
 
@@ -756,7 +836,7 @@ const Sensors = (function() {
         }
 
         // For circular values, return the mapped value
-        if (CIRCULAR_SENSORS.includes(sensorId)) {
+        if (SENSOR_CONFIG.CIRCULAR_SENSORS.includes(sensorId)) {
             return mapCircularValue(smoothedSensorData[sensorId], 0, 360);
         }
         
@@ -778,7 +858,7 @@ const Sensors = (function() {
             // Resume when page is visible again
             if (audioContext.state === 'suspended') {
                 audioContext.resume().then(() => {
-                    console.log('Resumed audio context after visibility change');
+                    Logger.info('Resumed audio context after visibility change');
                 });
             }
         }
