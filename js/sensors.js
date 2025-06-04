@@ -4,16 +4,16 @@ const Sensors = (function() {
     const SENSOR_CONFIG = {
         DEFAULT_SMOOTHING_FACTOR: 0.3,
         DEFAULT_PROXIMITY_MAX: 25,
-        UPDATE_FREQUENCY: 2, // Hz
+        UPDATE_FREQUENCY: 2,
         CIRCULAR_SENSORS: ['alpha', 'compassHeading'],
         MAX_MIC_RETRIES: 3,
-        MIC_UPDATE_INTERVAL: 50 // milliseconds - more frequent updates
+        MIC_UPDATE_INTERVAL: 50
     };
 
     const MIC_CONFIG = {
         ANALYZER: {
-            smoothingTimeConstant: 0.3, // Reduced for more responsive readings
-            fftSize: 512 // Increased for better frequency resolution
+            smoothingTimeConstant: 0.3,
+            fftSize: 512
         },
         AUDIO: {
             echoCancellation: false,
@@ -60,19 +60,31 @@ const Sensors = (function() {
         gravity: false
     };
     
-    // Sensor Data
-    const createInitialSensorData = () => ({
-        alpha: 0, beta: 0, gamma: 0,
-        accelX: 0, accelY: 0, accelZ: 0,
-        proximity: getSensorById('proximity')?.typicalMax || SENSOR_CONFIG.DEFAULT_PROXIMITY_MAX,
-        micVolume: 0,
-        compassHeading: 0,
-        gyroX: 0, gyroY: 0, gyroZ: 0,
-        gravityX: 0, gravityY: 0, gravityZ: 0
-    });
+    // Sensor Data - Use safer initialization
+    function createInitialSensorData() {
+        let proximityMax = SENSOR_CONFIG.DEFAULT_PROXIMITY_MAX;
+        
+        // Safely get proximity sensor max value
+        if (typeof getSensorById === 'function') {
+            const proxSensor = getSensorById('proximity');
+            if (proxSensor && proxSensor.typicalMax) {
+                proximityMax = proxSensor.typicalMax;
+            }
+        }
+        
+        return {
+            alpha: 0, beta: 0, gamma: 0,
+            accelX: 0, accelY: 0, accelZ: 0,
+            proximity: proximityMax,
+            micVolume: 0,
+            compassHeading: 0,
+            gyroX: 0, gyroY: 0, gyroZ: 0,
+            gravityX: 0, gravityY: 0, gravityZ: 0
+        };
+    }
 
     let latestSensorData = createInitialSensorData();
-    let smoothedSensorData = { ...latestSensorData };
+    let smoothedSensorData = Object.assign({}, latestSensorData);
 
     // Calibration and Configuration
     let calibrationValues = { alpha: 0, beta: 0, gamma: 0 };
@@ -81,12 +93,12 @@ const Sensors = (function() {
     let smoothingFactor = SENSOR_CONFIG.DEFAULT_SMOOTHING_FACTOR;
 
     // Callbacks
-    let onSensorUpdateCallback = () => {};
+    let onSensorUpdateCallback = function() {};
 
     // Sensor Instances
     let proximitySensorInstance = null;
 
-    // Audio handling - Simplified and more robust
+    // Audio handling
     let audioContext = null;
     let analyserNode = null;
     let microphoneSource = null;
@@ -97,14 +109,14 @@ const Sensors = (function() {
 
     // Utility Functions
     const Logger = {
-        error: (message, error) => {
-            console.error(`[Sensors] ${message}`, error);
+        error: function(message, error) {
+            console.error('[Sensors] ' + message, error);
         },
-        warn: (message) => {
-            console.warn(`[Sensors] ${message}`);
+        warn: function(message) {
+            console.warn('[Sensors] ' + message);
         },
-        info: (message) => {
-            console.log(`[Sensors] ${message}`);
+        info: function(message) {
+            console.log('[Sensors] ' + message);
         }
     };
 
@@ -154,9 +166,9 @@ const Sensors = (function() {
         smoothingFactor = parseFloat(smoothingSlider.value);
         smoothingValueEl.textContent = smoothingFactor.toFixed(1);
         
-        alphaOffsetValueEl.textContent = `${alphaOffsetSlider.value}°`;
-        betaOffsetValueEl.textContent = `${betaOffsetSlider.value}°`;
-        gammaOffsetValueEl.textContent = `${gammaOffsetSlider.value}°`;
+        alphaOffsetValueEl.textContent = alphaOffsetSlider.value + '°';
+        betaOffsetValueEl.textContent = betaOffsetSlider.value + '°';
+        gammaOffsetValueEl.textContent = gammaOffsetSlider.value + '°';
 
         manualOffsets.alpha = parseFloat(alphaOffsetSlider.value);
         manualOffsets.beta = parseFloat(betaOffsetSlider.value);
@@ -164,11 +176,22 @@ const Sensors = (function() {
     }
     
     function setupEventListeners() {
-        if (sensorToggleBtn) sensorToggleBtn.addEventListener('click', () => globallyEnabled ? disable() : enable());
+        if (sensorToggleBtn) {
+            sensorToggleBtn.addEventListener('click', function() {
+                if (globallyEnabled) {
+                    disable();
+                } else {
+                    enable();
+                }
+            });
+        }
 
         if (calibrateBtn) {
-            calibrateBtn.addEventListener('click', () => {
-                if (!globallyEnabled) { alert('Enable sensors first.'); return; }
+            calibrateBtn.addEventListener('click', function() {
+                if (!globallyEnabled) { 
+                    alert('Enable sensors first.'); 
+                    return; 
+                }
                 
                 calibrationValues.alpha = latestSensorData.alpha;
                 calibrationValues.beta = latestSensorData.beta;
@@ -185,16 +208,20 @@ const Sensors = (function() {
                 if (playerModuleRef && playerModuleRef.resetFilters) {
                      playerModuleRef.resetFilters();
                 }
-                if (onSensorUpdateCallback) onSensorUpdateCallback(); 
+                if (onSensorUpdateCallback) {
+                    onSensorUpdateCallback();
+                }
             });
         }
         
         if (invertBtn) {
-            invertBtn.addEventListener('click', () => {
+            invertBtn.addEventListener('click', function() {
                 controlsInverted = !controlsInverted;
                 invertBtn.textContent = controlsInverted ? 'Controls Inverted' : 'Invert Controls';
                 invertBtn.style.backgroundColor = controlsInverted ? '#f44336' : '#555';
-                if (onSensorUpdateCallback) onSensorUpdateCallback();
+                if (onSensorUpdateCallback) {
+                    onSensorUpdateCallback();
+                }
             });
         }
 
@@ -203,27 +230,31 @@ const Sensors = (function() {
             smoothingSlider, alphaOffsetSlider, betaOffsetSlider, gammaOffsetSlider
         ];
 
-        configSliders.forEach((slider) => {
+        for (let i = 0; i < configSliders.length; i++) {
+            const slider = configSliders[i];
             if (slider) {
                 slider.addEventListener('input', updateConfigDisplay);
             }
-        });
+        }
 
         if (smoothingSlider) {
-            smoothingSlider.addEventListener('input', () => {
+            smoothingSlider.addEventListener('input', function() {
                 smoothingFactor = parseFloat(smoothingSlider.value);
-                if (smoothingValueEl) smoothingValueEl.textContent = smoothingFactor.toFixed(1);
+                if (smoothingValueEl) {
+                    smoothingValueEl.textContent = smoothingFactor.toFixed(1);
+                }
             });
         }
     }
     
     function updateSensorDisplay() {
-        const updateValue = (elementId, value, decimals = 2) => {
+        function updateValue(elementId, value, decimals) {
+            if (typeof decimals === 'undefined') decimals = 2;
             const element = document.getElementById(elementId);
             if (element) {
                 element.textContent = value != null ? value.toFixed(decimals) : '0.00';
             }
-        };
+        }
 
         updateValue('orientAlpha', smoothedSensorData.alpha);
         updateValue('orientBeta', smoothedSensorData.beta);
@@ -237,7 +268,7 @@ const Sensors = (function() {
         updateValue('gravityZValue', smoothedSensorData.gravityZ);
         
         if (compassNeedle) {
-            compassNeedle.style.transform = `rotate(${smoothedSensorData.alpha || 0}deg)`;
+            compassNeedle.style.transform = 'rotate(' + (smoothedSensorData.alpha || 0) + 'deg)';
         }
     }
 
@@ -269,7 +300,7 @@ const Sensors = (function() {
         for (const key in latestSensorData) {
             if (!smoothedSensorData.hasOwnProperty(key)) continue;
 
-            if (SENSOR_CONFIG.CIRCULAR_SENSORS.includes(key)) {
+            if (SENSOR_CONFIG.CIRCULAR_SENSORS.indexOf(key) !== -1) {
                 const mappedValue = mapCircularValue(latestSensorData[key], 0, 360);
                 const mappedSmoothed = mapCircularValue(smoothedSensorData[key], 0, 360);
                 smoothedSensorData[key] = applySmoothing(mappedSmoothed, mappedValue);
@@ -356,8 +387,15 @@ const Sensors = (function() {
         if (!globallyEnabled || !proximitySensorInstance) return;
         
         try {
-            const proxSensorDetails = getSensorById('proximity');
-            const maxDistance = (proxSensorDetails && proxSensorDetails.typicalMax) ? proxSensorDetails.typicalMax : SENSOR_CONFIG.DEFAULT_PROXIMITY_MAX;
+            let maxDistance = SENSOR_CONFIG.DEFAULT_PROXIMITY_MAX;
+            
+            // Safely get proximity sensor details
+            if (typeof getSensorById === 'function') {
+                const proxSensorDetails = getSensorById('proximity');
+                if (proxSensorDetails && proxSensorDetails.typicalMax) {
+                    maxDistance = proxSensorDetails.typicalMax;
+                }
+            }
             
             latestSensorData.proximity = proximitySensorInstance.distance === null
                 ? 0
@@ -392,26 +430,38 @@ const Sensors = (function() {
         permissionGranted.proximity = false;
     }
 
-    async function setupProximitySensor() {
-        if (!permissionGranted.proximity) return;
-
-        try {
-            const proximityOptions = { frequency: SENSOR_CONFIG.UPDATE_FREQUENCY };
-            proximitySensorInstance = new ProximitySensor(proximityOptions);
-            proximitySensorInstance.addEventListener('reading', handleProximityEvent);
-            proximitySensorInstance.addEventListener('error', handleProximityError);
-            await proximitySensorInstance.start();
-            Logger.info("Proximity sensor started successfully.");
-        } catch (error) {
-            Logger.warn('Failed to start proximity sensor:', error);
-            permissionGranted.proximity = false;
-            if (error.name === 'NotAllowedError') {
-                alert('Permission to use proximity sensor was denied. Please check your device settings.');
+    function setupProximitySensor() {
+        return new Promise(function(resolve) {
+            if (!permissionGranted.proximity) {
+                resolve();
+                return;
             }
-        }
+
+            try {
+                const proximityOptions = { frequency: SENSOR_CONFIG.UPDATE_FREQUENCY };
+                proximitySensorInstance = new ProximitySensor(proximityOptions);
+                proximitySensorInstance.addEventListener('reading', handleProximityEvent);
+                proximitySensorInstance.addEventListener('error', handleProximityError);
+                proximitySensorInstance.start().then(function() {
+                    Logger.info("Proximity sensor started successfully.");
+                    resolve();
+                }).catch(function(error) {
+                    Logger.warn('Failed to start proximity sensor:', error);
+                    permissionGranted.proximity = false;
+                    if (error.name === 'NotAllowedError') {
+                        alert('Permission to use proximity sensor was denied. Please check your device settings.');
+                    }
+                    resolve();
+                });
+            } catch (error) {
+                Logger.warn('Failed to create proximity sensor:', error);
+                permissionGranted.proximity = false;
+                resolve();
+            }
+        });
     }
 
-    // IMPROVED MICROPHONE HANDLING
+    // MICROPHONE HANDLING
     function cleanupMicrophone() {
         Logger.info("Cleaning up microphone...");
         
@@ -424,10 +474,12 @@ const Sensors = (function() {
 
         // Stop media stream tracks
         if (currentMicStream) {
-            currentMicStream.getTracks().forEach(track => {
+            const tracks = currentMicStream.getTracks();
+            for (let i = 0; i < tracks.length; i++) {
+                const track = tracks[i];
                 track.stop();
-                Logger.info(`Stopped microphone track: ${track.label} (state: ${track.readyState})`);
-            });
+                Logger.info('Stopped microphone track: ' + track.label + ' (state: ' + track.readyState + ')');
+            }
             currentMicStream = null;
         }
 
@@ -454,12 +506,12 @@ const Sensors = (function() {
 
         // Close audio context
         if (audioContext && audioContext.state !== 'closed') {
-            audioContext.close().then(() => {
+            audioContext.close().then(function() {
                 Logger.info('Audio context closed successfully');
                 audioContext = null;
-            }).catch(e => {
+            }).catch(function(e) {
                 Logger.warn('Error closing audio context:', e);
-                audioContext = null; // Set to null anyway
+                audioContext = null;
             });
         } else {
             audioContext = null;
@@ -481,63 +533,77 @@ const Sensors = (function() {
         Logger.info("Microphone cleanup complete");
     }
 
-    async function setupMicrophoneSensor() {
-        Logger.info("Setting up microphone sensor...");
-        
-        try {
-            // Clean up any existing setup first
-            cleanupMicrophone();
+    function setupMicrophoneSensor() {
+        return new Promise(function(resolve) {
+            Logger.info("Setting up microphone sensor...");
             
-            // Create new audio context
-            audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            Logger.info(`Audio context created, state: ${audioContext.state}`);
-            
-            // Request microphone access with basic constraints
-            const constraints = {
-                audio: {
-                    echoCancellation: false,
-                    noiseSuppression: false,
-                    autoGainControl: false
-                }
-            };
-            
-            Logger.info("Requesting microphone access...");
-            currentMicStream = await navigator.mediaDevices.getUserMedia(constraints);
-            Logger.info(`Microphone access granted, got ${currentMicStream.getTracks().length} tracks`);
-            
-            // Resume audio context if suspended
-            if (audioContext.state === 'suspended') {
-                await audioContext.resume();
-                Logger.info(`Audio context resumed, new state: ${audioContext.state}`);
+            try {
+                // Clean up any existing setup first
+                cleanupMicrophone();
+                
+                // Create new audio context
+                const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                audioContext = new AudioContextClass();
+                Logger.info('Audio context created, state: ' + audioContext.state);
+                
+                // Request microphone access with basic constraints
+                const constraints = {
+                    audio: {
+                        echoCancellation: false,
+                        noiseSuppression: false,
+                        autoGainControl: false
+                    }
+                };
+                
+                Logger.info("Requesting microphone access...");
+                navigator.mediaDevices.getUserMedia(constraints).then(function(stream) {
+                    currentMicStream = stream;
+                    Logger.info('Microphone access granted, got ' + currentMicStream.getTracks().length + ' tracks');
+                    
+                    // Resume audio context if suspended
+                    if (audioContext.state === 'suspended') {
+                        return audioContext.resume();
+                    }
+                    return Promise.resolve();
+                }).then(function() {
+                    Logger.info('Audio context resumed, new state: ' + audioContext.state);
+                    
+                    // Create audio nodes
+                    analyserNode = audioContext.createAnalyser();
+                    analyserNode.smoothingTimeConstant = MIC_CONFIG.ANALYZER.smoothingTimeConstant;
+                    analyserNode.fftSize = MIC_CONFIG.ANALYZER.fftSize;
+                    
+                    microphoneSource = audioContext.createMediaStreamSource(currentMicStream);
+                    
+                    // Connect the nodes
+                    microphoneSource.connect(analyserNode);
+                    
+                    // Create data array for frequency analysis
+                    audioDataArray = new Uint8Array(analyserNode.frequencyBinCount);
+                    
+                    Logger.info('Audio setup complete - FFT size: ' + analyserNode.fftSize + ', Frequency bins: ' + analyserNode.frequencyBinCount);
+                    
+                    // Reset retry count on success
+                    micRetryCount = 0;
+                    
+                    // Start the microphone monitoring
+                    startMicrophoneMonitoring();
+                    
+                    Logger.info("Microphone sensor setup complete");
+                    resolve();
+                    
+                }).catch(function(error) {
+                    Logger.error('Error setting up microphone:', error);
+                    handleMicrophoneError(error);
+                    resolve();
+                });
+                
+            } catch (error) {
+                Logger.error('Error in microphone setup:', error);
+                handleMicrophoneError(error);
+                resolve();
             }
-            
-            // Create audio nodes
-            analyserNode = audioContext.createAnalyser();
-            analyserNode.smoothingTimeConstant = MIC_CONFIG.ANALYZER.smoothingTimeConstant;
-            analyserNode.fftSize = MIC_CONFIG.ANALYZER.fftSize;
-            
-            microphoneSource = audioContext.createMediaStreamSource(currentMicStream);
-            
-            // Connect the nodes
-            microphoneSource.connect(analyserNode);
-            
-            // Create data array for frequency analysis
-            audioDataArray = new Uint8Array(analyserNode.frequencyBinCount);
-            
-            Logger.info(`Audio setup complete - FFT size: ${analyserNode.fftSize}, Frequency bins: ${analyserNode.frequencyBinCount}`);
-            
-            // Reset retry count on success
-            micRetryCount = 0;
-            
-            // Start the microphone monitoring
-            startMicrophoneMonitoring();
-            
-            Logger.info("Microphone sensor setup complete");
-            
-        } catch (error) {
-            Logger.error('Error setting up microphone:', error);
-            handleMicrophoneError(error);
-        }
+        });
     }
 
     function startMicrophoneMonitoring() {
@@ -547,7 +613,7 @@ const Sensors = (function() {
         
         Logger.info("Starting microphone monitoring...");
         
-        micUpdateInterval = setInterval(() => {
+        micUpdateInterval = setInterval(function() {
             if (!globallyEnabled || !analyserNode || !audioDataArray || 
                 !audioContext || audioContext.state === 'closed') {
                 Logger.warn("Microphone monitoring stopped - invalid state");
@@ -590,7 +656,7 @@ const Sensors = (function() {
             
         }, SENSOR_CONFIG.MIC_UPDATE_INTERVAL);
         
-        Logger.info(`Microphone monitoring started with ${SENSOR_CONFIG.MIC_UPDATE_INTERVAL}ms interval`);
+        Logger.info('Microphone monitoring started with ' + SENSOR_CONFIG.MIC_UPDATE_INTERVAL + 'ms interval');
     }
 
     function handleMicrophoneError(error) {
@@ -609,9 +675,9 @@ const Sensors = (function() {
         if ((error.name === 'NotReadableError' || error.name === 'AbortError') && 
             micRetryCount < SENSOR_CONFIG.MAX_MIC_RETRIES) {
             micRetryCount++;
-            Logger.info(`Retrying microphone setup (attempt ${micRetryCount}/${SENSOR_CONFIG.MAX_MIC_RETRIES})`);
+            Logger.info('Retrying microphone setup (attempt ' + micRetryCount + '/' + SENSOR_CONFIG.MAX_MIC_RETRIES + ')');
             
-            setTimeout(() => {
+            setTimeout(function() {
                 if (globallyEnabled) {
                     setupMicrophoneSensor();
                 }
@@ -624,88 +690,103 @@ const Sensors = (function() {
         alert(errorMsg);
     }
     
-    async function requestSensorPermissions() {
-        let orientationGrantedUser = false;
-        let motionGrantedUser = false;
-        let gyroscopeAvailable = false;
-        let gravityAvailable = false;
-        let microphoneGranted = false;
+    function requestSensorPermissions() {
+        return new Promise(function(resolve) {
+            let orientationGrantedUser = false;
+            let motionGrantedUser = false;
+            let gyroscopeAvailable = false;
+            let gravityAvailable = false;
+            let microphoneGranted = false;
 
-        if (typeof DeviceOrientationEvent !== 'undefined' && DeviceOrientationEvent.requestPermission) {
-            try {
-                const state = await DeviceOrientationEvent.requestPermission();
-                if (state === 'granted') orientationGrantedUser = true;
-            } catch (e) { Logger.warn("Orientation permission request failed:", e); }
-        } else if ('DeviceOrientationEvent' in window) {
-            orientationGrantedUser = true; 
-        }
+            const promises = [];
 
-        if (typeof DeviceMotionEvent !== 'undefined' && DeviceMotionEvent.requestPermission) {
-            try {
-                const state = await DeviceMotionEvent.requestPermission();
-                if (state === 'granted') {
-                    motionGrantedUser = true;
-                    gyroscopeAvailable = true;
-                    gravityAvailable = true;
-                }
-            } catch (e) { Logger.warn("Motion permission request failed:", e); }
-        } else if ('DeviceMotionEvent' in window) {
-            motionGrantedUser = true;
-            gyroscopeAvailable = true;
-            gravityAvailable = true;
-        }
-
-        let proximityAPIAvailable = false;
-        if ('ProximitySensor' in window) {
-           proximityAPIAvailable = true; 
-        } else {
-            Logger.warn(ERROR_MESSAGES.SENSORS.proximityNotAvailable);
-        }
-
-        // Check microphone availability
-        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-            try {
-                // Test microphone access without actually setting it up
-                const testStream = await navigator.mediaDevices.getUserMedia({ 
-                    audio: { echoCancellation: false } 
-                });
-                testStream.getTracks().forEach(track => track.stop()); // Clean up test stream
-                microphoneGranted = true;
-                Logger.info("Microphone access test successful");
-            } catch (error) {
-                Logger.warn("Microphone access test failed:", error);
-                microphoneGranted = false;
+            if (typeof DeviceOrientationEvent !== 'undefined' && DeviceOrientationEvent.requestPermission) {
+                promises.push(
+                    DeviceOrientationEvent.requestPermission().then(function(state) {
+                        if (state === 'granted') orientationGrantedUser = true;
+                    }).catch(function(e) { 
+                        Logger.warn("Orientation permission request failed:", e); 
+                    })
+                );
+            } else if ('DeviceOrientationEvent' in window) {
+                orientationGrantedUser = true; 
             }
-        }
 
-        return { 
-            orientationGrantedUser, 
-            motionGrantedUser, 
-            proximityAPIAvailable, 
-            microphoneGranted,
-            gyroscopeAvailable,
-            gravityAvailable
-        };
+            if (typeof DeviceMotionEvent !== 'undefined' && DeviceMotionEvent.requestPermission) {
+                promises.push(
+                    DeviceMotionEvent.requestPermission().then(function(state) {
+                        if (state === 'granted') {
+                            motionGrantedUser = true;
+                            gyroscopeAvailable = true;
+                            gravityAvailable = true;
+                        }
+                    }).catch(function(e) { 
+                        Logger.warn("Motion permission request failed:", e); 
+                    })
+                );
+            } else if ('DeviceMotionEvent' in window) {
+                motionGrantedUser = true;
+                gyroscopeAvailable = true;
+                gravityAvailable = true;
+            }
+
+            let proximityAPIAvailable = false;
+            if ('ProximitySensor' in window) {
+               proximityAPIAvailable = true; 
+            } else {
+                Logger.warn(ERROR_MESSAGES.SENSORS.proximityNotAvailable);
+            }
+
+            // Check microphone availability
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                promises.push(
+                    navigator.mediaDevices.getUserMedia({ 
+                        audio: { echoCancellation: false } 
+                    }).then(function(testStream) {
+                        const tracks = testStream.getTracks();
+                        for (let i = 0; i < tracks.length; i++) {
+                            tracks[i].stop();
+                        }
+                        microphoneGranted = true;
+                        Logger.info("Microphone access test successful");
+                    }).catch(function(error) {
+                        Logger.warn("Microphone access test failed:", error);
+                        microphoneGranted = false;
+                    })
+                );
+            }
+
+            Promise.all(promises).finally(function() {
+                resolve({ 
+                    orientationGrantedUser: orientationGrantedUser, 
+                    motionGrantedUser: motionGrantedUser, 
+                    proximityAPIAvailable: proximityAPIAvailable, 
+                    microphoneGranted: microphoneGranted,
+                    gyroscopeAvailable: gyroscopeAvailable,
+                    gravityAvailable: gravityAvailable
+                });
+            });
+        });
     }
     
-    async function enable() {
-        try {
-            Logger.info("Enabling sensors...");
-            
-            // Request and check permissions
-            const permissions = await requestSensorPermissions();
-            Object.assign(permissionGranted, {
-                orientation: permissions.orientationGrantedUser,
-                motion: permissions.motionGrantedUser,
-                proximity: permissions.proximityAPIAvailable,
-                microphone: permissions.microphoneGranted,
-                gyroscope: permissions.gyroscopeAvailable,
-                gravity: permissions.gravityAvailable
-            });
+    function enable() {
+        Logger.info("Enabling sensors...");
+        
+        // Request and check permissions
+        requestSensorPermissions().then(function(permissions) {
+            permissionGranted.orientation = permissions.orientationGrantedUser;
+            permissionGranted.motion = permissions.motionGrantedUser;
+            permissionGranted.proximity = permissions.proximityAPIAvailable;
+            permissionGranted.microphone = permissions.microphoneGranted;
+            permissionGranted.gyroscope = permissions.gyroscopeAvailable;
+            permissionGranted.gravity = permissions.gravityAvailable;
 
             Logger.info("Permissions granted:", permissionGranted);
 
-            if (!Object.values(permissionGranted).some(Boolean)) {
+            const hasAnyPermission = permissionGranted.orientation || permissionGranted.motion || 
+                                   permissionGranted.proximity || permissionGranted.microphone;
+
+            if (!hasAnyPermission) {
                 throw new Error(ERROR_MESSAGES.SENSORS.noPermissions);
             }
 
@@ -730,17 +811,16 @@ const Sensors = (function() {
                 sensorPromises.push(setupMicrophoneSensor());
             }
 
-            await Promise.allSettled(sensorPromises); // Use allSettled to not fail if one sensor fails
-
+            return Promise.all(sensorPromises);
+        }).then(function() {
             globallyEnabled = true;
             updateUIState(true);
             Logger.info("Sensors enabled successfully");
-            
-        } catch (error) {
+        }).catch(function(error) {
             Logger.error('Failed to enable sensors:', error);
             alert(error.message || 'Failed to enable sensors');
             disable();
-        }
+        });
     }
 
     function disable() {
@@ -770,7 +850,7 @@ const Sensors = (function() {
 
         // Reset state
         latestSensorData = createInitialSensorData();
-        smoothedSensorData = { ...latestSensorData };
+        smoothedSensorData = Object.assign({}, latestSensorData);
         
         // Update UI and effects
         updateSensorDisplay();
@@ -811,17 +891,17 @@ const Sensors = (function() {
             updateSensorDisplay();
             
             // Add visibility change handler for audio context management
-            document.addEventListener('visibilitychange', () => {
+            document.addEventListener('visibilitychange', function() {
                 if (document.hidden && audioContext && audioContext.state === 'running') {
-                    audioContext.suspend().then(() => {
+                    audioContext.suspend().then(function() {
                         Logger.info('Audio context suspended due to page visibility change');
-                    }).catch(e => {
+                    }).catch(function(e) {
                         Logger.warn('Error suspending audio context:', e);
                     });
                 } else if (!document.hidden && audioContext && audioContext.state === 'suspended' && globallyEnabled) {
-                    audioContext.resume().then(() => {
+                    audioContext.resume().then(function() {
                         Logger.info('Audio context resumed after page became visible');
-                    }).catch(e => {
+                    }).catch(function(e) {
                         Logger.warn('Error resuming audio context:', e);
                     });
                 }
@@ -840,7 +920,7 @@ const Sensors = (function() {
         }
 
         // For circular values, return the mapped value
-        if (SENSOR_CONFIG.CIRCULAR_SENSORS.includes(sensorId)) {
+        if (SENSOR_CONFIG.CIRCULAR_SENSORS.indexOf(sensorId) !== -1) {
             return mapCircularValue(smoothedSensorData[sensorId], 0, 360);
         }
         
@@ -849,19 +929,23 @@ const Sensors = (function() {
     }
     
     function hideControls() { 
-        if (sensorSectionControls) sensorSectionControls.classList.add('hidden'); 
+        if (sensorSectionControls) {
+            sensorSectionControls.classList.add('hidden'); 
+        }
     }
     
     function showControls() { 
-        if (sensorSectionControls) sensorSectionControls.classList.remove('hidden'); 
+        if (sensorSectionControls) {
+            sensorSectionControls.classList.remove('hidden'); 
+        }
     }
 
     // Public API
     return {
-        init,
-        isGloballyEnabled: () => globallyEnabled,
-        getSensorValue,
-        hideControls,
-        showControls
+        init: init,
+        isGloballyEnabled: function() { return globallyEnabled; },
+        getSensorValue: getSensorValue,
+        hideControls: hideControls,
+        showControls: showControls
     };
 })();
