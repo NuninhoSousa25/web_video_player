@@ -6,13 +6,14 @@ const Player = (function() {
         contrastSlider, hueSlider, 
         brightnessValue, saturationValue, contrastValue, hueValue, 
         resetFiltersBtn, videoFullscreenBtn, fullscreenControlsOverlay, progressBarFullscreen,
-        playPauseFullscreen /* exitVideoFullscreenBtn removed */ ;
+        playPauseFullscreen, rotateBtn;
 
     let isLooping = true;
     let currentFilterStyles = {}; 
     let lastVideoTap = 0;
     let fsControlsTimeout; // For fullscreen controls auto-hide
     let wakeLock = null; // For screen wake lock
+    let videoRotation = 0; // 0, 90, 180, 270 degrees
 
     let currentModeGetter = () => 'videoPlayer'; 
     let pointCloudModuleRef; 
@@ -41,12 +42,82 @@ const Player = (function() {
         contrastValue = document.getElementById('contrastValue');
         hueValue = document.getElementById('hueValue'); 
         resetFiltersBtn = document.getElementById('resetFiltersBtn');
-        videoFullscreenBtn = document.getElementById('videoFullscreenBtn'); // Button to ENTER fullscreen
+        videoFullscreenBtn = document.getElementById('videoFullscreenBtn');
         fullscreenControlsOverlay = document.getElementById('fullscreenControlsOverlay');
         progressBarFullscreen = document.getElementById('progressBarFullscreen');
         playPauseFullscreen = document.getElementById('playPauseFullscreen');
-        // exitVideoFullscreenBtn = document.getElementById('exitVideoFullscreenBtn'); // Removed
         fullscreenProgressContainer = fullscreenControlsOverlay.querySelector('.progress-container');
+        
+        // Create rotation button dynamically
+        createRotationButton();
+    }
+    
+    function createRotationButton() {
+        // Create rotate button for fullscreen controls
+        rotateBtn = document.createElement('button');
+        rotateBtn.id = 'rotateVideoBtn';
+        rotateBtn.className = 'toggle-button';
+        rotateBtn.innerHTML = '↻ 90°';
+        rotateBtn.title = 'Rotate video 90 degrees';
+        
+        // Add to fullscreen controls
+        const mainControls = fullscreenControlsOverlay.querySelector('.main-controls');
+        if (mainControls) {
+            mainControls.appendChild(rotateBtn);
+        }
+        
+        // Also add to regular controls for convenience
+        const regularMainControls = videoPlayerControls.querySelector('.main-controls');
+        if (regularMainControls) {
+            const rotateBtn2 = rotateBtn.cloneNode(true);
+            rotateBtn2.id = 'rotateVideoBtn2';
+            regularMainControls.appendChild(rotateBtn2);
+            
+            // Event listener for regular controls rotate button
+            rotateBtn2.addEventListener('click', rotateVideo);
+        }
+        
+        // Event listener for fullscreen rotate button
+        rotateBtn.addEventListener('click', rotateVideo);
+    }
+    
+    function rotateVideo() {
+        videoRotation = (videoRotation + 90) % 360;
+        applyVideoRotation();
+        
+        // Update button text
+        const nextRotation = (videoRotation + 90) % 360;
+        const buttonText = `↻ ${nextRotation === 0 ? '0' : nextRotation}°`;
+        if (rotateBtn) rotateBtn.innerHTML = buttonText;
+        
+        const rotateBtn2 = document.getElementById('rotateVideoBtn2');
+        if (rotateBtn2) rotateBtn2.innerHTML = buttonText;
+        
+        // Show controls briefly in fullscreen to confirm rotation
+        if (mainVideoContainer.classList.contains('fullscreen')) {
+            showFullscreenControls();
+        }
+    }
+    
+    function applyVideoRotation() {
+        if (!videoPlayer) return;
+        
+        let transform = `rotate(${videoRotation}deg)`;
+        
+        // Adjust container dimensions for 90/270 degree rotations
+        if (videoRotation === 90 || videoRotation === 270) {
+            // For portrait-oriented rotations, we might need to scale the video
+            // to fit properly in the landscape container
+            const isFullscreen = mainVideoContainer.classList.contains('fullscreen');
+            if (isFullscreen) {
+                // In fullscreen, center and scale appropriately
+                transform += ' scale(0.8)'; // Adjust scale as needed
+                videoPlayer.style.transformOrigin = 'center center';
+            }
+        }
+        
+        videoPlayer.style.transform = transform;
+        videoPlayer.style.transformOrigin = 'center center';
     }
     
     function applyCombinedVideoFilters() {
@@ -137,17 +208,26 @@ const Player = (function() {
         if (mainVideoContainer.classList.contains('fullscreen')) {
             clearTimeout(fsControlsTimeout);
             fullscreenControlsOverlay.classList.add('active');
+            
+            // Auto-hide after 4 seconds (longer to accommodate rotation)
             fsControlsTimeout = setTimeout(() => {
                 fullscreenControlsOverlay.classList.remove('active');
-            }, 3000);
+            }, 4000);
         }
     }
     
-    function toggleVideoFullscreen() { // This function is now primarily for ENTERING fullscreen via button
+    function hideFullscreenControls() {
+        if (mainVideoContainer.classList.contains('fullscreen')) {
+            clearTimeout(fsControlsTimeout);
+            fullscreenControlsOverlay.classList.remove('active');
+        }
+    }
+    
+    function toggleVideoFullscreen() {
         if (!mainVideoContainer.classList.contains('fullscreen')) {
             enterVideoFullscreenMode();
         } else {
-             exitVideoFullscreenMode(); // Can still be called if needed, e.g. by Esc key handler
+             exitVideoFullscreenMode();
         }
     }
 
@@ -165,23 +245,29 @@ const Player = (function() {
                 }
             }
 
+            mainVideoContainer.classList.add('fullscreen');
+            document.body.style.overflow = 'hidden';
+
             const enterFsPromise = mainVideoContainer.requestFullscreen ? 
                                  mainVideoContainer.requestFullscreen() : 
                                  (mainVideoContainer.webkitRequestFullscreen ? 
                                   mainVideoContainer.webkitRequestFullscreen() : 
                                   Promise.reject('Fullscreen not supported'));
 
-            mainVideoContainer.classList.add('fullscreen');
-            document.body.style.overflow = 'hidden';
-
             await enterFsPromise;
-            setupVideoDimensions();
+            
+            // Apply current rotation in fullscreen
+            applyVideoRotation();
+            
+            // Hide all UI elements except fullscreen controls
+            hideAllUIElements();
+            
             showFullscreenControls();
         } catch (err) {
             console.error("Video Enter FS Error:", err);
             mainVideoContainer.classList.remove('fullscreen');
             document.body.style.overflow = '';
-            setupVideoDimensions();
+            showAllUIElements();
         }
     }
 
@@ -207,13 +293,52 @@ const Player = (function() {
         mainVideoContainer.classList.remove('fullscreen');
         document.body.style.overflow = '';
 
+        // Reset video rotation and show UI elements
+        videoPlayer.style.transform = `rotate(${videoRotation}deg)`;
+        showAllUIElements();
+
         exitFsPromise.then(() => {
-            setTimeout(setupVideoDimensions, 50);
+            // Small delay to ensure proper layout
+            setTimeout(() => {
+                applyVideoRotation();
+            }, 50);
         }).catch(err => {
             console.error("Video Exit FS Error:", err);
-            setupVideoDimensions();
         });
-        setupVideoDimensions();
+    }
+    
+    function hideAllUIElements() {
+        // Hide all UI elements except the fullscreen video container
+        const elementsToHide = [
+            document.querySelector('.player-header'),
+            document.querySelector('.mode-switcher'),
+            document.querySelector('.file-controls'),
+            document.querySelector('.sensor-section'),
+            document.querySelector('.mapping-panel-toggle-container')
+        ];
+        
+        elementsToHide.forEach(element => {
+            if (element) {
+                element.style.display = 'none';
+            }
+        });
+    }
+    
+    function showAllUIElements() {
+        // Show all UI elements when exiting fullscreen
+        const elementsToShow = [
+            document.querySelector('.player-header'),
+            document.querySelector('.mode-switcher'),
+            document.querySelector('.file-controls'),
+            document.querySelector('.sensor-section'),
+            document.querySelector('.mapping-panel-toggle-container')
+        ];
+        
+        elementsToShow.forEach(element => {
+            if (element) {
+                element.style.display = '';
+            }
+        });
     }
     
     function setupEventListeners() {
@@ -331,7 +456,7 @@ const Player = (function() {
         videoPlayer.addEventListener('touchend', (e) => {
             if (currentModeGetter() !== 'videoPlayer') return;
             const currentTime = new Date().getTime();
-            if (currentTime - lastVideoTap < 300) { // Reduced time for double tap
+            if (currentTime - lastVideoTap < 300) {
                  if (mainVideoContainer.classList.contains('fullscreen')) {
                     exitVideoFullscreenMode();
                 } else {
@@ -341,6 +466,7 @@ const Player = (function() {
             }
             lastVideoTap = currentTime;
         });
+        
         videoPlayer.addEventListener('dblclick', () => { 
             if (currentModeGetter() === 'videoPlayer') {
                  if (mainVideoContainer.classList.contains('fullscreen')) {
@@ -351,15 +477,44 @@ const Player = (function() {
             }
         });
 
-        videoFullscreenBtn.addEventListener('click', toggleVideoFullscreen); // Button in normal controls
-        // exitVideoFullscreenBtn was removed
+        videoFullscreenBtn.addEventListener('click', toggleVideoFullscreen);
 
-        // Show fullscreen controls on tap/mouse move when in fullscreen
-        mainVideoContainer.addEventListener('click', showFullscreenControls); // For mouse click
+        // Fullscreen controls interaction
+        mainVideoContainer.addEventListener('click', (e) => {
+            // Only show controls if clicking on the container, not on control elements
+            if (e.target === mainVideoContainer || e.target === videoPlayer) {
+                showFullscreenControls();
+            }
+        });
+        
         mainVideoContainer.addEventListener('mousemove', showFullscreenControls);
-        mainVideoContainer.addEventListener('touchstart', (e) => { // For touch
+        
+        mainVideoContainer.addEventListener('touchstart', (e) => {
             if (mainVideoContainer.classList.contains('fullscreen')) {
                 showFullscreenControls();
+            }
+        });
+        
+        // Hide controls when clicking away or after inactivity
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' || e.key === 'f' || e.key === 'F') {
+                if (mainVideoContainer.classList.contains('fullscreen')) {
+                    hideFullscreenControls();
+                }
+            }
+        });
+
+        // Add visibility change handler for wake lock
+        document.addEventListener('visibilitychange', async () => {
+            if (document.visibilityState === 'visible' && mainVideoContainer.classList.contains('fullscreen')) {
+                if ('wakeLock' in navigator && !wakeLock) {
+                    try {
+                        wakeLock = await navigator.wakeLock.request('screen');
+                        console.log('Wake lock re-activated');
+                    } catch (err) {
+                        console.warn('Wake lock re-request failed:', err);
+                    }
+                }
             }
         });
     }
@@ -375,21 +530,6 @@ const Player = (function() {
             brightnessValue, saturationValue, contrastValue, hueValue
         );
         UI.updateLoopButton(loopBtn, isLooping);
-
-        // Add visibility change handler for wake lock
-        document.addEventListener('visibilitychange', async () => {
-            if (document.visibilityState === 'visible' && mainVideoContainer.classList.contains('fullscreen')) {
-                // Re-request wake lock when page becomes visible again
-                if ('wakeLock' in navigator && !wakeLock) {
-                    try {
-                        wakeLock = await navigator.wakeLock.request('screen');
-                        console.log('Wake lock re-activated');
-                    } catch (err) {
-                        console.warn('Wake lock re-request failed:', err);
-                    }
-                }
-            }
-        });
     }
 
     return {
@@ -397,9 +537,8 @@ const Player = (function() {
         setEffect,
         getVideoElement: () => videoPlayer,
         getMainVideoContainer: () => mainVideoContainer,
-        // toggleVideoFullscreen, // Dbl tap now primary toggle in FS mode
         enterVideoFullscreenMode,
-        exitVideoFullscreenMode, // Keep for global Esc key handler
+        exitVideoFullscreenMode,
         resetFilters: () => {
             resetFiltersBtn.click();
         },
