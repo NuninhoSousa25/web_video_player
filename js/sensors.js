@@ -527,7 +527,7 @@ const Sensors = (function() {
             return;
         }
         
-        micVolumeUpdateId = requestAnimationFrame(updateMicVolume);
+        micVolumeUpdateId = requestAnimationFrame(updateMicVolumeLoop);
     }
     
     async function requestSensorPermissions() {
@@ -615,10 +615,6 @@ const Sensors = (function() {
                 setupProximitySensor(),
                 setupMicrophoneSensor()
             ]);
-
-            if (permissionGranted.microphone && isMicEnabled) {
-                updateMicVolume();
-            }
 
             globallyEnabled = true;
             updateUIState(true);
