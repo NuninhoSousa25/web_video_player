@@ -1,12 +1,13 @@
-// js/main.js
+// js/main.js - Updated with Android TV compatibility
 const App = (function() {
     let currentMode = 'videoPlayer'; 
+    let deviceInfo = {};
 
     let showVideoPlayerModeBtn, showPointCloudModeBtn,
         videoPlayerModeContent, pointCloudModeContent,
         sensorMappingInfo;
     
-    let player, pointcloud, sensors, mappings, ui, utils, mappingPanel;
+    let player, pointcloud, sensors, mappings, ui, utils, mappingPanel, androidTV;
 
     function cacheGlobalDOMElements() {
         showVideoPlayerModeBtn = document.getElementById('showVideoPlayerModeBtn');
@@ -30,8 +31,8 @@ const App = (function() {
         playerDOM.videoPlayerControls.classList.toggle('hidden', !videoElement.src || currentMode !== 'videoPlayer');
         playerDOM.videoFilterControls.classList.toggle('hidden', !videoElement.src || currentMode !== 'videoPlayer');
 
-        UI.updateSensorMappingInfoText(sensorMappingInfo, currentMode); // Already in place
-        UI.updateActiveMappingIndicators(); // Update indicators on mode switch
+        UI.updateSensorMappingInfoText(sensorMappingInfo, currentMode);
+        UI.updateActiveMappingIndicators();
     }
 
     function switchMode(newMode) {
@@ -44,7 +45,10 @@ const App = (function() {
         if (currentMode === 'pointCloud') {
             pointcloud.stopRendering(); 
             if (!videoElement.src || videoElement.readyState < videoElement.HAVE_METADATA) {
-                alert("Please load and play a video first to use Point Cloud mode.");
+                const alertMessage = deviceInfo.isAndroidTV ? 
+                    "Please load and play a video first to use Point Cloud mode. Use the D-pad to navigate and OK to select." :
+                    "Please load and play a video first to use Point Cloud mode.";
+                alert(alertMessage);
                 currentMode = 'videoPlayer'; 
                 updateModeUI();
                 return;
@@ -58,10 +62,10 @@ const App = (function() {
     }
     
     function exitFullscreenOnEscape(e) {
-        if (e.key === 'Escape') {
+        if (e.key === 'Escape' || e.code === 'Escape') {
             const videoContainer = player.getMainVideoContainer();
             const pcContainer = pointcloud.getMainPointCloudContainer();
-            // Check if any element is in fullscreen mode first
+            
             if (document.fullscreenElement || document.webkitIsFullScreen) {
                 if (videoContainer && videoContainer.classList.contains('fullscreen')) {
                     player.exitVideoFullscreenMode();
@@ -73,18 +77,17 @@ const App = (function() {
         }
     }
 
-
     function handleFullscreenChange() {
-        // This function is called when browser fullscreen state changes (e.g., by Esc key)
-        if (!document.fullscreenElement && !document.webkitIsFullScreen && !document.mozFullScreen && !document.msFullscreenElement) {
+        if (!document.fullscreenElement && !document.webkitIsFullScreen && 
+            !document.mozFullScreen && !document.msFullscreenElement) {
             const videoContainer = player.getMainVideoContainer();
             const pcContainer = pointcloud.getMainPointCloudContainer();
             
             if (videoContainer && videoContainer.classList.contains('fullscreen')) {
-                player.exitVideoFullscreenMode(); // Call module's exit to clean up classes
+                player.exitVideoFullscreenMode();
             }
             if (pcContainer && pcContainer.classList.contains('fullscreen')) {
-                pointcloud.exitPointCloudFullscreenMode(); // Call module's exit
+                pointcloud.exitPointCloudFullscreenMode();
             }
        }
     }
@@ -101,6 +104,13 @@ const App = (function() {
     }
 
     function init() {
+        // Initialize Android TV compatibility first
+        androidTV = AndroidTVCompat;
+        deviceInfo = androidTV.init();
+        
+        // Show device info in console
+        console.log('App initialized for device:', deviceInfo);
+        
         player = Player;
         pointcloud = PointCloud;
         sensors = Sensors;
@@ -112,20 +122,43 @@ const App = (function() {
         cacheGlobalDOMElements();
 
         const getCurrentMode = () => currentMode;
-        const getSensorState = () => sensors.isGloballyEnabled();
+        const getSensorState = () => {
+            // For Android TV, check if virtual sensors are enabled
+            if (deviceInfo.isAndroidTV) {
+                return androidTV.isVirtualSensorMode();
+            }
+            return sensors.isGloballyEnabled();
+        };
 
-        player.init(getCurrentMode, pointcloud);
-        pointcloud.init(player.getVideoElement(), getCurrentMode, getSensorState); // Pass sensor state getter
+        // Initialize modules with device-specific configurations
+        player.init(getCurrentMode, pointcloud, deviceInfo);
+        pointcloud.init(player.getVideoElement(), getCurrentMode, getSensorState, deviceInfo);
         
-        mappings.init(player, pointcloud, sensors, getCurrentMode);
+        // Enhanced sensor initialization for Android TV
+        if (deviceInfo.isAndroidTV) {
+            // Create custom sensor interface for Android TV
+            const customSensorUpdater = function() {
+                // Apply virtual sensor mappings
+                mappings.applyAllActiveMappings();
+            };
+            sensors.init(customSensorUpdater, player, pointcloud, deviceInfo);
+        } else {
+            sensors.init(mappings.applyAllActiveMappings, player, pointcloud, deviceInfo);
+        }
         
-        // Pass pointcloud module to sensors init for parallax updates
-        sensors.init(mappings.applyAllActiveMappings, player, pointcloud); 
-        
-        mappingPanel.init();
+        mappings.init(player, pointcloud, sensors, getCurrentMode, deviceInfo);
+        mappingPanel.init(deviceInfo);
 
         setupGlobalEventListeners();
-        updateModeUI(); 
+        updateModeUI();
+        
+        // Show welcome message for Android TV users
+        if (deviceInfo.isAndroidTV) {
+            setTimeout(() => {
+                console.log('Android TV detected - Remote control enabled');
+                console.log('Use D-pad to navigate, OK to select, Menu for help');
+            }, 1000);
+        }
     }
     
     function forceSwitchMode(mode) {
@@ -137,9 +170,19 @@ const App = (function() {
         }
     }
 
+    // Enhanced sensor value getter that works with virtual sensors
+    function getEnhancedSensorValue(sensorId) {
+        if (deviceInfo.isAndroidTV && androidTV.isVirtualSensorMode()) {
+            return androidTV.getVirtualSensorValue(sensorId);
+        }
+        return sensors.getSensorValue(sensorId);
+    }
+
     return {
         init,
-        forceSwitchMode
+        forceSwitchMode,
+        getDeviceInfo: () => deviceInfo,
+        getEnhancedSensorValue
     };
 })();
 
