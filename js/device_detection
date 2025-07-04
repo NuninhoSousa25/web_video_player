@@ -1,4 +1,4 @@
-// js/device_detection.js - Add this as a new file
+// js/device_detection.js - Save this as a separate file
 const DeviceDetection = (function() {
     let deviceInfo = {
         type: 'unknown', // 'mobile', 'androidtv', 'desktop'
@@ -31,8 +31,8 @@ const DeviceDetection = (function() {
                 window.screen.width >= 1280 && window.screen.height >= 720 && !hasTouch) {
                 deviceInfo.type = 'androidtv';
                 deviceInfo.isAndroidTV = true;
-                deviceInfo.hasKeyboard = true; // Assume available
-                deviceInfo.hasMouse = true; // Assume available
+                deviceInfo.hasKeyboard = true;
+                deviceInfo.hasMouse = true;
             } else {
                 deviceInfo.type = 'mobile';
             }
@@ -60,7 +60,6 @@ const DeviceDetection = (function() {
         
         // Additional Android TV checks
         if (deviceInfo.platform === 'android' && !hasTouch) {
-            // Large screen without touch usually indicates TV
             if (window.screen.width >= 1280 || window.screen.height >= 720) {
                 deviceInfo.type = 'androidtv';
                 deviceInfo.isAndroidTV = true;
@@ -75,7 +74,6 @@ const DeviceDetection = (function() {
         // Orientation capability
         if (typeof DeviceOrientationEvent !== 'undefined') {
             if (DeviceOrientationEvent.requestPermission) {
-                // iOS style permission
                 try {
                     const permission = await DeviceOrientationEvent.requestPermission();
                     deviceInfo.capabilities.orientation = permission === 'granted';
@@ -83,12 +81,11 @@ const DeviceDetection = (function() {
                     deviceInfo.capabilities.orientation = false;
                 }
             } else {
-                // Android/others - assume available unless proven otherwise
                 deviceInfo.capabilities.orientation = deviceInfo.type !== 'androidtv';
             }
         }
 
-        // Motion capability
+        // Motion capability  
         if (typeof DeviceMotionEvent !== 'undefined') {
             if (DeviceMotionEvent.requestPermission) {
                 try {
@@ -118,7 +115,7 @@ const DeviceDetection = (function() {
             }
         }
 
-        // Gamepad capability (useful for Android TV)
+        // Gamepad capability
         deviceInfo.capabilities.gamepad = 'getGamepads' in navigator;
 
         console.log('Device capabilities:', deviceInfo.capabilities);
@@ -148,14 +145,12 @@ const DeviceDetection = (function() {
     function adaptUIForDevice() {
         const body = document.body;
         
-        // Add device-specific classes
         body.classList.add(`device-${deviceInfo.type}`);
         body.classList.add(`platform-${deviceInfo.platform}`);
         
         if (deviceInfo.isAndroidTV) {
             body.classList.add('android-tv');
             
-            // Adjust styles for TV interface
             const style = document.createElement('style');
             style.textContent = `
                 .android-tv {
@@ -196,7 +191,6 @@ const DeviceDetection = (function() {
                     min-width: 120px;
                 }
                 
-                /* Better spacing for TV viewing distance */
                 .android-tv .filter-controls,
                 .android-tv .point-cloud-params-container {
                     padding: 16px 20px;
@@ -207,21 +201,18 @@ const DeviceDetection = (function() {
                     gap: 15px;
                 }
                 
-                /* Hide touch-specific help text */
                 .android-tv .touch-help {
                     display: none;
                 }
             `;
             document.head.appendChild(style);
             
-            // Add keyboard navigation hints
             addKeyboardNavigationHints();
         }
         
         if (!deviceInfo.hasTouch) {
             body.classList.add('no-touch');
             
-            // Add mouse-friendly interactions
             const style = document.createElement('style');
             style.textContent = `
                 .no-touch video {
@@ -242,7 +233,6 @@ const DeviceDetection = (function() {
     }
 
     function addKeyboardNavigationHints() {
-        // Add keyboard shortcuts info
         const infoDiv = document.createElement('div');
         infoDiv.id = 'keyboard-hints';
         infoDiv.style.cssText = `
@@ -267,7 +257,6 @@ const DeviceDetection = (function() {
         `;
         document.body.appendChild(infoDiv);
         
-        // Show hints on first focus
         let hintsShown = false;
         document.addEventListener('keydown', function(e) {
             if (!hintsShown && (e.key === 'Tab' || e.key === 'Enter')) {
@@ -282,13 +271,12 @@ const DeviceDetection = (function() {
 
     function setupKeyboardShortcuts() {
         document.addEventListener('keydown', function(e) {
-            // Don't interfere with input fields
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') {
                 return;
             }
             
             switch(e.key) {
-                case ' ': // Space bar
+                case ' ':
                     e.preventDefault();
                     const playBtn = document.getElementById('playPauseBtn');
                     if (playBtn) playBtn.click();
@@ -341,237 +329,5 @@ const DeviceDetection = (function() {
         isDesktop,
         hasRealSensors,
         adaptUIForDevice
-    };
-})();
-
-// Enhanced Sensors module with device compatibility
-const EnhancedSensors = (function() {
-    let deviceInfo = null;
-    let virtualSensorMode = false;
-    let keyboardSensorControls = {
-        alpha: 0,
-        beta: 0,
-        gamma: 0
-    };
-    
-    // Store original sensors module functions
-    let originalSensorsModule = null;
-
-    function initVirtualSensors() {
-        console.log('Initializing virtual sensors for Android TV');
-        
-        // Create virtual sensor controls
-        createVirtualSensorControls();
-        
-        // Setup keyboard controls for virtual sensors
-        setupVirtualSensorKeyboardControls();
-        
-        virtualSensorMode = true;
-    }
-
-    function createVirtualSensorControls() {
-        const sensorSection = document.getElementById('sensorSectionControls');
-        if (!sensorSection) return;
-        
-        // Add virtual sensor notice
-        const notice = document.createElement('div');
-        notice.className = 'virtual-sensor-notice';
-        notice.style.cssText = `
-            background: #2d4a87;
-            color: white;
-            padding: 10px;
-            border-radius: 5px;
-            margin-bottom: 15px;
-            text-align: center;
-            font-size: 14px;
-        `;
-        notice.innerHTML = `
-            <strong>Virtual Sensors Mode</strong><br>
-            Use keyboard or gamepad to simulate device motion<br>
-            <small>Arrow Keys: Tilt | A/D: Rotate | Q/E: Roll</small>
-        `;
-        
-        // Insert after sensor heading
-        const sensorHeading = sensorSection.querySelector('.sensor-heading');
-        if (sensorHeading) {
-            sensorHeading.parentNode.insertBefore(notice, sensorHeading.nextSibling);
-        }
-    }
-
-    function setupVirtualSensorKeyboardControls() {
-        let keys = {};
-        
-        document.addEventListener('keydown', function(e) {
-            keys[e.code] = true;
-            updateVirtualSensors(keys);
-        });
-        
-        document.addEventListener('keyup', function(e) {
-            keys[e.code] = false;
-            updateVirtualSensors(keys);
-        });
-        
-        // Gamepad support
-        if (navigator.getGamepads) {
-            setInterval(updateGamepadSensors, 50);
-        }
-    }
-
-    function updateVirtualSensors(keys) {
-        const sensitivity = 2; // Degrees per frame
-        
-        // Alpha (rotation) - A/D keys
-        if (keys['KeyA']) keyboardSensorControls.alpha -= sensitivity;
-        if (keys['KeyD']) keyboardSensorControls.alpha += sensitivity;
-        
-        // Beta (forward/back tilt) - Up/Down arrows
-        if (keys['ArrowUp']) keyboardSensorControls.beta -= sensitivity;
-        if (keys['ArrowDown']) keyboardSensorControls.beta += sensitivity;
-        
-        // Gamma (left/right tilt) - Left/Right arrows
-        if (keys['ArrowLeft']) keyboardSensorControls.gamma -= sensitivity;
-        if (keys['ArrowRight']) keyboardSensorControls.gamma += sensitivity;
-        
-        // Additional controls - Q/E for roll
-        if (keys['KeyQ']) keyboardSensorControls.gamma -= sensitivity;
-        if (keys['KeyE']) keyboardSensorControls.gamma += sensitivity;
-        
-        // Normalize values
-        keyboardSensorControls.alpha = ((keyboardSensorControls.alpha % 360) + 360) % 360;
-        keyboardSensorControls.beta = Math.max(-90, Math.min(90, keyboardSensorControls.beta));
-        keyboardSensorControls.gamma = Math.max(-90, Math.min(90, keyboardSensorControls.gamma));
-        
-        // Simulate sensor event
-        if (Object.values(keys).some(pressed => pressed)) {
-            simulateSensorEvent();
-        }
-    }
-
-    function updateGamepadSensors() {
-        const gamepads = navigator.getGamepads();
-        if (!gamepads[0]) return;
-        
-        const gamepad = gamepads[0];
-        const sensitivity = 3;
-        
-        // Left stick for beta/gamma
-        if (Math.abs(gamepad.axes[0]) > 0.1) {
-            keyboardSensorControls.gamma += gamepad.axes[0] * sensitivity;
-        }
-        if (Math.abs(gamepad.axes[1]) > 0.1) {
-            keyboardSensorControls.beta += gamepad.axes[1] * sensitivity;
-        }
-        
-        // Right stick for alpha
-        if (Math.abs(gamepad.axes[2]) > 0.1) {
-            keyboardSensorControls.alpha += gamepad.axes[2] * sensitivity;
-        }
-        
-        // Normalize and simulate
-        keyboardSensorControls.alpha = ((keyboardSensorControls.alpha % 360) + 360) % 360;
-        keyboardSensorControls.beta = Math.max(-90, Math.min(90, keyboardSensorControls.beta));
-        keyboardSensorControls.gamma = Math.max(-90, Math.min(90, keyboardSensorControls.gamma));
-        
-        if (gamepad.axes.some(axis => Math.abs(axis) > 0.1)) {
-            simulateSensorEvent();
-        }
-    }
-
-    function simulateSensorEvent() {
-        // Create a synthetic device orientation event
-        const syntheticEvent = {
-            alpha: keyboardSensorControls.alpha,
-            beta: keyboardSensorControls.beta,
-            gamma: keyboardSensorControls.gamma
-        };
-        
-        // Update sensor displays directly
-        updateVirtualSensorDisplay(syntheticEvent);
-        
-        // Trigger mappings if sensors are enabled
-        if (originalSensorsModule && originalSensorsModule.isGloballyEnabled()) {
-            // Call the mapping system with our virtual values
-            const mappingCallback = originalSensorsModule.getMappingCallback();
-            if (mappingCallback) {
-                mappingCallback();
-            }
-        }
-    }
-
-    function updateVirtualSensorDisplay(sensorData) {
-        // Update the sensor value displays
-        const alphaEl = document.getElementById('orientAlpha');
-        const betaEl = document.getElementById('orientBeta');
-        const gammaEl = document.getElementById('orientGamma');
-        const compassNeedle = document.getElementById('compassNeedle');
-        
-        if (alphaEl) alphaEl.textContent = sensorData.alpha.toFixed(2);
-        if (betaEl) betaEl.textContent = sensorData.beta.toFixed(2);
-        if (gammaEl) gammaEl.textContent = sensorData.gamma.toFixed(2);
-        if (compassNeedle) {
-            compassNeedle.style.transform = `rotate(${sensorData.alpha}deg)`;
-        }
-        
-        // Update point cloud if active
-        if (window.PointCloud && window.PointCloud.updateSensorTilt) {
-            window.PointCloud.updateSensorTilt(sensorData.beta, sensorData.gamma);
-        }
-    }
-
-    function getSensorValue(sensorId) {
-        if (!virtualSensorMode) {
-            return originalSensorsModule ? originalSensorsModule.getSensorValue(sensorId) : null;
-        }
-        
-        // Return virtual sensor values
-        switch(sensorId) {
-            case 'alpha':
-            case 'compassHeading':
-                return keyboardSensorControls.alpha;
-            case 'beta':
-                return keyboardSensorControls.beta;
-            case 'gamma':
-                return keyboardSensorControls.gamma;
-            default:
-                return 0; // Default for other sensors
-        }
-    }
-
-    function init(sensorUpdCb, pModuleRef, pcModuleRef) {
-        deviceInfo = DeviceDetection.getDeviceInfo();
-        
-        // Store reference to original sensors
-        originalSensorsModule = window.Sensors;
-        
-        if (deviceInfo.isAndroidTV || !DeviceDetection.hasRealSensors()) {
-            console.log('Device lacks real sensors, enabling virtual sensor mode');
-            initVirtualSensors();
-            
-            // Create a minimal sensor interface for TV
-            return {
-                isGloballyEnabled: () => virtualSensorMode,
-                getSensorValue: getSensorValue,
-                hideControls: () => {
-                    const controls = document.getElementById('sensorSectionControls');
-                    if (controls) controls.classList.add('hidden');
-                },
-                showControls: () => {
-                    const controls = document.getElementById('sensorSectionControls');
-                    if (controls) controls.classList.remove('hidden');
-                },
-                getMappingCallback: () => sensorUpdCb
-            };
-        } else {
-            // Use original sensors module for devices with real sensors
-            if (originalSensorsModule && originalSensorsModule.init) {
-                return originalSensorsModule.init(sensorUpdCb, pModuleRef, pcModuleRef);
-            }
-        }
-    }
-
-    return {
-        init,
-        getSensorValue,
-        isVirtualMode: () => virtualSensorMode
     };
 })();
