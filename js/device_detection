@@ -1,0 +1,577 @@
+// js/device_detection.js - Add this as a new file
+const DeviceDetection = (function() {
+    let deviceInfo = {
+        type: 'unknown', // 'mobile', 'androidtv', 'desktop'
+        platform: 'unknown', // 'android', 'ios', 'windows', 'linux', 'mac'
+        hasTouch: false,
+        hasSensors: false,
+        hasKeyboard: false,
+        hasMouse: false,
+        isAndroidTV: false,
+        capabilities: {
+            orientation: false,
+            motion: false,
+            proximity: false,
+            microphone: false,
+            gamepad: false
+        }
+    };
+
+    function detectDevice() {
+        const userAgent = navigator.userAgent.toLowerCase();
+        const standalone = window.navigator.standalone;
+        const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+        
+        // Platform detection
+        if (/android/.test(userAgent)) {
+            deviceInfo.platform = 'android';
+            
+            // Android TV detection
+            if (/tv|television|smarttv|googletv|androidtv/.test(userAgent) || 
+                window.screen.width >= 1280 && window.screen.height >= 720 && !hasTouch) {
+                deviceInfo.type = 'androidtv';
+                deviceInfo.isAndroidTV = true;
+                deviceInfo.hasKeyboard = true; // Assume available
+                deviceInfo.hasMouse = true; // Assume available
+            } else {
+                deviceInfo.type = 'mobile';
+            }
+        } else if (/iphone|ipad|ipod/.test(userAgent)) {
+            deviceInfo.platform = 'ios';
+            deviceInfo.type = 'mobile';
+        } else if (/windows/.test(userAgent)) {
+            deviceInfo.platform = 'windows';
+            deviceInfo.type = 'desktop';
+            deviceInfo.hasKeyboard = true;
+            deviceInfo.hasMouse = true;
+        } else if (/mac/.test(userAgent)) {
+            deviceInfo.platform = 'mac';
+            deviceInfo.type = 'desktop';
+            deviceInfo.hasKeyboard = true;
+            deviceInfo.hasMouse = true;
+        } else if (/linux/.test(userAgent)) {
+            deviceInfo.platform = 'linux';
+            deviceInfo.type = 'desktop';
+            deviceInfo.hasKeyboard = true;
+            deviceInfo.hasMouse = true;
+        }
+
+        deviceInfo.hasTouch = hasTouch;
+        
+        // Additional Android TV checks
+        if (deviceInfo.platform === 'android' && !hasTouch) {
+            // Large screen without touch usually indicates TV
+            if (window.screen.width >= 1280 || window.screen.height >= 720) {
+                deviceInfo.type = 'androidtv';
+                deviceInfo.isAndroidTV = true;
+            }
+        }
+
+        console.log('Device detected:', deviceInfo);
+        return deviceInfo;
+    }
+
+    async function detectCapabilities() {
+        // Orientation capability
+        if (typeof DeviceOrientationEvent !== 'undefined') {
+            if (DeviceOrientationEvent.requestPermission) {
+                // iOS style permission
+                try {
+                    const permission = await DeviceOrientationEvent.requestPermission();
+                    deviceInfo.capabilities.orientation = permission === 'granted';
+                } catch (e) {
+                    deviceInfo.capabilities.orientation = false;
+                }
+            } else {
+                // Android/others - assume available unless proven otherwise
+                deviceInfo.capabilities.orientation = deviceInfo.type !== 'androidtv';
+            }
+        }
+
+        // Motion capability
+        if (typeof DeviceMotionEvent !== 'undefined') {
+            if (DeviceMotionEvent.requestPermission) {
+                try {
+                    const permission = await DeviceMotionEvent.requestPermission();
+                    deviceInfo.capabilities.motion = permission === 'granted';
+                } catch (e) {
+                    deviceInfo.capabilities.motion = false;
+                }
+            } else {
+                deviceInfo.capabilities.motion = deviceInfo.type !== 'androidtv';
+            }
+        }
+
+        // Proximity capability
+        deviceInfo.capabilities.proximity = 'ProximitySensor' in window && deviceInfo.type === 'mobile';
+
+        // Microphone capability
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            try {
+                const testStream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: { echoCancellation: false } 
+                });
+                testStream.getTracks().forEach(track => track.stop());
+                deviceInfo.capabilities.microphone = true;
+            } catch (e) {
+                deviceInfo.capabilities.microphone = false;
+            }
+        }
+
+        // Gamepad capability (useful for Android TV)
+        deviceInfo.capabilities.gamepad = 'getGamepads' in navigator;
+
+        console.log('Device capabilities:', deviceInfo.capabilities);
+        return deviceInfo.capabilities;
+    }
+
+    function getDeviceInfo() {
+        return deviceInfo;
+    }
+
+    function isAndroidTV() {
+        return deviceInfo.isAndroidTV;
+    }
+
+    function isMobile() {
+        return deviceInfo.type === 'mobile';
+    }
+
+    function isDesktop() {
+        return deviceInfo.type === 'desktop';
+    }
+
+    function hasRealSensors() {
+        return deviceInfo.capabilities.orientation || deviceInfo.capabilities.motion;
+    }
+
+    function adaptUIForDevice() {
+        const body = document.body;
+        
+        // Add device-specific classes
+        body.classList.add(`device-${deviceInfo.type}`);
+        body.classList.add(`platform-${deviceInfo.platform}`);
+        
+        if (deviceInfo.isAndroidTV) {
+            body.classList.add('android-tv');
+            
+            // Adjust styles for TV interface
+            const style = document.createElement('style');
+            style.textContent = `
+                .android-tv {
+                    font-size: 18px;
+                    cursor: pointer;
+                }
+                
+                .android-tv button {
+                    min-height: 48px;
+                    font-size: 16px;
+                    border: 2px solid transparent;
+                    transition: all 0.2s ease;
+                }
+                
+                .android-tv button:focus,
+                .android-tv button:hover {
+                    border-color: #2c7be5;
+                    background-color: #1a68d1;
+                    outline: none;
+                    transform: scale(1.05);
+                }
+                
+                .android-tv input[type="range"]:focus {
+                    outline: 2px solid #2c7be5;
+                    outline-offset: 2px;
+                }
+                
+                .android-tv select:focus {
+                    outline: 2px solid #2c7be5;
+                    outline-offset: 2px;
+                }
+                
+                .android-tv .main-controls {
+                    gap: 12px;
+                }
+                
+                .android-tv .toggle-button {
+                    min-width: 120px;
+                }
+                
+                /* Better spacing for TV viewing distance */
+                .android-tv .filter-controls,
+                .android-tv .point-cloud-params-container {
+                    padding: 16px 20px;
+                }
+                
+                .android-tv .sensor-values {
+                    grid-template-columns: repeat(2, 1fr);
+                    gap: 15px;
+                }
+                
+                /* Hide touch-specific help text */
+                .android-tv .touch-help {
+                    display: none;
+                }
+            `;
+            document.head.appendChild(style);
+            
+            // Add keyboard navigation hints
+            addKeyboardNavigationHints();
+        }
+        
+        if (!deviceInfo.hasTouch) {
+            body.classList.add('no-touch');
+            
+            // Add mouse-friendly interactions
+            const style = document.createElement('style');
+            style.textContent = `
+                .no-touch video {
+                    cursor: pointer;
+                }
+                
+                .no-touch canvas {
+                    cursor: pointer;
+                }
+                
+                .no-touch button:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+                }
+            `;
+            document.head.appendChild(style);
+        }
+    }
+
+    function addKeyboardNavigationHints() {
+        // Add keyboard shortcuts info
+        const infoDiv = document.createElement('div');
+        infoDiv.id = 'keyboard-hints';
+        infoDiv.style.cssText = `
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            z-index: 1000;
+            display: none;
+        `;
+        infoDiv.innerHTML = `
+            <div><strong>Keyboard Shortcuts:</strong></div>
+            <div>Space: Play/Pause</div>
+            <div>F: Fullscreen</div>
+            <div>Tab: Navigate controls</div>
+            <div>Enter: Activate button</div>
+            <div>Esc: Exit fullscreen</div>
+        `;
+        document.body.appendChild(infoDiv);
+        
+        // Show hints on first focus
+        let hintsShown = false;
+        document.addEventListener('keydown', function(e) {
+            if (!hintsShown && (e.key === 'Tab' || e.key === 'Enter')) {
+                infoDiv.style.display = 'block';
+                hintsShown = true;
+                setTimeout(() => {
+                    infoDiv.style.display = 'none';
+                }, 5000);
+            }
+        });
+    }
+
+    function setupKeyboardShortcuts() {
+        document.addEventListener('keydown', function(e) {
+            // Don't interfere with input fields
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') {
+                return;
+            }
+            
+            switch(e.key) {
+                case ' ': // Space bar
+                    e.preventDefault();
+                    const playBtn = document.getElementById('playPauseBtn');
+                    if (playBtn) playBtn.click();
+                    break;
+                    
+                case 'f':
+                case 'F':
+                    e.preventDefault();
+                    const fullscreenBtn = document.getElementById('videoFullscreenBtn');
+                    if (fullscreenBtn) fullscreenBtn.click();
+                    break;
+                    
+                case 'l':
+                case 'L':
+                    e.preventDefault();
+                    const loopBtn = document.getElementById('loopBtn');
+                    if (loopBtn) loopBtn.click();
+                    break;
+                    
+                case 'm':
+                case 'M':
+                    e.preventDefault();
+                    const volumeSlider = document.getElementById('volumeSlider');
+                    if (volumeSlider) {
+                        volumeSlider.value = volumeSlider.value > 0 ? 0 : 1;
+                        volumeSlider.dispatchEvent(new Event('input'));
+                    }
+                    break;
+            }
+        });
+    }
+
+    async function init() {
+        detectDevice();
+        await detectCapabilities();
+        adaptUIForDevice();
+        
+        if (deviceInfo.type === 'androidtv' || !deviceInfo.hasTouch) {
+            setupKeyboardShortcuts();
+        }
+        
+        return deviceInfo;
+    }
+
+    return {
+        init,
+        getDeviceInfo,
+        isAndroidTV,
+        isMobile,
+        isDesktop,
+        hasRealSensors,
+        adaptUIForDevice
+    };
+})();
+
+// Enhanced Sensors module with device compatibility
+const EnhancedSensors = (function() {
+    let deviceInfo = null;
+    let virtualSensorMode = false;
+    let keyboardSensorControls = {
+        alpha: 0,
+        beta: 0,
+        gamma: 0
+    };
+    
+    // Store original sensors module functions
+    let originalSensorsModule = null;
+
+    function initVirtualSensors() {
+        console.log('Initializing virtual sensors for Android TV');
+        
+        // Create virtual sensor controls
+        createVirtualSensorControls();
+        
+        // Setup keyboard controls for virtual sensors
+        setupVirtualSensorKeyboardControls();
+        
+        virtualSensorMode = true;
+    }
+
+    function createVirtualSensorControls() {
+        const sensorSection = document.getElementById('sensorSectionControls');
+        if (!sensorSection) return;
+        
+        // Add virtual sensor notice
+        const notice = document.createElement('div');
+        notice.className = 'virtual-sensor-notice';
+        notice.style.cssText = `
+            background: #2d4a87;
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            text-align: center;
+            font-size: 14px;
+        `;
+        notice.innerHTML = `
+            <strong>Virtual Sensors Mode</strong><br>
+            Use keyboard or gamepad to simulate device motion<br>
+            <small>Arrow Keys: Tilt | A/D: Rotate | Q/E: Roll</small>
+        `;
+        
+        // Insert after sensor heading
+        const sensorHeading = sensorSection.querySelector('.sensor-heading');
+        if (sensorHeading) {
+            sensorHeading.parentNode.insertBefore(notice, sensorHeading.nextSibling);
+        }
+    }
+
+    function setupVirtualSensorKeyboardControls() {
+        let keys = {};
+        
+        document.addEventListener('keydown', function(e) {
+            keys[e.code] = true;
+            updateVirtualSensors(keys);
+        });
+        
+        document.addEventListener('keyup', function(e) {
+            keys[e.code] = false;
+            updateVirtualSensors(keys);
+        });
+        
+        // Gamepad support
+        if (navigator.getGamepads) {
+            setInterval(updateGamepadSensors, 50);
+        }
+    }
+
+    function updateVirtualSensors(keys) {
+        const sensitivity = 2; // Degrees per frame
+        
+        // Alpha (rotation) - A/D keys
+        if (keys['KeyA']) keyboardSensorControls.alpha -= sensitivity;
+        if (keys['KeyD']) keyboardSensorControls.alpha += sensitivity;
+        
+        // Beta (forward/back tilt) - Up/Down arrows
+        if (keys['ArrowUp']) keyboardSensorControls.beta -= sensitivity;
+        if (keys['ArrowDown']) keyboardSensorControls.beta += sensitivity;
+        
+        // Gamma (left/right tilt) - Left/Right arrows
+        if (keys['ArrowLeft']) keyboardSensorControls.gamma -= sensitivity;
+        if (keys['ArrowRight']) keyboardSensorControls.gamma += sensitivity;
+        
+        // Additional controls - Q/E for roll
+        if (keys['KeyQ']) keyboardSensorControls.gamma -= sensitivity;
+        if (keys['KeyE']) keyboardSensorControls.gamma += sensitivity;
+        
+        // Normalize values
+        keyboardSensorControls.alpha = ((keyboardSensorControls.alpha % 360) + 360) % 360;
+        keyboardSensorControls.beta = Math.max(-90, Math.min(90, keyboardSensorControls.beta));
+        keyboardSensorControls.gamma = Math.max(-90, Math.min(90, keyboardSensorControls.gamma));
+        
+        // Simulate sensor event
+        if (Object.values(keys).some(pressed => pressed)) {
+            simulateSensorEvent();
+        }
+    }
+
+    function updateGamepadSensors() {
+        const gamepads = navigator.getGamepads();
+        if (!gamepads[0]) return;
+        
+        const gamepad = gamepads[0];
+        const sensitivity = 3;
+        
+        // Left stick for beta/gamma
+        if (Math.abs(gamepad.axes[0]) > 0.1) {
+            keyboardSensorControls.gamma += gamepad.axes[0] * sensitivity;
+        }
+        if (Math.abs(gamepad.axes[1]) > 0.1) {
+            keyboardSensorControls.beta += gamepad.axes[1] * sensitivity;
+        }
+        
+        // Right stick for alpha
+        if (Math.abs(gamepad.axes[2]) > 0.1) {
+            keyboardSensorControls.alpha += gamepad.axes[2] * sensitivity;
+        }
+        
+        // Normalize and simulate
+        keyboardSensorControls.alpha = ((keyboardSensorControls.alpha % 360) + 360) % 360;
+        keyboardSensorControls.beta = Math.max(-90, Math.min(90, keyboardSensorControls.beta));
+        keyboardSensorControls.gamma = Math.max(-90, Math.min(90, keyboardSensorControls.gamma));
+        
+        if (gamepad.axes.some(axis => Math.abs(axis) > 0.1)) {
+            simulateSensorEvent();
+        }
+    }
+
+    function simulateSensorEvent() {
+        // Create a synthetic device orientation event
+        const syntheticEvent = {
+            alpha: keyboardSensorControls.alpha,
+            beta: keyboardSensorControls.beta,
+            gamma: keyboardSensorControls.gamma
+        };
+        
+        // Update sensor displays directly
+        updateVirtualSensorDisplay(syntheticEvent);
+        
+        // Trigger mappings if sensors are enabled
+        if (originalSensorsModule && originalSensorsModule.isGloballyEnabled()) {
+            // Call the mapping system with our virtual values
+            const mappingCallback = originalSensorsModule.getMappingCallback();
+            if (mappingCallback) {
+                mappingCallback();
+            }
+        }
+    }
+
+    function updateVirtualSensorDisplay(sensorData) {
+        // Update the sensor value displays
+        const alphaEl = document.getElementById('orientAlpha');
+        const betaEl = document.getElementById('orientBeta');
+        const gammaEl = document.getElementById('orientGamma');
+        const compassNeedle = document.getElementById('compassNeedle');
+        
+        if (alphaEl) alphaEl.textContent = sensorData.alpha.toFixed(2);
+        if (betaEl) betaEl.textContent = sensorData.beta.toFixed(2);
+        if (gammaEl) gammaEl.textContent = sensorData.gamma.toFixed(2);
+        if (compassNeedle) {
+            compassNeedle.style.transform = `rotate(${sensorData.alpha}deg)`;
+        }
+        
+        // Update point cloud if active
+        if (window.PointCloud && window.PointCloud.updateSensorTilt) {
+            window.PointCloud.updateSensorTilt(sensorData.beta, sensorData.gamma);
+        }
+    }
+
+    function getSensorValue(sensorId) {
+        if (!virtualSensorMode) {
+            return originalSensorsModule ? originalSensorsModule.getSensorValue(sensorId) : null;
+        }
+        
+        // Return virtual sensor values
+        switch(sensorId) {
+            case 'alpha':
+            case 'compassHeading':
+                return keyboardSensorControls.alpha;
+            case 'beta':
+                return keyboardSensorControls.beta;
+            case 'gamma':
+                return keyboardSensorControls.gamma;
+            default:
+                return 0; // Default for other sensors
+        }
+    }
+
+    function init(sensorUpdCb, pModuleRef, pcModuleRef) {
+        deviceInfo = DeviceDetection.getDeviceInfo();
+        
+        // Store reference to original sensors
+        originalSensorsModule = window.Sensors;
+        
+        if (deviceInfo.isAndroidTV || !DeviceDetection.hasRealSensors()) {
+            console.log('Device lacks real sensors, enabling virtual sensor mode');
+            initVirtualSensors();
+            
+            // Create a minimal sensor interface for TV
+            return {
+                isGloballyEnabled: () => virtualSensorMode,
+                getSensorValue: getSensorValue,
+                hideControls: () => {
+                    const controls = document.getElementById('sensorSectionControls');
+                    if (controls) controls.classList.add('hidden');
+                },
+                showControls: () => {
+                    const controls = document.getElementById('sensorSectionControls');
+                    if (controls) controls.classList.remove('hidden');
+                },
+                getMappingCallback: () => sensorUpdCb
+            };
+        } else {
+            // Use original sensors module for devices with real sensors
+            if (originalSensorsModule && originalSensorsModule.init) {
+                return originalSensorsModule.init(sensorUpdCb, pModuleRef, pcModuleRef);
+            }
+        }
+    }
+
+    return {
+        init,
+        getSensorValue,
+        isVirtualMode: () => virtualSensorMode
+    };
+})();
