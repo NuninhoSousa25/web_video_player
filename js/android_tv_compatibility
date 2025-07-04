@@ -1,0 +1,700 @@
+// js/android_tv_compatibility.js
+const AndroidTVCompat = (function() {
+    let isAndroidTV = false;
+    let isMobile = false;
+    let deviceType = 'desktop';
+    let remoteControlEnabled = false;
+    let gamepadIndex = -1;
+    let lastGamepadState = {};
+    
+    // Virtual sensor values for TV box control
+    let virtualSensorData = {
+        alpha: 0,
+        beta: 0,
+        gamma: 0,
+        micVolume: 0,
+        proximity: 100
+    };
+
+    // Key mappings for Android TV remote/gamepad
+    const TV_KEYS = {
+        // D-pad
+        DPAD_UP: 'ArrowUp',
+        DPAD_DOWN: 'ArrowDown',
+        DPAD_LEFT: 'ArrowLeft',
+        DPAD_RIGHT: 'ArrowRight',
+        DPAD_CENTER: 'Enter',
+        
+        // Media keys
+        MEDIA_PLAY_PAUSE: 'MediaPlayPause',
+        MEDIA_STOP: 'MediaStop',
+        MEDIA_NEXT: 'MediaTrackNext',
+        MEDIA_PREVIOUS: 'MediaTrackPrevious',
+        
+        // Number keys
+        DIGIT_0: 'Digit0',
+        DIGIT_1: 'Digit1',
+        DIGIT_2: 'Digit2',
+        DIGIT_3: 'Digit3',
+        DIGIT_4: 'Digit4',
+        DIGIT_5: 'Digit5',
+        DIGIT_6: 'Digit6',
+        DIGIT_7: 'Digit7',
+        DIGIT_8: 'Digit8',
+        DIGIT_9: 'Digit9',
+        
+        // Other keys
+        BACK: 'Escape',
+        MENU: 'ContextMenu',
+        HOME: 'Home',
+        VOLUME_UP: 'VolumeUp',
+        VOLUME_DOWN: 'VolumeDown'
+    };
+
+    function detectDeviceType() {
+        const userAgent = navigator.userAgent.toLowerCase();
+        const platform = navigator.platform.toLowerCase();
+        
+        // Check for Android TV
+        if (userAgent.includes('android') && 
+            (userAgent.includes('tv') || 
+             userAgent.includes('googletv') || 
+             userAgent.includes('android tv') ||
+             userAgent.includes('chromecast') ||
+             userAgent.includes('nexus player') ||
+             userAgent.includes('shield') ||
+             userAgent.includes('mibox') ||
+             userAgent.includes('mi box'))) {
+            isAndroidTV = true;
+            deviceType = 'androidtv';
+        }
+        // Check for mobile devices
+        else if (userAgent.includes('mobile') || 
+                 userAgent.includes('android') ||
+                 userAgent.includes('iphone') ||
+                 userAgent.includes('ipad') ||
+                 /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent)) {
+            isMobile = true;
+            deviceType = 'mobile';
+        }
+        // Desktop/other
+        else {
+            deviceType = 'desktop';
+        }
+
+        console.log('Device detection:', { deviceType, isAndroidTV, isMobile, userAgent });
+        return { deviceType, isAndroidTV, isMobile };
+    }
+
+    function setupAndroidTVInterface() {
+        if (!isAndroidTV) return;
+
+        // Add Android TV specific styles
+        const tvStyles = document.createElement('style');
+        tvStyles.textContent = `
+            /* Android TV Specific Styles */
+            .android-tv-mode {
+                font-size: 120%;
+                cursor: none;
+            }
+            
+            .android-tv-mode .container {
+                max-width: 90vw;
+                margin: 20px auto;
+            }
+            
+            .android-tv-mode button {
+                padding: 15px 20px;
+                font-size: 16px;
+                border: 2px solid transparent;
+                transition: all 0.3s ease;
+            }
+            
+            .android-tv-mode button:focus,
+            .android-tv-mode button.tv-focused {
+                border-color: #2c7be5;
+                background-color: #2c7be5;
+                color: white;
+                outline: none;
+                box-shadow: 0 0 10px rgba(44, 123, 229, 0.5);
+            }
+            
+            .android-tv-mode .main-controls {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+                gap: 15px;
+                margin-bottom: 20px;
+            }
+            
+            .android-tv-mode .filter-control {
+                margin-bottom: 20px;
+            }
+            
+            .android-tv-mode .filter-slider {
+                height: 8px;
+                border: 2px solid transparent;
+            }
+            
+            .android-tv-mode .filter-slider:focus {
+                border-color: #2c7be5;
+                outline: none;
+            }
+            
+            .android-tv-remote-help {
+                position: fixed;
+                bottom: 20px;
+                right: 20px;
+                background: rgba(0, 0, 0, 0.8);
+                color: white;
+                padding: 15px;
+                border-radius: 8px;
+                font-size: 14px;
+                z-index: 1000;
+                max-width: 300px;
+            }
+            
+            .android-tv-remote-help.hidden {
+                display: none;
+            }
+        `;
+        document.head.appendChild(tvStyles);
+
+        // Add Android TV mode class
+        document.body.classList.add('android-tv-mode');
+
+        // Create remote control help overlay
+        createRemoteControlHelp();
+        
+        // Setup keyboard navigation
+        setupKeyboardNavigation();
+        
+        // Setup gamepad support
+        setupGamepadSupport();
+        
+        // Disable sensor features that won't work on TV
+        disableSensorFeatures();
+    }
+
+    function createRemoteControlHelp() {
+        const helpDiv = document.createElement('div');
+        helpDiv.className = 'android-tv-remote-help';
+        helpDiv.innerHTML = `
+            <h4>Android TV Remote Control</h4>
+            <p><strong>D-pad:</strong> Navigate controls</p>
+            <p><strong>OK/Enter:</strong> Activate button</p>
+            <p><strong>Play/Pause:</strong> Control playback</p>
+            <p><strong>Back:</strong> Exit fullscreen</p>
+            <p><strong>Menu:</strong> Toggle sensor panel</p>
+            <p><strong>1-9:</strong> Quick filter adjustments</p>
+            <p><strong>0:</strong> Reset filters</p>
+            <p><strong>Vol +/-:</strong> Volume control</p>
+            <p style="margin-top: 10px; font-size: 12px; opacity: 0.8;">
+                Press Menu to hide this help
+            </p>
+        `;
+        document.body.appendChild(helpDiv);
+        
+        // Auto-hide after 10 seconds
+        setTimeout(() => {
+            helpDiv.classList.add('hidden');
+        }, 10000);
+    }
+
+    function setupKeyboardNavigation() {
+        let focusableElements = [];
+        let currentFocusIndex = -1;
+
+        function updateFocusableElements() {
+            focusableElements = Array.from(document.querySelectorAll(
+                'button:not(:disabled), input:not(:disabled), select:not(:disabled), .filter-slider'
+            )).filter(el => {
+                return el.offsetParent !== null; // Only visible elements
+            });
+        }
+
+        function focusElement(index) {
+            if (index >= 0 && index < focusableElements.length) {
+                // Remove previous focus
+                document.querySelectorAll('.tv-focused').forEach(el => {
+                    el.classList.remove('tv-focused');
+                });
+                
+                // Add new focus
+                focusableElements[index].classList.add('tv-focused');
+                focusableElements[index].focus();
+                currentFocusIndex = index;
+                
+                // Scroll into view
+                focusableElements[index].scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'center'
+                });
+            }
+        }
+
+        function handleTVKeydown(event) {
+            updateFocusableElements();
+            
+            if (focusableElements.length === 0) return;
+
+            switch (event.code) {
+                case TV_KEYS.DPAD_UP:
+                case TV_KEYS.DPAD_LEFT:
+                    event.preventDefault();
+                    currentFocusIndex = Math.max(0, currentFocusIndex - 1);
+                    focusElement(currentFocusIndex);
+                    break;
+                    
+                case TV_KEYS.DPAD_DOWN:
+                case TV_KEYS.DPAD_RIGHT:
+                    event.preventDefault();
+                    currentFocusIndex = Math.min(focusableElements.length - 1, currentFocusIndex + 1);
+                    focusElement(currentFocusIndex);
+                    break;
+                    
+                case TV_KEYS.DPAD_CENTER:
+                    event.preventDefault();
+                    if (currentFocusIndex >= 0 && currentFocusIndex < focusableElements.length) {
+                        const element = focusableElements[currentFocusIndex];
+                        if (element.tagName === 'BUTTON') {
+                            element.click();
+                        } else if (element.tagName === 'INPUT' && element.type === 'range') {
+                            // Handle slider activation
+                            element.focus();
+                        }
+                    }
+                    break;
+                    
+                case TV_KEYS.MEDIA_PLAY_PAUSE:
+                    event.preventDefault();
+                    const playBtn = document.getElementById('playPauseBtn');
+                    if (playBtn) playBtn.click();
+                    break;
+                    
+                case TV_KEYS.BACK:
+                    event.preventDefault();
+                    // Exit fullscreen or go back
+                    if (document.fullscreenElement) {
+                        document.exitFullscreen();
+                    }
+                    break;
+                    
+                case TV_KEYS.MENU:
+                    event.preventDefault();
+                    // Toggle mapping panel or help
+                    const helpDiv = document.querySelector('.android-tv-remote-help');
+                    if (helpDiv) {
+                        helpDiv.classList.toggle('hidden');
+                    }
+                    break;
+                    
+                case TV_KEYS.VOLUME_UP:
+                    event.preventDefault();
+                    adjustVolume(0.1);
+                    break;
+                    
+                case TV_KEYS.VOLUME_DOWN:
+                    event.preventDefault();
+                    adjustVolume(-0.1);
+                    break;
+                    
+                // Number keys for quick filter adjustments
+                case TV_KEYS.DIGIT_0:
+                    event.preventDefault();
+                    resetFilters();
+                    break;
+                    
+                case TV_KEYS.DIGIT_1:
+                    event.preventDefault();
+                    adjustFilter('brightness', 10);
+                    break;
+                    
+                case TV_KEYS.DIGIT_2:
+                    event.preventDefault();
+                    adjustFilter('brightness', -10);
+                    break;
+                    
+                case TV_KEYS.DIGIT_3:
+                    event.preventDefault();
+                    adjustFilter('contrast', 10);
+                    break;
+                    
+                case TV_KEYS.DIGIT_4:
+                    event.preventDefault();
+                    adjustFilter('contrast', -10);
+                    break;
+                    
+                case TV_KEYS.DIGIT_5:
+                    event.preventDefault();
+                    adjustFilter('saturation', 10);
+                    break;
+                    
+                case TV_KEYS.DIGIT_6:
+                    event.preventDefault();
+                    adjustFilter('saturation', -10);
+                    break;
+                    
+                case TV_KEYS.DIGIT_7:
+                    event.preventDefault();
+                    adjustFilter('hue', 15);
+                    break;
+                    
+                case TV_KEYS.DIGIT_8:
+                    event.preventDefault();
+                    adjustFilter('hue', -15);
+                    break;
+            }
+        }
+
+        // Handle slider navigation with left/right arrows
+        function handleSliderNavigation(event, slider) {
+            const step = parseFloat(slider.step) || 1;
+            const currentValue = parseFloat(slider.value);
+            
+            switch (event.code) {
+                case TV_KEYS.DPAD_LEFT:
+                    event.preventDefault();
+                    slider.value = Math.max(parseFloat(slider.min), currentValue - step);
+                    slider.dispatchEvent(new Event('input'));
+                    break;
+                    
+                case TV_KEYS.DPAD_RIGHT:
+                    event.preventDefault();
+                    slider.value = Math.min(parseFloat(slider.max), currentValue + step);
+                    slider.dispatchEvent(new Event('input'));
+                    break;
+            }
+        }
+
+        // Add event listeners
+        document.addEventListener('keydown', handleTVKeydown);
+        
+        // Special handling for sliders
+        document.addEventListener('keydown', (event) => {
+            if (event.target && event.target.classList.contains('filter-slider')) {
+                handleSliderNavigation(event, event.target);
+            }
+        });
+
+        // Initialize focus on first element
+        setTimeout(() => {
+            updateFocusableElements();
+            if (focusableElements.length > 0) {
+                focusElement(0);
+            }
+        }, 500);
+    }
+
+    function setupGamepadSupport() {
+        let gamepadUpdateInterval;
+
+        function updateGamepadState() {
+            const gamepads = navigator.getGamepads();
+            if (!gamepads || gamepadIndex === -1) return;
+
+            const gamepad = gamepads[gamepadIndex];
+            if (!gamepad) return;
+
+            // Check for button presses
+            gamepad.buttons.forEach((button, index) => {
+                const wasPressed = lastGamepadState[index] || false;
+                const isPressed = button.pressed;
+                
+                if (isPressed && !wasPressed) {
+                    handleGamepadButton(index);
+                }
+                
+                lastGamepadState[index] = isPressed;
+            });
+
+            // Check for axis movement (analog sticks)
+            if (gamepad.axes.length >= 2) {
+                const leftStickX = gamepad.axes[0];
+                const leftStickY = gamepad.axes[1];
+                
+                // Use analog stick for virtual sensor control
+                if (Math.abs(leftStickX) > 0.1 || Math.abs(leftStickY) > 0.1) {
+                    virtualSensorData.gamma = leftStickX * 45; // -45 to 45 degrees
+                    virtualSensorData.beta = leftStickY * 45;  // -45 to 45 degrees
+                    
+                    // Trigger sensor updates if sensors are enabled
+                    if (window.Sensors && window.Sensors.isGloballyEnabled()) {
+                        triggerVirtualSensorUpdate();
+                    }
+                }
+            }
+        }
+
+        function handleGamepadButton(buttonIndex) {
+            // Standard gamepad button mapping
+            switch (buttonIndex) {
+                case 0: // A button
+                    const playBtn = document.getElementById('playPauseBtn');
+                    if (playBtn) playBtn.click();
+                    break;
+                    
+                case 1: // B button
+                    if (document.fullscreenElement) {
+                        document.exitFullscreen();
+                    }
+                    break;
+                    
+                case 12: // D-pad up
+                    document.dispatchEvent(new KeyboardEvent('keydown', { code: 'ArrowUp' }));
+                    break;
+                    
+                case 13: // D-pad down
+                    document.dispatchEvent(new KeyboardEvent('keydown', { code: 'ArrowDown' }));
+                    break;
+                    
+                case 14: // D-pad left
+                    document.dispatchEvent(new KeyboardEvent('keydown', { code: 'ArrowLeft' }));
+                    break;
+                    
+                case 15: // D-pad right
+                    document.dispatchEvent(new KeyboardEvent('keydown', { code: 'ArrowRight' }));
+                    break;
+            }
+        }
+
+        // Gamepad connection events
+        window.addEventListener('gamepadconnected', (event) => {
+            console.log('Gamepad connected:', event.gamepad);
+            gamepadIndex = event.gamepad.index;
+            remoteControlEnabled = true;
+            
+            // Start polling for gamepad input
+            if (gamepadUpdateInterval) clearInterval(gamepadUpdateInterval);
+            gamepadUpdateInterval = setInterval(updateGamepadState, 50);
+        });
+
+        window.addEventListener('gamepaddisconnected', (event) => {
+            console.log('Gamepad disconnected:', event.gamepad);
+            if (event.gamepad.index === gamepadIndex) {
+                gamepadIndex = -1;
+                remoteControlEnabled = false;
+                
+                if (gamepadUpdateInterval) {
+                    clearInterval(gamepadUpdateInterval);
+                    gamepadUpdateInterval = null;
+                }
+            }
+        });
+    }
+
+    function disableSensorFeatures() {
+        // Hide sensor-specific features on Android TV
+        const sensorSection = document.getElementById('sensorSectionControls');
+        if (sensorSection) {
+            sensorSection.style.display = 'none';
+        }
+        
+        // Replace sensor mappings with virtual controls
+        createVirtualSensorControls();
+    }
+
+    function createVirtualSensorControls() {
+        const virtualControlsDiv = document.createElement('div');
+        virtualControlsDiv.className = 'virtual-sensor-controls';
+        virtualControlsDiv.innerHTML = `
+            <div class="sensor-section">
+                <div class="sensor-heading">
+                    <div class="sensor-title">Virtual Motion Controls</div>
+                    <button id="virtualSensorToggle" class="sensor-toggle">Enable Virtual Sensors</button>
+                </div>
+                <div class="sensor-values">
+                    <div class="sensor-value">
+                        <div class="value-label">Tilt Left/Right</div>
+                        <div id="virtualGamma" class="value-number">0.00</div>
+                    </div>
+                    <div class="sensor-value">
+                        <div class="value-label">Tilt Fwd/Back</div>
+                        <div id="virtualBeta" class="value-number">0.00</div>
+                    </div>
+                    <div class="sensor-value">
+                        <div class="value-label">Rotation</div>
+                        <div id="virtualAlpha" class="value-number">0.00</div>
+                    </div>
+                </div>
+                <div class="virtual-controls-grid">
+                    <button class="virtual-control-btn" data-action="tilt-left">← Tilt Left</button>
+                    <button class="virtual-control-btn" data-action="tilt-right">Tilt Right →</button>
+                    <button class="virtual-control-btn" data-action="tilt-forward">↑ Tilt Forward</button>
+                    <button class="virtual-control-btn" data-action="tilt-backward">↓ Tilt Backward</button>
+                    <button class="virtual-control-btn" data-action="rotate-left">↺ Rotate Left</button>
+                    <button class="virtual-control-btn" data-action="rotate-right">↻ Rotate Right</button>
+                    <button class="virtual-control-btn" data-action="reset">Reset Position</button>
+                </div>
+            </div>
+        `;
+        
+        const style = document.createElement('style');
+        style.textContent = `
+            .virtual-controls-grid {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 10px;
+                margin-top: 15px;
+            }
+            .virtual-control-btn {
+                padding: 10px;
+                background-color: #555;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 14px;
+            }
+            .virtual-control-btn:hover, .virtual-control-btn:focus {
+                background-color: #666;
+            }
+            .virtual-control-btn.tv-focused {
+                background-color: #2c7be5;
+            }
+        `;
+        document.head.appendChild(style);
+        
+        // Insert after the existing sensor section or at the end
+        const container = document.querySelector('.container');
+        if (container) {
+            container.appendChild(virtualControlsDiv);
+        }
+        
+        setupVirtualSensorControls();
+    }
+
+    function setupVirtualSensorControls() {
+        const virtualToggle = document.getElementById('virtualSensorToggle');
+        const virtualControlBtns = document.querySelectorAll('.virtual-control-btn');
+        
+        let virtualSensorsEnabled = false;
+        
+        if (virtualToggle) {
+            virtualToggle.addEventListener('click', () => {
+                virtualSensorsEnabled = !virtualSensorsEnabled;
+                virtualToggle.textContent = virtualSensorsEnabled ? 'Disable Virtual Sensors' : 'Enable Virtual Sensors';
+                virtualToggle.classList.toggle('active', virtualSensorsEnabled);
+            });
+        }
+        
+        virtualControlBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                if (!virtualSensorsEnabled) return;
+                
+                const action = e.target.dataset.action;
+                const step = 5;
+                
+                switch (action) {
+                    case 'tilt-left':
+                        virtualSensorData.gamma = Math.max(-45, virtualSensorData.gamma - step);
+                        break;
+                    case 'tilt-right':
+                        virtualSensorData.gamma = Math.min(45, virtualSensorData.gamma + step);
+                        break;
+                    case 'tilt-forward':
+                        virtualSensorData.beta = Math.max(-45, virtualSensorData.beta - step);
+                        break;
+                    case 'tilt-backward':
+                        virtualSensorData.beta = Math.min(45, virtualSensorData.beta + step);
+                        break;
+                    case 'rotate-left':
+                        virtualSensorData.alpha = (virtualSensorData.alpha - step + 360) % 360;
+                        break;
+                    case 'rotate-right':
+                        virtualSensorData.alpha = (virtualSensorData.alpha + step) % 360;
+                        break;
+                    case 'reset':
+                        virtualSensorData.alpha = 0;
+                        virtualSensorData.beta = 0;
+                        virtualSensorData.gamma = 0;
+                        break;
+                }
+                
+                updateVirtualSensorDisplay();
+                triggerVirtualSensorUpdate();
+            });
+        });
+    }
+
+    function updateVirtualSensorDisplay() {
+        const alphaEl = document.getElementById('virtualAlpha');
+        const betaEl = document.getElementById('virtualBeta');
+        const gammaEl = document.getElementById('virtualGamma');
+        
+        if (alphaEl) alphaEl.textContent = virtualSensorData.alpha.toFixed(2);
+        if (betaEl) betaEl.textContent = virtualSensorData.beta.toFixed(2);
+        if (gammaEl) gammaEl.textContent = virtualSensorData.gamma.toFixed(2);
+    }
+
+    function triggerVirtualSensorUpdate() {
+        // Trigger sensor mapping updates if available
+        if (window.Mappings && window.Mappings.applyAllActiveMappings) {
+            window.Mappings.applyAllActiveMappings();
+        }
+    }
+
+    // Helper functions for remote control
+    function adjustVolume(delta) {
+        const volumeSlider = document.getElementById('volumeSlider');
+        if (volumeSlider) {
+            const currentVolume = parseFloat(volumeSlider.value);
+            const newVolume = Math.max(0, Math.min(1, currentVolume + delta));
+            volumeSlider.value = newVolume;
+            volumeSlider.dispatchEvent(new Event('input'));
+        }
+    }
+
+    function adjustFilter(filterName, delta) {
+        const slider = document.getElementById(filterName + 'Slider');
+        if (slider) {
+            const currentValue = parseFloat(slider.value);
+            const newValue = Math.max(
+                parseFloat(slider.min), 
+                Math.min(parseFloat(slider.max), currentValue + delta)
+            );
+            slider.value = newValue;
+            slider.dispatchEvent(new Event('input'));
+        }
+    }
+
+    function resetFilters() {
+        const resetBtn = document.getElementById('resetFiltersBtn');
+        if (resetBtn) {
+            resetBtn.click();
+        }
+    }
+
+    // Public API
+    function init() {
+        const deviceInfo = detectDeviceType();
+        
+        if (isAndroidTV) {
+            console.log('Android TV detected - setting up TV interface');
+            setupAndroidTVInterface();
+        } else {
+            console.log('Non-Android TV device detected:', deviceType);
+        }
+        
+        return deviceInfo;
+    }
+
+    function getVirtualSensorValue(sensorId) {
+        if (!virtualSensorData.hasOwnProperty(sensorId)) {
+            return null;
+        }
+        return virtualSensorData[sensorId];
+    }
+
+    function isVirtualSensorMode() {
+        return isAndroidTV && remoteControlEnabled;
+    }
+
+    return {
+        init,
+        getVirtualSensorValue,
+        isVirtualSensorMode,
+        isAndroidTV: () => isAndroidTV,
+        isMobile: () => isMobile,
+        getDeviceType: () => deviceType
+    };
+})();
