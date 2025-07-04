@@ -5,80 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Video Player & Point Cloud Viewer</title>
     <link rel="stylesheet" href="css/styles.css">
-    <style>
-        /* Device-specific enhancements */
-        .device-androidtv .container {
-            max-width: 90%;
-            margin: 0 auto;
-        }
-        
-        .device-androidtv button:focus,
-        .device-androidtv select:focus,
-        .device-androidtv input:focus {
-            outline: 3px solid #2c7be5;
-            outline-offset: 2px;
-        }
-        
-        .device-desktop .container {
-            max-width: 800px;
-        }
-        
-        .device-mobile .container {
-            max-width: 100%;
-            margin: 0;
-            border-radius: 0;
-        }
-        
-        /* Virtual sensor indicators */
-        .virtual-sensors-active {
-            border: 2px dashed #4caf50;
-            animation: pulse 2s infinite;
-        }
-        
-        @keyframes pulse {
-            0%, 100% { border-color: #4caf50; }
-            50% { border-color: #8bc34a; }
-        }
-        
-        /* Keyboard shortcut hints */
-        .keyboard-hint {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            background: rgba(0,0,0,0.9);
-            color: white;
-            padding: 10px;
-            border-radius: 5px;
-            font-size: 12px;
-            max-width: 200px;
-            z-index: 1000;
-            display: none;
-        }
-        
-        .device-androidtv .keyboard-hint,
-        .no-touch .keyboard-hint {
-            display: block;
-        }
-        
-        /* Gamepad indicator */
-        .gamepad-connected {
-            position: fixed;
-            top: 10px;
-            right: 10px;
-            background: #4caf50;
-            color: white;
-            padding: 5px 10px;
-            border-radius: 15px;
-            font-size: 12px;
-            z-index: 1000;
-        }
-    </style>
 </head>
 <body>
     <div class="container">
         <div class="player-header">
             <h1>Video & Point Cloud Tool</h1>
-            <div id="device-status" style="font-size: 12px; color: #888; margin-top: 5px;"></div>
         </div>
 
         <div class="mode-switcher">
@@ -102,9 +33,6 @@
             
             <div id="videoPlaceholder" class="placeholder-message">
                 <p>Select a video file to play</p>
-                <div class="device-specific-help">
-                    <small id="deviceSpecificVideoHelp"></small>
-                </div>
             </div>
             
             <div class="controls" id="videoPlayerControls">
@@ -204,7 +132,7 @@
                         <option value="240">Max (240px)</option>
                     </select>
                 </div>
-                <div class="filter-control">
+                <div class="filter-control"> <!-- NEW: Invert Depth Checkbox -->
                     <label for="pcInvertDepthCheckbox" class="checkbox-label">
                         <input type="checkbox" id="pcInvertDepthCheckbox">
                         Invert Point Cloud Depth
@@ -212,17 +140,14 @@
                 </div>
             </div>
         </div>
-        
         <div class="mapping-panel-toggle-container" style="padding: 10px; text-align: center; background-color: #2d2d2d; border-top: 1px solid #333;">
             <button id="toggleMappingPanelBtn" class="button">Sensor Mapping Panel</button>
         </div>
-        
         <!-- Common Controls -->
         <div class="file-controls">
             <input type="file" id="fileInput" accept="video/*">
             <label for="fileInput" class="file-label">Choose Video File</label>
             <div class="file-name" id="fileName">No file selected</div>
-            <div id="deviceSpecificFileHelp" style="font-size: 12px; color: #888; margin-top: 5px; text-align: center;"></div>
         </div>
         
         <div class="sensor-section" id="sensorSectionControls">
@@ -295,8 +220,6 @@
             </div>
         </div>
     </div>
-    
-    <!-- Mapping Panel -->
     <div id="sensorMappingPanel" class="sensor-mapping-panel hidden">
         <div class="panel-header">
             <h2>Sensor Effect Mappings</h2>
@@ -363,205 +286,17 @@
         </div>
     </div>
 
-    <!-- Keyboard Shortcuts Help -->
-    <div class="keyboard-hint">
-        <strong>Shortcuts:</strong><br>
-        Space: Play/Pause<br>
-        F: Fullscreen<br>
-        L: Loop toggle<br>
-        M: Mute<br>
-        Arrows: Virtual tilt<br>
-        A/D: Virtual rotate
-    </div>
-
-    <!-- Gamepad indicator (will be shown when gamepad is connected) -->
-    <div id="gamepadIndicator" class="gamepad-connected" style="display: none;">
-        🎮 Gamepad Connected
-    </div>
-
-    <!-- Scripts in order of dependency -->
-    <script src="js/utils.js"></script>
-    <script src="js/mapping_config.js"></script>
-    <script src="js/ui.js"></script>
-    <script src="js/player.js"></script>
-    <script src="js/pointcloud.js"></script>
-    <script src="js/sensors.js"></script>
-    <script src="js/mapping_manager.js"></script>
-    <script src="js/mapping_panel.js"></script>
-    <script src="js/mappings.js"></script>
-    
-    <!-- New device detection module -->
-    <script>
-        // Inline the device detection for simplicity - you can also save this as js/device_detection.js
-        // [Device detection code from first artifact goes here]
-    </script>
-    
-    <!-- Enhanced main.js -->
-    <script>
-        // [Enhanced main.js code from second artifact goes here]
-    </script>
-
-    <script>
-        // Additional device-specific initialization
-        document.addEventListener('DOMContentLoaded', function() {
-            // Update device status display
-            setTimeout(() => {
-                const deviceInfo = App.getDeviceInfo();
-                const statusEl = document.getElementById('device-status');
-                const videoHelpEl = document.getElementById('deviceSpecificVideoHelp');
-                const fileHelpEl = document.getElementById('deviceSpecificFileHelp');
-                
-                if (deviceInfo && statusEl) {
-                    let statusText = `${deviceInfo.type.charAt(0).toUpperCase()}${deviceInfo.type.slice(1)} • ${deviceInfo.platform.charAt(0).toUpperCase()}${deviceInfo.platform.slice(1)}`;
-                    if (deviceInfo.isAndroidTV) statusText += ' • TV Mode';
-                    if (deviceInfo.hasTouch) statusText += ' • Touch';
-                    if (deviceInfo.capabilities.microphone) statusText += ' • Mic';
-                    statusEl.textContent = statusText;
-                }
-                
-                // Add device-specific help text
-                if (deviceInfo && videoHelpEl) {
-                    if (deviceInfo.isAndroidTV) {
-                        videoHelpEl.textContent = 'Use keyboard/remote controls or connect a gamepad for the best experience';
-                    } else if (deviceInfo.type === 'mobile') {
-                        videoHelpEl.textContent = 'Double-tap video for fullscreen, enable sensors for motion control';
-                    } else {
-                        videoHelpEl.textContent = 'Use keyboard shortcuts or mouse controls';
-                    }
-                }
-                
-                if (deviceInfo && fileHelpEl) {
-                    if (deviceInfo.isAndroidTV) {
-                        fileHelpEl.textContent = 'Connect USB storage or use file manager to select videos';
-                    } else {
-                        fileHelpEl.textContent = 'Supports most video formats including MP4, WebM, and AVI';
-                    }
-                }
-            }, 500);
-            
-            // Gamepad detection
-            let gamepadConnected = false;
-            window.addEventListener("gamepadconnected", function(e) {
-                console.log("Gamepad connected:", e.gamepad.id);
-                gamepadConnected = true;
-                const indicator = document.getElementById('gamepadIndicator');
-                if (indicator) {
-                    indicator.style.display = 'block';
-                    indicator.textContent = `🎮 ${e.gamepad.id.substring(0, 20)}...`;
-                }
-            });
-            
-            window.addEventListener("gamepaddisconnected", function(e) {
-                console.log("Gamepad disconnected:", e.gamepad.id);
-                gamepadConnected = false;
-                const indicator = document.getElementById('gamepadIndicator');
-                if (indicator) {
-                    indicator.style.display = 'none';
-                }
-            });
-            
-            // TV-specific focus management
-            const deviceInfo = App.getDeviceInfo && App.getDeviceInfo();
-            if (deviceInfo && deviceInfo.isAndroidTV) {
-                // Improve focus visibility for TV navigation
-                const style = document.createElement('style');
-                style.textContent = `
-                    button:focus, select:focus, input:focus {
-                        outline: 3px solid #2c7be5 !important;
-                        outline-offset: 2px !important;
-                        background-color: #1a68d1 !important;
-                        color: white !important;
-                        transform: scale(1.05);
-                        z-index: 10;
-                        position: relative;
-                    }
-                    
-                    input[type="range"]:focus {
-                        transform: none !important;
-                    }
-                    
-                    /* Sequential focus order for TV navigation */
-                    .main-controls {
-                        display: flex;
-                        flex-wrap: wrap;
-                        gap: 8px;
-                    }
-                    
-                    .main-controls button {
-                        order: 1;
-                    }
-                    
-                    #playPauseBtn {
-                        order: 0;
-                    }
-                `;
-                document.head.appendChild(style);
-                
-                // Auto-focus first interactive element
-                setTimeout(() => {
-                    const firstButton = document.querySelector('button:not([disabled])');
-                    if (firstButton) {
-                        firstButton.focus();
-                    }
-                }, 1000);
-            }
-        });
-        
-        // Error handling for unsupported features
-        window.addEventListener('error', function(e) {
-            console.error('Global error:', e.error);
-            
-            // Handle specific device compatibility issues
-            if (e.error && e.error.message) {
-                const message = e.error.message.toLowerCase();
-                
-                if (message.includes('sensor') || message.includes('deviceorientation')) {
-                    console.warn('Sensor-related error detected, switching to virtual sensors');
-                    const deviceInfo = App.getDeviceInfo && App.getDeviceInfo();
-                    if (deviceInfo && !deviceInfo.isAndroidTV) {
-                        // Show user-friendly message for devices without sensors
-                        setTimeout(() => {
-                            alert('Device sensors not available. Virtual sensor controls will be enabled.');
-                        }, 1000);
-                    }
-                }
-                
-                if (message.includes('microphone') || message.includes('getusermedia')) {
-                    console.warn('Microphone access error');
-                    // Microphone errors are handled gracefully in the sensors module
-                }
-                
-                if (message.includes('fullscreen')) {
-                    console.warn('Fullscreen API error - some features may be limited');
-                }
-            }
-        });
-        
-        // Performance optimization for Android TV
-        if (navigator.userAgent.toLowerCase().includes('tv') || 
-            (window.screen.width >= 1280 && !('ontouchstart' in window))) {
-            // Reduce animation complexity for TV devices
-            const style = document.createElement('style');
-            style.textContent = `
-                * {
-                    animation-duration: 0.2s !important;
-                    transition-duration: 0.2s !important;
-                }
-                
-                .progress-bar {
-                    transition: width 0.1s !important;
-                }
-                
-                /* Disable complex animations on TV */
-                @media (prefers-reduced-motion: no-preference) {
-                    .device-androidtv * {
-                        animation-duration: 0.3s !important;
-                        transition-duration: 0.3s !important;
-                    }
-                }
-            `;
-            document.head.appendChild(style);
-        }
-    </script>
+   <script src="js/utils.js"></script>
+<script src="js/mapping_config.js"></script>
+<script src="js/device_detector.js"></script> 
+<script src="js/ui.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/player.js"></script>
+<script src="js/pointcloud.js"></script>
+<script src="js/sensors.js"></script>
+<script src="js/mapping_manager.js"></script>
+<script src="js/mapping_panel.js"></script>
+<script src="js/mappings.js"></script>
+<script src="js/main.js"></script>
 </body>
 </html>
