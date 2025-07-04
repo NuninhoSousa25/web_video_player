@@ -5,11 +5,69 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Video Player & Point Cloud Viewer</title>
     <link rel="stylesheet" href="css/styles.css">
+    <style>
+        /* Additional Android TV optimizations */
+        @media (pointer: coarse) and (hover: none) {
+            /* Likely Android TV or similar device */
+            .container {
+                max-width: 95vw;
+                margin: 10px auto;
+            }
+            
+            button {
+                min-height: 48px;
+                font-size: 16px;
+                padding: 12px 16px;
+            }
+            
+            .main-controls {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+                gap: 12px;
+            }
+            
+            .filter-slider {
+                height: 12px;
+            }
+        }
+        
+        /* High DPI display adjustments */
+        @media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 2dppx) {
+            .container {
+                font-size: 110%;
+            }
+            
+            .sensor-value {
+                font-size: 105%;
+            }
+        }
+        
+        /* Focus indicators for better TV navigation */
+        *:focus {
+            outline: 2px solid #2c7be5;
+            outline-offset: 2px;
+        }
+        
+        /* Better contrast for TV viewing */
+        @media (prefers-contrast: high) {
+            .container {
+                background-color: #000;
+                border: 2px solid #333;
+            }
+            
+            .filter-controls,
+            .point-cloud-params-container {
+                background-color: #111;
+                border: 1px solid #444;
+            }
+        }
+    </style>
 </head>
 <body>
     <div class="container">
         <div class="player-header">
             <h1>Video & Point Cloud Tool</h1>
+            <div id="deviceInfo" style="font-size: 12px; color: #888; margin-top: 5px;"></div>
         </div>
 
         <div class="mode-switcher">
@@ -33,6 +91,9 @@
             
             <div id="videoPlaceholder" class="placeholder-message">
                 <p>Select a video file to play</p>
+                <p id="tvInstructions" style="display: none; font-size: 14px; color: #aaa; margin-top: 10px;">
+                    Use D-pad to navigate, OK to select files
+                </p>
             </div>
             
             <div class="controls" id="videoPlayerControls">
@@ -132,7 +193,7 @@
                         <option value="240">Max (240px)</option>
                     </select>
                 </div>
-                <div class="filter-control"> <!-- NEW: Invert Depth Checkbox -->
+                <div class="filter-control">
                     <label for="pcInvertDepthCheckbox" class="checkbox-label">
                         <input type="checkbox" id="pcInvertDepthCheckbox">
                         Invert Point Cloud Depth
@@ -140,14 +201,19 @@
                 </div>
             </div>
         </div>
+        
         <div class="mapping-panel-toggle-container" style="padding: 10px; text-align: center; background-color: #2d2d2d; border-top: 1px solid #333;">
             <button id="toggleMappingPanelBtn" class="button">Sensor Mapping Panel</button>
         </div>
+        
         <!-- Common Controls -->
         <div class="file-controls">
             <input type="file" id="fileInput" accept="video/*">
             <label for="fileInput" class="file-label">Choose Video File</label>
             <div class="file-name" id="fileName">No file selected</div>
+            <div id="tvFileHelp" style="display: none; font-size: 12px; color: #aaa; margin-top: 5px;">
+                Note: File selection may require a connected mouse or keyboard on Android TV
+            </div>
         </div>
         
         <div class="sensor-section" id="sensorSectionControls">
@@ -220,6 +286,7 @@
             </div>
         </div>
     </div>
+    
     <div id="sensorMappingPanel" class="sensor-mapping-panel hidden">
         <div class="panel-header">
             <h2>Sensor Effect Mappings</h2>
@@ -286,15 +353,52 @@
         </div>
     </div>
 
-   <script src="js/utils.js"></script>
-<script src="js/mapping_config.js"></script>
-<script src="js/ui.js"></script>
-<script src="js/player.js"></script>
-<script src="js/pointcloud.js"></script>
-<script src="js/sensors.js"></script>
-<script src="js/mapping_manager.js"></script>
-<script src="js/mapping_panel.js"></script>
-<script src="js/mappings.js"></script>
-<script src="js/main.js"></script>
+    <!-- Load scripts in correct order -->
+    <script src="js/utils.js"></script>
+    <script src="js/mapping_config.js"></script>
+    <script src="js/android_tv_compatibility.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/player.js"></script>
+    <script src="js/pointcloud.js"></script>
+    <script src="js/sensors.js"></script>
+    <script src="js/mapping_manager.js"></script>
+    <script src="js/mapping_panel.js"></script>
+    <script src="js/mappings.js"></script>
+    <script src="js/main.js"></script>
+    
+    <script>
+        // Initialize device-specific UI elements after DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            // Show device info
+            const deviceInfo = document.getElementById('deviceInfo');
+            const tvInstructions = document.getElementById('tvInstructions');
+            const tvFileHelp = document.getElementById('tvFileHelp');
+            
+            setTimeout(() => {
+                if (window.AndroidTVCompat) {
+                    const info = window.AndroidTVCompat.getDeviceType();
+                    if (deviceInfo) {
+                        deviceInfo.textContent = `Device: ${info} | UA: ${navigator.userAgent.substring(0, 50)}...`;
+                    }
+                    
+                    if (window.AndroidTVCompat.isAndroidTV()) {
+                        if (tvInstructions) tvInstructions.style.display = 'block';
+                        if (tvFileHelp) tvFileHelp.style.display = 'block';
+                        
+                        // Add Android TV specific help text
+                        console.log('Android TV Controls:');
+                        console.log('- D-pad: Navigate controls');
+                        console.log('- OK/Enter: Activate buttons');
+                        console.log('- Play/Pause: Control video playback');
+                        console.log('- Back: Exit fullscreen');
+                        console.log('- Menu: Toggle help panel');
+                        console.log('- Number keys 1-9: Quick filter adjustments');
+                        console.log('- 0: Reset all filters');
+                        console.log('- Volume +/-: Control audio volume');
+                    }
+                }
+            }, 500);
+        });
+    </script>
 </body>
 </html>
