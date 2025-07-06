@@ -1,7 +1,10 @@
-// js/pointcloud.js - Simplified version with sensor-controlled parameters
+// js/pointcloud.js - Restored with full slider functionality
 const PointCloud = (function() {
-    let pointCloudCanvas, mainPointCloudContainer, pointCloudParams;
-    let pcProcessingResolutionSlider, pcProcessingValue, pcInvertDepthCheckbox;
+    let pointCloudCanvas, mainPointCloudContainer, pointCloudParams, densitySlider, densityValue,
+        displacementSlider, displacementValue, pointSizeSlider, pointSizeValue,
+        parallaxSensitivitySlider, parallaxSensitivityValue, 
+        pcProcessingResolutionSlider, pcProcessingValue,
+        pcInvertDepthCheckbox;
 
     let videoElementRef; 
     let currentModeGetter = () => 'videoPlayer'; 
@@ -11,16 +14,14 @@ const PointCloud = (function() {
     const tempCanvas = document.createElement('canvas'); 
     const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true }); 
     
-    // Configuration - now controlled by sensors instead of sliders
     let config = {
-        density: 32,           // Default values, controlled by sensors
+        density: 32,
         displacementScale: 50,
         pointSize: 3,
         parallaxSensitivity: 10, 
         maxProcessingDimension: 120,
         invertDepth: false
     };
-    
     let currentSensorTilt = { beta: 0, gamma: 0 }; 
     let lastCanvasTap = 0;
     let sensorsGloballyEnabledGetter = () => false; 
@@ -29,6 +30,14 @@ const PointCloud = (function() {
         pointCloudCanvas = document.getElementById('pointCloudCanvas');
         mainPointCloudContainer = document.getElementById('mainPointCloudContainer');
         pointCloudParams = document.getElementById('pointCloudParams');
+        densitySlider = document.getElementById('densitySlider');
+        densityValue = document.getElementById('densityValue');
+        displacementSlider = document.getElementById('displacementSlider');
+        displacementValue = document.getElementById('displacementValue');
+        pointSizeSlider = document.getElementById('pointSizeSlider');
+        pointSizeValue = document.getElementById('pointSizeValue');
+        parallaxSensitivitySlider = document.getElementById('tiltSensitivitySlider'); 
+        parallaxSensitivityValue = document.getElementById('tiltSensitivityValue'); 
         pcProcessingResolutionSlider = document.getElementById('pcProcessingResolutionSlider'); 
         pcProcessingValue = document.getElementById('pcProcessingValue'); 
         pcInvertDepthCheckbox = document.getElementById('pcInvertDepthCheckbox');
@@ -38,37 +47,42 @@ const PointCloud = (function() {
         const effectDetails = getEffectById(effectId);
         if (!effectDetails || effectDetails.target !== 'pointcloud') return;
 
-        console.log(`PointCloud.setEffect: ${effectId} = ${value}`);
-
         if (config.hasOwnProperty(effectDetails.prop)) {
             config[effectDetails.prop] = Math.max(effectDetails.min, Math.min(effectDetails.max, value));
             
-            // Update processing value display if it changed
-            if (effectId === 'pc_density' || effectId === 'pc_displacement' || effectId === 'pc_pointSize') {
-                console.log(`Updated ${effectDetails.prop} to ${config[effectDetails.prop]}`);
-            }
+            // Update corresponding slider when effect comes from sensor mapping
+            if (effectId === 'pc_density' && densitySlider) densitySlider.value = value;
+            else if (effectId === 'pc_displacement' && displacementSlider) displacementSlider.value = value;
+            else if (effectId === 'pc_pointSize' && pointSizeSlider) pointSizeSlider.value = value;
 
+            // Update displays
+            if(densityValue) UI.updatePointCloudParamDisplays(
+                config, densityValue, displacementValue, pointSizeValue,
+                parallaxSensitivityValue, pcProcessingValue 
+            );
             UI.updateActiveMappingIndicators(); 
         }
     }
     
     function loadInitialPCEffects() {
-        // Set default values - these will be controlled by sensors
-        setEffect('pc_density', getEffectById('pc_density').default);
-        setEffect('pc_displacement', getEffectById('pc_displacement').default);
-        setEffect('pc_pointSize', getEffectById('pc_pointSize').default);
+        // Set initial values from sliders
+        setEffect('pc_density', parseInt(densitySlider.value) || getEffectById('pc_density').default);
+        setEffect('pc_displacement', parseInt(displacementSlider.value) || getEffectById('pc_displacement').default);
+        setEffect('pc_pointSize', parseInt(pointSizeSlider.value) || getEffectById('pc_pointSize').default);
         
-        // Load UI-controlled settings
-        config.maxProcessingDimension = parseInt(pcProcessingResolutionSlider?.value) || 120;
-        config.invertDepth = pcInvertDepthCheckbox?.checked || false;
+        config.parallaxSensitivity = parseInt(parallaxSensitivitySlider.value) || 10;
+        config.maxProcessingDimension = parseInt(pcProcessingResolutionSlider.value) || 120;
+        config.invertDepth = pcInvertDepthCheckbox.checked;
 
-        console.log('Point cloud initialized with default values:', config);
+        UI.updatePointCloudParamDisplays(
+            config, densityValue, displacementValue, pointSizeValue, 
+            parallaxSensitivityValue, pcProcessingValue
+        );
         UI.updateActiveMappingIndicators(); 
     }
 
     function setupCanvasDimensions() {
         if (!videoElementRef || !videoElementRef.videoWidth || !videoElementRef.videoHeight || !pointCloudCanvas.parentElement) return;
-        
         const videoAspectRatio = videoElementRef.videoWidth / videoElementRef.videoHeight;
         let canvasWidth = pointCloudCanvas.parentElement.clientWidth;
 
@@ -84,7 +98,6 @@ const PointCloud = (function() {
         } else {
             pointCloudCanvas.height = canvasWidth * (9 / 16); 
         }
-        
         if (isNaN(pointCloudCanvas.height) || pointCloudCanvas.height <= 0 || !isFinite(pointCloudCanvas.height)) {
             pointCloudCanvas.height = canvasWidth * (9 / 16);
         }
@@ -116,9 +129,7 @@ const PointCloud = (function() {
         for (let y = 0; y < imgHeight; y += stepY) {
             for (let x = 0; x < imgWidth; x += stepX) {
                 const i = (Math.floor(y) * imgWidth + Math.floor(x)) * 4;
-                const r = data[i]; 
-                const g = data[i + 1]; 
-                const b = data[i + 2];
+                const r = data[i]; const g = data[i + 1]; const b = data[i + 2];
                 
                 let brightness = (0.299 * r + 0.587 * g + 0.114 * b) / 255; 
                 if (config.invertDepth) {
@@ -239,41 +250,55 @@ const PointCloud = (function() {
    }
 
     function setupEventListeners() {
-        // Only keep essential UI controls
-        if (pcProcessingResolutionSlider) {
-            pcProcessingResolutionSlider.addEventListener('change', (e) => { 
-                config.maxProcessingDimension = parseInt(e.target.value);
-                if (pcProcessingValue) {
-                    const selectedOption = e.target.selectedOptions[0];
-                    pcProcessingValue.textContent = selectedOption ? selectedOption.text.split(' ')[0] : config.maxProcessingDimension + 'px';
-                }
-            });
-        }
+        // RESTORED: All point cloud slider event listeners
+        densitySlider.addEventListener('input', (e) => {
+            setEffect('pc_density', parseInt(e.target.value));
+        });
+        
+        displacementSlider.addEventListener('input', (e) => {
+            setEffect('pc_displacement', parseInt(e.target.value));
+        });
+        
+        pointSizeSlider.addEventListener('input', (e) => {
+            setEffect('pc_pointSize', parseInt(e.target.value));
+        });
+        
+        parallaxSensitivitySlider.addEventListener('input', (e) => { 
+            config.parallaxSensitivity = parseInt(e.target.value); 
+            UI.updatePointCloudParamDisplays(
+                config, densityValue, displacementValue, pointSizeValue, 
+                parallaxSensitivityValue, pcProcessingValue
+            );
+        });
 
-        if (pcInvertDepthCheckbox) {
-            pcInvertDepthCheckbox.addEventListener('change', (e) => { 
-                config.invertDepth = e.target.checked;
-            });
-        }
+        pcProcessingResolutionSlider.addEventListener('change', (e) => { 
+            config.maxProcessingDimension = parseInt(e.target.value);
+            UI.updatePointCloudParamDisplays(
+                config, densityValue, displacementValue, pointSizeValue, 
+                parallaxSensitivityValue, pcProcessingValue
+            );
+        });
+
+        pcInvertDepthCheckbox.addEventListener('change', (e) => {
+            config.invertDepth = e.target.checked;
+        });
     
         // Fullscreen controls
-        if (pointCloudCanvas) {
-            pointCloudCanvas.addEventListener('touchend', (e) => {
-                if (currentModeGetter() !== 'pointCloud') return;
-                const currentTime = new Date().getTime();
-                if (currentTime - lastCanvasTap < 300) { 
-                    togglePointCloudFullscreen(); 
-                    e.preventDefault(); 
-                }
-                lastCanvasTap = currentTime;
-            });
-            
-            pointCloudCanvas.addEventListener('dblclick', () => {
-                if (currentModeGetter() === 'pointCloud') {
-                    togglePointCloudFullscreen();
-                }
-            });
-        }
+        pointCloudCanvas.addEventListener('touchend', (e) => {
+            if (currentModeGetter() !== 'pointCloud') return;
+            const currentTime = new Date().getTime();
+            if (currentTime - lastCanvasTap < 300) { 
+                togglePointCloudFullscreen(); 
+                e.preventDefault(); 
+            }
+            lastCanvasTap = currentTime;
+        });
+        
+        pointCloudCanvas.addEventListener('dblclick', () => {
+            if (currentModeGetter() === 'pointCloud') {
+                togglePointCloudFullscreen();
+            }
+        });
 
         document.addEventListener('fullscreenchange', () => {
             if (currentModeGetter() === 'pointCloud' && !document.fullscreenElement && mainPointCloudContainer.classList.contains('fullscreen')) {
@@ -282,7 +307,6 @@ const PointCloud = (function() {
                  setTimeout(setupCanvasDimensions, 50); 
             }
         });
-        
         document.addEventListener('webkitfullscreenchange', () => { 
             if (currentModeGetter() === 'pointCloud' && !document.webkitIsFullScreen && mainPointCloudContainer.classList.contains('fullscreen')) {
                 exitPointCloudFullscreenMode();
@@ -302,10 +326,12 @@ const PointCloud = (function() {
             pointCloudCtx = pointCloudCanvas.getContext('2d', { willReadFrequently: true });
         }
         
+        if (parallaxSensitivityValue && parallaxSensitivityValue.previousElementSibling) {
+             parallaxSensitivityValue.previousElementSibling.textContent = "Parallax Sensitivity";
+        }
+        
         setupEventListeners();
         loadInitialPCEffects(); 
-        
-        console.log('Point cloud initialized in sensor-controlled mode');
     }
 
     return {
@@ -334,9 +360,6 @@ const PointCloud = (function() {
             const effect = getEffectById(effectId);
             if (!effect || !config.hasOwnProperty(effect.prop)) return false;
             return config[effect.prop] !== effect.default;
-        },
-        
-        // Debug function to check current configuration
-        getConfig: () => ({ ...config })
+        }
     };
 })();
