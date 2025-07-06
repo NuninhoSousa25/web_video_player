@@ -1,4 +1,4 @@
-// js/mapping_config.js - Updated with Artistic Effects
+// js/mapping_config.js - Point cloud effects removed
 const AVAILABLE_SENSORS = [
     { id: 'alpha', name: 'Rotation (Alpha)', description: 'Device rotation around Z-axis (0-360°)', typicalMin: 0, typicalMax: 360, unit: '°' },
     { id: 'beta', name: 'Tilt Fwd/Back (Beta)', description: 'Device tilt front/back (-180 to 180° for Android, -90 to 90° for iOS)', typicalMin: -90, typicalMax: 90, unit: '°' },
@@ -22,7 +22,7 @@ const AVAILABLE_SENSORS = [
 ];
 
 const AVAILABLE_EFFECTS = [
-    // Original video effects
+    // Video effects
     { id: 'brightness', name: 'Brightness', target: 'player', prop: 'brightness', min: 0, max: 300, default: 100, unit: '%', isFilter: true },
     { id: 'contrast', name: 'Contrast', target: 'player', prop: 'contrast', min: 0, max: 300, default: 100, unit: '%', isFilter: true },
     { id: 'saturation', name: 'Saturation', target: 'player', prop: 'saturate', min: 0, max: 300, default: 100, unit: '%', isFilter: true },
@@ -34,12 +34,7 @@ const AVAILABLE_EFFECTS = [
     { id: 'playbackRate', name: 'Playback Speed', target: 'player', prop: 'playbackRate', min: 0.25, max: 4, default: 1, unit: 'x' },
     { id: 'volume', name: 'Volume', target: 'player', prop: 'volume', min: 0, max: 1, default: 1, unit: '' },
     
-    // Point cloud effects
-    { id: 'pc_displacement', name: 'PC Displacement', target: 'pointcloud', prop: 'displacementScale', min: 0, max: 360, default: 50, unit: '' },
-    { id: 'pc_pointSize', name: 'PC Point Size', target: 'pointcloud', prop: 'pointSize', min: 1, max: 10, default: 3, unit: '' },
-    { id: 'pc_density', name: 'PC Density', target: 'pointcloud', prop: 'density', min: 8, max: 256, default: 32, unit: '' },
-    
-    // Simple Artistic Effects (that actually work!)
+    // Artistic Effects
     { id: 'pixelSort', name: '🎨 Pixel Sort', target: 'artistic', prop: 'pixelSort', min: 0, max: 100, default: 0, unit: '%' },
     { id: 'digitalGlitch', name: '🎨 Digital Glitch', target: 'artistic', prop: 'digitalGlitch', min: 0, max: 100, default: 0, unit: '%' },
     { id: 'chromaShift', name: '🎨 Chroma Shift', target: 'artistic', prop: 'chromaShift', min: 0, max: 100, default: 0, unit: '%' },
