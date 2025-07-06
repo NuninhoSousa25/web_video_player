@@ -342,17 +342,22 @@
         </div>
     </div>
 
-    <!-- Scripts - New modular structure -->
+    <!-- Scripts - FIXED ORDER: Core dependencies first -->
+    <!-- CRITICAL: Load mapping_config.js FIRST as it defines global functions -->
+    <script src="js/mapping_config.js"></script>
+    
     <!-- Core utilities -->
     <script src="js/utils/dom.js"></script>
     <script src="js/utils/fullscreen.js"></script>
     <script src="js/utils/animation.js"></script>
     
-    <!-- Original utilities and configs -->
+    <!-- Original utilities -->
     <script src="js/utils.js"></script>
-    <script src="js/mapping_config.js"></script>
     <script src="js/device_detector.js"></script>
     <script src="js/ui.js"></script>
+    
+    <!-- Mapping and core modules -->
+    <script src="js/mapping_manager.js"></script>
     
     <!-- Player modules -->
     <script src="js/player/core.js"></script>
@@ -365,11 +370,10 @@
     <!-- Other modules -->
     <script src="js/pointcloud.js"></script>
     <script src="js/sensors.js"></script>
-    <script src="js/mapping_manager.js"></script>
     <script src="js/mapping_panel.js"></script>
     <script src="js/mappings.js"></script>
     
-    <!-- Main app -->
+    <!-- Main app LAST -->
     <script src="js/main.js"></script>
 </body>
 </html>
