@@ -5,6 +5,7 @@ const PlayerControls = (function() {
     let playPauseBtn, playPauseFullscreen, loopBtn;
     let progressBar, progressBarFullscreen, mainProgressContainer, fullscreenProgressContainer;
     let videoPlayerControls, videoPlaceholder;
+    
     const ELEMENT_IDS = {
         playPauseBtn: 'playPauseBtn',
         playPauseFullscreen: 'playPauseFullscreen', 
