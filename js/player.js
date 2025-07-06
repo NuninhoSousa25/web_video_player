@@ -1,4 +1,4 @@
-// js/player.js - Refactored Player Module
+// js/player.js - Fixed Player Module with proper SimpleArtisticEffects initialization
 const Player = (function() {
     
     let mainVideoContainer, videoFullscreenBtn, fullscreenControlsOverlay;
@@ -99,16 +99,17 @@ const Player = (function() {
         
         // Initialize sub-modules
         core = PlayerCore;
+        artisticEffects = SimpleArtisticEffects; // FIXED: Initialize artistic effects first
         effects = PlayerEffects;
         transforms = PlayerTransforms;
         controls = PlayerControls;
-        artisticEffects = SimpleArtisticEffects; // Add the new artistic effects
         
+        // FIXED: Initialize in correct order - core first, then artistic effects, then effects
         core.init(modeGetter, pcModule);
-        effects.init(core);
+        artisticEffects.init(core); // Initialize artistic effects
+        effects.init(core, artisticEffects); // FIXED: Pass artistic effects reference to effects
         transforms.init(core, mainVideoContainer, modeGetter, pcModule);
         controls.init(core);
-        artisticEffects.init(core); // Initialize artistic effects
         
         setupFullscreenManager();
         setupEventListeners();
