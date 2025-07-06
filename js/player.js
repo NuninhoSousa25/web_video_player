@@ -7,7 +7,7 @@ const Player = (function() {
     let pointCloudModuleRef;
     
     // Sub-modules
-    let core, effects, transforms, controls;
+    let core, effects, transforms, controls, artisticEffects;
     
     // Fullscreen controls management
     let fsControlsTimeout;
@@ -102,11 +102,13 @@ const Player = (function() {
         effects = PlayerEffects;
         transforms = PlayerTransforms;
         controls = PlayerControls;
+        artisticEffects = SimpleArtisticEffects; // Add the new artistic effects
         
         core.init(modeGetter, pcModule);
         effects.init(core);
         transforms.init(core, mainVideoContainer, modeGetter, pcModule);
         controls.init(core);
+        artisticEffects.init(core); // Initialize artistic effects
         
         setupFullscreenManager();
         setupEventListeners();
@@ -118,7 +120,14 @@ const Player = (function() {
     
     // Public API - delegate to appropriate sub-modules
     function setEffect(effectId, value) {
-        effects.setEffect(effectId, value);
+        const effectDetails = getEffectById(effectId);
+        if (!effectDetails) return;
+        
+        if (effectDetails.target === 'artistic') {
+            artisticEffects.setEffect(effectId, value);
+        } else {
+            effects.setEffect(effectId, value);
+        }
     }
     
     function getVideoElement() {
@@ -139,6 +148,12 @@ const Player = (function() {
     
     function resetFilters() {
         effects.resetAllFilters();
+        // Reset artistic effects too
+        if (artisticEffects) {
+            ['pixelSort', 'digitalGlitch', 'chromaShift', 'kaleidoscope', 'colorQuantize', 'noiseOverlay'].forEach(effectId => {
+                artisticEffects.setEffect(effectId, 0);
+            });
+        }
     }
     
     function getDOM() {
@@ -146,10 +161,18 @@ const Player = (function() {
     }
     
     function isFilterApplied(effectId) {
+        const effectDetails = getEffectById(effectId);
+        if (effectDetails && effectDetails.target === 'artistic') {
+            return artisticEffects.isEffectActive(effectId);
+        }
         return effects.isFilterApplied(effectId);
     }
     
     function isEffectActive(effectId) {
+        const effectDetails = getEffectById(effectId);
+        if (effectDetails && effectDetails.target === 'artistic') {
+            return artisticEffects.isEffectActive(effectId);
+        }
         return effects.isEffectActive(effectId);
     }
     
