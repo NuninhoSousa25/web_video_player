@@ -292,6 +292,23 @@ input[type="file"] {
     border: none;
 }
 
+/* Filter Section Divider */
+.filter-section-divider {
+    margin: 20px 0 10px 0;
+    padding: 8px 0;
+    border-top: 2px solid #444;
+}
+
+.filter-section-divider h4 {
+    font-size: 14px;
+    font-weight: 600;
+    color: #2c7be5;
+    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    text-align: center;
+}
+
 /* Filter Controls */
 .filter-control { 
     margin-bottom: 12px; 
@@ -898,94 +915,5 @@ input[type="file"] {
     
     .sensor-mapping-panel .panel-content { 
         padding: 10px; 
-    }
-
-    .artistic-effects-section {
-    background-color: #2a2a2a; 
-    border-top: 1px solid #333;
-    padding: 12px 16px;
-}
-
-.section-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 10px;
-}
-
-.section-header h3 {
-    font-size: 16px;
-    font-weight: 600;
-    color: #f0f0f0;
-    margin: 0;
-}
-
-.section-toggle {
-    background-color: #555;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    padding: 4px 8px;
-    font-size: 12px;
-    cursor: pointer;
-}
-
-.section-toggle:hover {
-    background-color: #666;
-}
-
-.effect-group {
-    margin-bottom: 20px;
-    padding: 12px;
-    background-color: #333;
-    border-radius: 6px;
-    border-left: 3px solid #2c7be5;
-}
-
-.effect-group h4 {
-    font-size: 14px;
-    font-weight: 600;
-    color: #2c7be5;
-    margin: 0 0 12px 0;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.preset-buttons {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 8px;
-    margin-top: 10px;
-}
-
-.preset-btn {
-    background-color: #4caf50;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    padding: 8px 12px;
-    font-size: 12px;
-    cursor: pointer;
-    transition: background-color 0.2s;
-}
-
-.preset-btn:hover {
-    background-color: #45a049;
-}
-
-.preset-btn:active {
-    background-color: #3d8b40;
-    transform: translateY(1px);
-}
-
-/* Responsive adjustments */
-@media (max-width: 480px) {
-    .preset-buttons {
-        grid-template-columns: 1fr;
-    }
-    
-    .effect-group {
-        padding: 8px;
-        margin-bottom: 15px;
     }
 }
