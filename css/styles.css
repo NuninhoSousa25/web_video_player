@@ -831,4 +831,72 @@ input[type="file"] {
 
 /* Placeholder Message */
 .placeholder-message { 
-    padding:
+    padding: 30px; 
+    text-align: center; 
+    color: #888; 
+}
+
+.loop-info { 
+    font-size: 12px; 
+    color: #aaa; 
+    text-align: center; 
+    margin-top: 5px; 
+}
+
+/* Responsive Design */
+@media (max-width: 768px) and (min-width: 481px) {
+    .main-controls {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+    }
+    
+    .toggle-button {
+        min-width: 60px;
+        font-size: 11px;
+    }
+}
+
+@media (max-width: 480px) {
+    .controls, 
+    .filter-controls, 
+    .point-cloud-params-container { 
+        padding: 10px; 
+        gap: 10px;
+    }
+    
+    button, 
+    .file-label { 
+        padding: 8px 12px; 
+        font-size: 13px; 
+    }
+    
+    .toggle-button { 
+        min-width: 70px; 
+        font-size: 11px; 
+        padding: 6px 10px; 
+    }
+    
+    .main-controls { 
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px; 
+    }
+    
+    #playPauseBtn {
+        grid-column: 1 / -1;
+    }
+    
+    .sensor-config-controls { 
+        grid-template-columns: 1fr; 
+    } 
+    
+    .sensor-mapping-panel { 
+        width: 95%; 
+        max-height: 90vh; 
+    }
+    
+    .sensor-mapping-panel .panel-content { 
+        padding: 10px; 
+    }
+}
