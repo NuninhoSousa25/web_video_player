@@ -1,4 +1,4 @@
-// js/sensors.js
+// js/sensors.js - Simplified version without live displays and calibration
 const Sensors = (function() {
     // Constants
     const SENSOR_CONFIG = {
@@ -37,14 +37,8 @@ const Sensors = (function() {
         }
     };
 
-    // DOM Elements
-    let sensorToggleBtn, orientAlphaEl, orientBetaEl, orientGammaEl, compassNeedle,
-        alphaSensitivitySlider, betaSensitivitySlider, gammaSensitivitySlider, smoothingSlider,
-        alphaSensValueEl, betaSensValueEl, gammaSensValueEl, smoothingValueEl,
-        alphaOffsetSlider, betaOffsetSlider, gammaOffsetSlider,
-        alphaOffsetValueEl, betaOffsetValueEl, gammaOffsetValueEl,
-        calibrateBtn, invertBtn, sensorSectionControls, micVolumeValueEl,
-        compassContainer, motionConfigContainer, motionDisplayContainer; // New elements to hide
+    // DOM Elements - Only the toggle button now
+    let sensorToggleBtn, sensorSectionControls;
 
     // Module References
     let playerModuleRef;
@@ -61,11 +55,10 @@ const Sensors = (function() {
         gravity: false
     };
     
-    // Sensor Data - Use safer initialization
+    // Sensor Data
     function createInitialSensorData() {
         let proximityMax = SENSOR_CONFIG.DEFAULT_PROXIMITY_MAX;
         
-        // Safely get proximity sensor max value
         if (typeof getSensorById === 'function') {
             const proxSensor = getSensorById('proximity');
             if (proxSensor && proxSensor.typicalMax) {
@@ -87,10 +80,7 @@ const Sensors = (function() {
     let latestSensorData = createInitialSensorData();
     let smoothedSensorData = Object.assign({}, latestSensorData);
 
-    // Calibration and Configuration
-    let calibrationValues = { alpha: 0, beta: 0, gamma: 0 };
-    let manualOffsets = { alpha: 0, beta: 0, gamma: 0 };
-    let controlsInverted = false;
+    // Configuration - simplified, no user controls
     let smoothingFactor = SENSOR_CONFIG.DEFAULT_SMOOTHING_FACTOR;
 
     // Callbacks
@@ -108,6 +98,12 @@ const Sensors = (function() {
     let currentMicStream = null;
     let micRetryCount = 0;
 
+    // Device capabilities
+    let deviceCapabilities = {
+        hasTouch: false,
+        hasMotionSensors: false
+    };
+
     // Utility Functions
     const Logger = {
         error: (message, ...args) => console.error('[Sensors]', message, ...args),
@@ -117,103 +113,9 @@ const Sensors = (function() {
 
     function cacheDOMElements() {
         sensorToggleBtn = document.getElementById('sensorToggleBtn');
-        orientAlphaEl = document.getElementById('orientAlpha');
-        orientBetaEl = document.getElementById('orientBeta');
-        orientGammaEl = document.getElementById('orientGamma');
-        compassNeedle = document.getElementById('compassNeedle');
-        micVolumeValueEl = document.getElementById('micVolumeValue');
-        
-        alphaSensitivitySlider = document.getElementById('alphaSensitivitySlider');
-        betaSensitivitySlider = document.getElementById('betaSensitivitySlider');
-        gammaSensitivitySlider = document.getElementById('gammaSensitivitySlider');
-        smoothingSlider = document.getElementById('smoothingSlider');
-        
-        alphaSensValueEl = document.getElementById('alphaSensValue');
-        betaSensValueEl = document.getElementById('betaSensValue');
-        gammaSensValueEl = document.getElementById('gammaSensValue');
-        smoothingValueEl = document.getElementById('smoothingValue');
-        
-        alphaOffsetSlider = document.getElementById('alphaOffsetSlider');
-        betaOffsetSlider = document.getElementById('betaOffsetSlider');
-        gammaOffsetSlider = document.getElementById('gammaOffsetSlider');
-        
-        alphaOffsetValueEl = document.getElementById('alphaOffsetValue');
-        betaOffsetValueEl = document.getElementById('betaOffsetValue');
-        gammaOffsetValueEl = document.getElementById('gammaOffsetValue');
-        
-        calibrateBtn = document.getElementById('calibrateBtn');
-        invertBtn = document.getElementById('invertBtn');
         sensorSectionControls = document.getElementById('sensorSectionControls'); 
-
-        // Cache containers for hiding motion-specific controls
-        compassContainer = document.querySelector('.compass');
-        // Find parent containers of motion controls for easier hiding
-        if (orientAlphaEl) motionDisplayContainer = orientAlphaEl.closest('.sensor-values');
-        if (alphaSensitivitySlider) motionConfigContainer = alphaSensitivitySlider.closest('.sensor-configuration');
     }
 
-     // NEW FUNCTION: Hides motion-related UI if device lacks sensors
-    function updateUIVisibility() {
-        if (!deviceCapabilities.hasMotionSensors) {
-            Logger.info("Device lacks motion sensors. Hiding related UI controls.");
-
-            // Hide the visual displays for Alpha, Beta, Gamma, Gyro, Gravity
-            const motionValueSelectors = [
-                'orientAlpha', 'orientBeta', 'orientGamma', 'gyroXValue', 'gyroYValue',
-                'gyroZValue', 'gravityXValue', 'gravityYValue', 'gravityZValue'
-            ];
-            motionValueSelectors.forEach(id => {
-                const el = document.getElementById(id);
-                if (el && el.parentElement) {
-                    el.parentElement.classList.add('hidden');
-                }
-            });
-            
-            // Hide the entire compass
-            if (compassContainer) compassContainer.classList.add('hidden');
-            
-            // Hide the configuration sections for motion sensors
-            if (motionConfigContainer) {
-                // Hide specific titles and control groups
-                const configTitles = motionConfigContainer.querySelectorAll('.sensor-config-title');
-                if(configTitles[0]) configTitles[0].classList.add('hidden'); // Sensitivity Settings
-                if(configTitles[1]) configTitles[1].classList.add('hidden'); // Offset Adjustments
-
-                const controlGroups = motionConfigContainer.querySelectorAll('.sensor-config-controls');
-                if(controlGroups[0]) controlGroups[0].classList.add('hidden'); // Sensitivity sliders
-                if(controlGroups[1]) controlGroups[1].classList.add('hidden'); // Offset sliders
-            }
-
-            // Hide Calibrate and Invert buttons
-            if (calibrateBtn) calibrateBtn.classList.add('hidden');
-            if (invertBtn) invertBtn.classList.add('hidden');
-        }
-    }
-
-    function updateConfigDisplay() {
-        if (!alphaSensValueEl || !alphaSensitivitySlider || !betaSensValueEl || !betaSensitivitySlider || 
-            !gammaSensValueEl || !gammaSensitivitySlider || !smoothingValueEl || !smoothingSlider ||
-            !alphaOffsetValueEl || !alphaOffsetSlider || !betaOffsetValueEl || !betaOffsetSlider ||
-            !gammaOffsetValueEl || !gammaOffsetSlider) {
-            return; 
-        }
-
-        alphaSensValueEl.textContent = parseFloat(alphaSensitivitySlider.value).toFixed(1);
-        betaSensValueEl.textContent = parseFloat(betaSensitivitySlider.value).toFixed(1);
-        gammaSensValueEl.textContent = parseFloat(gammaSensitivitySlider.value).toFixed(1);
-        
-        smoothingFactor = parseFloat(smoothingSlider.value);
-        smoothingValueEl.textContent = smoothingFactor.toFixed(1);
-        
-        alphaOffsetValueEl.textContent = alphaOffsetSlider.value + '°';
-        betaOffsetValueEl.textContent = betaOffsetSlider.value + '°';
-        gammaOffsetValueEl.textContent = gammaOffsetSlider.value + '°';
-
-        manualOffsets.alpha = parseFloat(alphaOffsetSlider.value);
-        manualOffsets.beta = parseFloat(betaOffsetSlider.value);
-        manualOffsets.gamma = parseFloat(gammaOffsetSlider.value);
-    }
-    
     function setupEventListeners() {
         if (sensorToggleBtn) {
             sensorToggleBtn.addEventListener('click', function() {
@@ -223,91 +125,6 @@ const Sensors = (function() {
                     enable();
                 }
             });
-        }
-
-        if (calibrateBtn) {
-            calibrateBtn.addEventListener('click', function() {
-                if (!globallyEnabled) { 
-                    alert('Enable sensors first.'); 
-                    return; 
-                }
-                
-                calibrationValues.alpha = latestSensorData.alpha;
-                calibrationValues.beta = latestSensorData.beta;
-                calibrationValues.gamma = latestSensorData.gamma;
-                
-                manualOffsets = { alpha: 0, beta: 0, gamma: 0 };
-                if(alphaOffsetSlider) alphaOffsetSlider.value = 0; 
-                if(betaOffsetSlider) betaOffsetSlider.value = 0; 
-                if(gammaOffsetSlider) gammaOffsetSlider.value = 0;
-                updateConfigDisplay();
-
-                alert('Sensors calibrated. Manual offsets reset.');
-
-                if (playerModuleRef && playerModuleRef.resetFilters) {
-                     playerModuleRef.resetFilters();
-                }
-                if (onSensorUpdateCallback) {
-                    onSensorUpdateCallback();
-                }
-            });
-        }
-        
-        if (invertBtn) {
-            invertBtn.addEventListener('click', function() {
-                controlsInverted = !controlsInverted;
-                invertBtn.textContent = controlsInverted ? 'Controls Inverted' : 'Invert Controls';
-                invertBtn.style.backgroundColor = controlsInverted ? '#f44336' : '#555';
-                if (onSensorUpdateCallback) {
-                    onSensorUpdateCallback();
-                }
-            });
-        }
-
-        const configSliders = [
-            alphaSensitivitySlider, betaSensitivitySlider, gammaSensitivitySlider, 
-            smoothingSlider, alphaOffsetSlider, betaOffsetSlider, gammaOffsetSlider
-        ];
-
-        for (let i = 0; i < configSliders.length; i++) {
-            const slider = configSliders[i];
-            if (slider) {
-                slider.addEventListener('input', updateConfigDisplay);
-            }
-        }
-
-        if (smoothingSlider) {
-            smoothingSlider.addEventListener('input', function() {
-                smoothingFactor = parseFloat(smoothingSlider.value);
-                if (smoothingValueEl) {
-                    smoothingValueEl.textContent = smoothingFactor.toFixed(1);
-                }
-            });
-        }
-    }
-    
-    function updateSensorDisplay() {
-        function updateValue(elementId, value, decimals) {
-            if (typeof decimals === 'undefined') decimals = 2;
-            const element = document.getElementById(elementId);
-            if (element) {
-                element.textContent = value != null ? value.toFixed(decimals) : '0.00';
-            }
-        }
-
-        updateValue('orientAlpha', smoothedSensorData.alpha);
-        updateValue('orientBeta', smoothedSensorData.beta);
-        updateValue('orientGamma', smoothedSensorData.gamma);
-        updateValue('proximityValue', smoothedSensorData.proximity, 1);
-        updateValue('gyroXValue', smoothedSensorData.gyroX);
-        updateValue('gyroYValue', smoothedSensorData.gyroY);
-        updateValue('gyroZValue', smoothedSensorData.gyroZ);
-        updateValue('gravityXValue', smoothedSensorData.gravityX);
-        updateValue('gravityYValue', smoothedSensorData.gravityY);
-        updateValue('gravityZValue', smoothedSensorData.gravityZ);
-        
-        if (compassNeedle) {
-            compassNeedle.style.transform = 'rotate(' + (smoothedSensorData.alpha || 0) + 'deg)';
         }
     }
 
@@ -348,12 +165,12 @@ const Sensors = (function() {
             }
         }
 
-        updateSensorDisplay();
-
+        // Update point cloud if available
         if (pointCloudModuleRef && pointCloudModuleRef.updateSensorTilt) {
             pointCloudModuleRef.updateSensorTilt(smoothedSensorData.beta, smoothedSensorData.gamma);
         }
 
+        // Trigger mappings update
         if (onSensorUpdateCallback) {
             onSensorUpdateCallback();
         }
@@ -363,21 +180,10 @@ const Sensors = (function() {
         if (!globallyEnabled) return;
         
         try {
-            const rawAlpha = event.alpha || 0;
-            const rawBeta = event.beta || 0;
-            const rawGamma = event.gamma || 0;
-
-            const calAlpha = ((rawAlpha - calibrationValues.alpha + 360) % 360);
-            const calBeta = rawBeta - calibrationValues.beta;
-            const calGamma = rawGamma - calibrationValues.gamma;
-
-            const offsetAlpha = ((calAlpha - manualOffsets.alpha + 360) % 360);
-            const offsetBeta = calBeta - manualOffsets.beta;
-            const offsetGamma = calGamma - manualOffsets.gamma;
-
-            latestSensorData.alpha = controlsInverted ? (360 - offsetAlpha + 360) % 360 : offsetAlpha;
-            latestSensorData.beta = controlsInverted ? -offsetBeta : offsetBeta;
-            latestSensorData.gamma = controlsInverted ? -offsetGamma : offsetGamma;
+            // Simple handling without calibration or offsets
+            latestSensorData.alpha = event.alpha || 0;
+            latestSensorData.beta = event.beta || 0;
+            latestSensorData.gamma = event.gamma || 0;
             latestSensorData.compassHeading = latestSensorData.alpha;
             
             processSensorDataAndUpdate();
@@ -428,7 +234,6 @@ const Sensors = (function() {
         try {
             let maxDistance = SENSOR_CONFIG.DEFAULT_PROXIMITY_MAX;
             
-            // Safely get proximity sensor details
             if (typeof getSensorById === 'function') {
                 const proxSensorDetails = getSensorById('proximity');
                 if (proxSensorDetails && proxSensorDetails.typicalMax) {
@@ -448,13 +253,6 @@ const Sensors = (function() {
 
     function handleProximityError(event) {
         Logger.error('Proximity sensor error:', event.error.name, event.error.message);
-        if (event.error.name === 'NotAllowedError') {
-            alert('Access to the proximity sensor is not allowed. Please check your device settings.');
-        } else if (event.error.name === 'NotReadableError') {
-            alert('Proximity sensor is not readable. Please ensure your device has a working proximity sensor.');
-        } else {
-            alert('Error accessing proximity sensor: ' + event.error.message);
-        }
         
         if (proximitySensorInstance) {
             try { 
@@ -487,9 +285,6 @@ const Sensors = (function() {
                 }).catch(function(error) {
                     Logger.warn('Failed to start proximity sensor:', error);
                     permissionGranted.proximity = false;
-                    if (error.name === 'NotAllowedError') {
-                        alert('Permission to use proximity sensor was denied. Please check your device settings.');
-                    }
                     resolve();
                 });
             } catch (error) {
@@ -504,29 +299,23 @@ const Sensors = (function() {
     function cleanupMicrophone() {
         Logger.info("Cleaning up microphone...");
         
-        // Stop update interval
         if (micUpdateInterval) {
             clearInterval(micUpdateInterval);
             micUpdateInterval = null;
-            Logger.info("Stopped mic update interval");
         }
 
-        // Stop media stream tracks
         if (currentMicStream) {
             const tracks = currentMicStream.getTracks();
             for (let i = 0; i < tracks.length; i++) {
                 const track = tracks[i];
                 track.stop();
-                Logger.info('Stopped microphone track: ' + track.label + ' (state: ' + track.readyState + ')');
             }
             currentMicStream = null;
         }
 
-        // Disconnect audio nodes
         if (microphoneSource) {
             try {
                 microphoneSource.disconnect();
-                Logger.info("Disconnected microphone source");
             } catch (e) {
                 Logger.warn('Error disconnecting microphone source:', e);
             }
@@ -536,17 +325,14 @@ const Sensors = (function() {
         if (analyserNode) {
             try {
                 analyserNode.disconnect();
-                Logger.info("Disconnected analyser node");
             } catch (e) {
                 Logger.warn('Error disconnecting analyser:', e);
             }
             analyserNode = null;
         }
 
-        // Close audio context
         if (audioContext && audioContext.state !== 'closed') {
             audioContext.close().then(function() {
-                Logger.info('Audio context closed successfully');
                 audioContext = null;
             }).catch(function(e) {
                 Logger.warn('Error closing audio context:', e);
@@ -556,20 +342,9 @@ const Sensors = (function() {
             audioContext = null;
         }
 
-        // Reset data array
         audioDataArray = null;
-        
-        // Reset mic volume display
-        if (micVolumeValueEl) {
-            micVolumeValueEl.textContent = '0.00';
-            micVolumeValueEl.style.color = '';
-        }
-        
-        // Reset sensor data
         latestSensorData.micVolume = 0;
         smoothedSensorData.micVolume = 0;
-        
-        Logger.info("Microphone cleanup complete");
     }
 
     function setupMicrophoneSensor() {
@@ -577,15 +352,11 @@ const Sensors = (function() {
             Logger.info("Setting up microphone sensor...");
             
             try {
-                // Clean up any existing setup first
                 cleanupMicrophone();
                 
-                // Create new audio context
                 const AudioContextClass = window.AudioContext || window.webkitAudioContext;
                 audioContext = new AudioContextClass();
-                Logger.info('Audio context created, state: ' + audioContext.state);
                 
-                // Request microphone access with basic constraints
                 const constraints = {
                     audio: {
                         echoCancellation: false,
@@ -594,38 +365,24 @@ const Sensors = (function() {
                     }
                 };
                 
-                Logger.info("Requesting microphone access...");
                 navigator.mediaDevices.getUserMedia(constraints).then(function(stream) {
                     currentMicStream = stream;
-                    Logger.info('Microphone access granted, got ' + currentMicStream.getTracks().length + ' tracks');
                     
-                    // Resume audio context if suspended
                     if (audioContext.state === 'suspended') {
                         return audioContext.resume();
                     }
                     return Promise.resolve();
                 }).then(function() {
-                    Logger.info('Audio context resumed, new state: ' + audioContext.state);
-                    
-                    // Create audio nodes
                     analyserNode = audioContext.createAnalyser();
                     analyserNode.smoothingTimeConstant = MIC_CONFIG.ANALYZER.smoothingTimeConstant;
                     analyserNode.fftSize = MIC_CONFIG.ANALYZER.fftSize;
                     
                     microphoneSource = audioContext.createMediaStreamSource(currentMicStream);
-                    
-                    // Connect the nodes
                     microphoneSource.connect(analyserNode);
                     
-                    // Create data array for frequency analysis
                     audioDataArray = new Uint8Array(analyserNode.frequencyBinCount);
                     
-                    Logger.info('Audio setup complete - FFT size: ' + analyserNode.fftSize + ', Frequency bins: ' + analyserNode.frequencyBinCount);
-                    
-                    // Reset retry count on success
                     micRetryCount = 0;
-                    
-                    // Start the microphone monitoring
                     startMicrophoneMonitoring();
                     
                     Logger.info("Microphone sensor setup complete");
@@ -650,42 +407,29 @@ const Sensors = (function() {
             clearInterval(micUpdateInterval);
         }
         
-        Logger.info("Starting microphone monitoring...");
-        
         micUpdateInterval = setInterval(function() {
             if (!globallyEnabled || !analyserNode || !audioDataArray || 
                 !audioContext || audioContext.state === 'closed') {
-                Logger.warn("Microphone monitoring stopped - invalid state");
                 return;
             }
             
             try {
-                // Get frequency data
                 analyserNode.getByteFrequencyData(audioDataArray);
                 
-                // Calculate volume using multiple methods for better accuracy
                 let sum = 0;
                 let max = 0;
                 
                 for (let i = 0; i < audioDataArray.length; i++) {
                     const value = audioDataArray[i];
-                    sum += value * value; // For RMS
-                    max = Math.max(max, value); // Peak value
+                    sum += value * value;
+                    max = Math.max(max, value);
                 }
                 
-                // Calculate RMS (Root Mean Square) for average volume
                 const rms = Math.sqrt(sum / audioDataArray.length);
-                
-                // Use RMS primarily, but boost with peak for responsiveness
                 const combinedVolume = (rms * 0.7 + max * 0.3);
+                const volumePercent = Math.min(100, (combinedVolume / 128) * 150);
                 
-                // Convert to 0-100% with some amplification
-                const volumePercent = Math.min(100, (combinedVolume / 128) * 150); // 150% amplification
-                
-                // Update sensor data
                 latestSensorData.micVolume = volumePercent;
-                
-                // Apply smoothing and update
                 processSensorDataAndUpdate();
                 
             } catch (error) {
@@ -694,8 +438,6 @@ const Sensors = (function() {
             }
             
         }, SENSOR_CONFIG.MIC_UPDATE_INTERVAL);
-        
-        Logger.info('Microphone monitoring started with ' + SENSOR_CONFIG.MIC_UPDATE_INTERVAL + 'ms interval');
     }
 
     function handleMicrophoneError(error) {
@@ -704,13 +446,6 @@ const Sensors = (function() {
         permissionGranted.microphone = false;
         cleanupMicrophone();
 
-        // Update UI to show error
-        if (micVolumeValueEl) {
-            micVolumeValueEl.textContent = 'Error';
-            micVolumeValueEl.style.color = '#ff4444';
-        }
-
-        // Retry logic for certain errors
         if ((error.name === 'NotReadableError' || error.name === 'AbortError') && 
             micRetryCount < SENSOR_CONFIG.MAX_MIC_RETRIES) {
             micRetryCount++;
@@ -724,12 +459,11 @@ const Sensors = (function() {
             return;
         }
 
-        // Show user-friendly error message
         const errorMsg = ERROR_MESSAGES.MICROPHONE[error.name] || ERROR_MESSAGES.MICROPHONE.default;
         alert(errorMsg);
     }
     
-     function requestSensorPermissions() {
+    function requestSensorPermissions() {
         return new Promise(function(resolve) {
             let orientationGrantedUser = false;
             let motionGrantedUser = false;
@@ -738,7 +472,6 @@ const Sensors = (function() {
 
             const promises = [];
 
-            // ONLY request motion permissions if the device CAPABILITY exists
             if (deviceCapabilities.hasMotionSensors) {
                 Logger.info("Attempting to request motion sensor permissions...");
                 if (typeof DeviceOrientationEvent !== 'undefined' && DeviceOrientationEvent.requestPermission) {
@@ -761,14 +494,11 @@ const Sensors = (function() {
                     motionGrantedUser = true;
                 }
             } else {
-                 Logger.info("Skipping motion sensor permission requests (not supported).");
+                Logger.info("Skipping motion sensor permission requests (not supported).");
             }
             
-            // Proximity and Mic checks remain the same as they are capability-based already
             if ('ProximitySensor' in window) {
                proximityAPIAvailable = true; 
-            } else {
-                Logger.warn(ERROR_MESSAGES.SENSORS.proximityNotAvailable);
             }
 
             if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
@@ -796,11 +526,10 @@ const Sensors = (function() {
         });
     }
     
-     function enable() {
+    function enable() {
         Logger.info("Enabling sensors...");
         
         requestSensorPermissions().then(permissions => {
-            // Update permission state based on results
             permissionGranted.orientation = permissions.orientationGrantedUser;
             permissionGranted.motion = permissions.motionGrantedUser;
             permissionGranted.proximity = permissions.proximityAPIAvailable;
@@ -815,7 +544,6 @@ const Sensors = (function() {
                 throw new Error(ERROR_MESSAGES.SENSORS.noPermissions);
             }
 
-            // Set up listeners ONLY if permission was granted
             if (permissionGranted.orientation) {
                 window.addEventListener('deviceorientation', handleOrientationEvent, true);
                 Logger.info("Device orientation listener added.");
@@ -846,14 +574,11 @@ const Sensors = (function() {
         globallyEnabled = false;
         updateUIState(false);
         
-        // Clean up microphone
         cleanupMicrophone();
 
-        // Remove event listeners
         window.removeEventListener('deviceorientation', handleOrientationEvent, true);
         window.removeEventListener('devicemotion', handleMotionEvent, true);
         
-        // Clean up proximity sensor
         if (proximitySensorInstance) {
             try {
                 proximitySensorInstance.removeEventListener('reading', handleProximityEvent);
@@ -865,12 +590,8 @@ const Sensors = (function() {
             proximitySensorInstance = null;
         }
 
-        // Reset state
         latestSensorData = createInitialSensorData();
         smoothedSensorData = Object.assign({}, latestSensorData);
-        
-        // Update UI and effects
-        updateSensorDisplay();
         
         if (pointCloudModuleRef && pointCloudModuleRef.updateSensorTilt) {
             pointCloudModuleRef.updateSensorTilt(0, 0);
@@ -889,7 +610,6 @@ const Sensors = (function() {
         }
     }
 
-    // UPDATE the init function signature
     function init(sensorUpdCb, pModuleRef, pcModuleRef, capabilities) {
         try {
             Logger.info("Initializing sensors module...");
@@ -897,16 +617,10 @@ const Sensors = (function() {
             onSensorUpdateCallback = sensorUpdCb;
             playerModuleRef = pModuleRef;
             pointCloudModuleRef = pcModuleRef;
-            deviceCapabilities = capabilities; // Store received capabilities
+            deviceCapabilities = capabilities;
             
             cacheDOMElements();
-            updateUIVisibility(); // Adapt the UI based on capabilities
             setupEventListeners();
-            
-            if (smoothingSlider) smoothingFactor = parseFloat(smoothingSlider.value);
-            
-            updateConfigDisplay();
-            updateSensorDisplay();
             
             // Add visibility change handler for audio context management
             document.addEventListener('visibilitychange', function() {
@@ -937,12 +651,10 @@ const Sensors = (function() {
             return null;
         }
 
-        // For circular values, return the mapped value
         if (SENSOR_CONFIG.CIRCULAR_SENSORS.indexOf(sensorId) !== -1) {
             return mapCircularValue(smoothedSensorData[sensorId], 0, 360);
         }
         
-        // For other sensors, return the smoothed value directly
         return smoothedSensorData[sensorId];
     }
     
@@ -958,10 +670,11 @@ const Sensors = (function() {
         }
     }
 
-    // Public API
     return {
-         init: init,
+        init: init,
         isGloballyEnabled: () => globallyEnabled,
         getSensorValue: getSensorValue,
+        hideControls: hideControls,
+        showControls: showControls
     };
 })();
