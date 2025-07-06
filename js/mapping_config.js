@@ -39,38 +39,14 @@ const AVAILABLE_EFFECTS = [
     { id: 'pc_pointSize', name: 'PC Point Size', target: 'pointcloud', prop: 'pointSize', min: 1, max: 10, default: 3, unit: '' },
     { id: 'pc_density', name: 'PC Density', target: 'pointcloud', prop: 'density', min: 8, max: 256, default: 32, unit: '' },
     
-    // NEW: Digital Art Effects - Pixel Sorting
-    { id: 'pixelSort', name: '🎨 Pixel Sort', target: 'artistic', prop: 'pixelSort', min: 0, max: 100, default: 0, unit: '%', 
-      description: 'Sorts pixels by brightness creating digital art streaks' },
-    { id: 'pixelSortThreshold', name: '🎨 Pixel Sort Threshold', target: 'artistic', prop: 'pixelSortThreshold', min: 0, max: 255, default: 128, unit: '', 
-      description: 'Brightness threshold for pixel sorting trigger' },
-    { id: 'pixelSortDirection', name: '🎨 Pixel Sort Direction', target: 'artistic', prop: 'pixelSortDirection', min: 0, max: 1, default: 0, unit: '', 
-      description: 'Sort direction: 0=horizontal, 1=vertical' },
-    
-    // NEW: Datamoshing
-    { id: 'datamosh', name: '🎨 Datamosh', target: 'artistic', prop: 'datamosh', min: 0, max: 100, default: 0, unit: '%', 
-      description: 'Corrupted digital blocks effect' },
-    { id: 'datamoshBlockSize', name: '🎨 Datamosh Block Size', target: 'artistic', prop: 'datamoshBlockSize', min: 4, max: 32, default: 8, unit: 'px', 
-      description: 'Size of corrupted blocks' },
-    
-    // NEW: Digital Glitch
-    { id: 'digitalGlitch', name: '🎨 Digital Glitch', target: 'artistic', prop: 'digitalGlitch', min: 0, max: 100, default: 0, unit: '%', 
-      description: 'Digital interference and pixel drift' },
-    { id: 'glitchScanlines', name: '🎨 Glitch Scanlines', target: 'artistic', prop: 'glitchScanlines', min: 0, max: 1, default: 1, unit: '', 
-      description: 'Enable scanline interference' },
-    
-    // NEW: Kaleidoscope
-    { id: 'kaleidoscope', name: '🎨 Kaleidoscope', target: 'artistic', prop: 'kaleidoscope', min: 0, max: 100, default: 0, unit: '%', 
-      description: 'Symmetrical kaleidoscope mirror effect' },
-    { id: 'kaleidoscopeSegments', name: '🎨 Kaleidoscope Segments', target: 'artistic', prop: 'kaleidoscopeSegments', min: 3, max: 12, default: 6, unit: '', 
-      description: 'Number of symmetrical segments' },
-    
-    // NEW: Procedural Noise Effects
-    { id: 'perlinNoise', name: '🎨 Perlin Noise', target: 'artistic', prop: 'perlinNoise', min: 0, max: 100, default: 0, unit: '%', 
-      description: 'Organic procedural noise overlay' },
-    { id: 'noiseScale', name: '🎨 Noise Scale', target: 'artistic', prop: 'noiseScale', min: 10, max: 500, default: 100, unit: '', 
-      description: 'Scale of noise pattern' },
-    { id: 'noiseSpeed', name: '🎨 Noise Animation', target: 'artistic', prop: 'noiseSpeed', min: 0, max: 10, default: 1, unit: '', 
+    // NEW: Simple Artistic Effects (that actually work!)
+    { id: 'pixelSort', name: '🎨 Pixel Sort', target: 'artistic', prop: 'pixelSort', min: 0, max: 100, default: 0, unit: '%' },
+    { id: 'digitalGlitch', name: '🎨 Digital Glitch', target: 'artistic', prop: 'digitalGlitch', min: 0, max: 100, default: 0, unit: '%' },
+    { id: 'chromaShift', name: '🎨 Chroma Shift', target: 'artistic', prop: 'chromaShift', min: 0, max: 100, default: 0, unit: '%' },
+    { id: 'kaleidoscope', name: '🎨 Kaleidoscope', target: 'artistic', prop: 'kaleidoscope', min: 0, max: 100, default: 0, unit: '%' },
+    { id: 'colorQuantize', name: '🎨 Color Quantize', target: 'artistic', prop: 'colorQuantize', min: 0, max: 100, default: 0, unit: '%' },
+    { id: 'noiseOverlay', name: '🎨 Noise Overlay', target: 'artistic', prop: 'noiseOverlay', min: 0, max: 100, default: 0, unit: '%' }
+]; 'noiseSpeed', name: '🎨 Noise Animation', target: 'artistic', prop: 'noiseSpeed', min: 0, max: 10, default: 1, unit: '', 
       description: 'Speed of noise animation' },
     
     // NEW: Color Displacement
