@@ -9,6 +9,10 @@ const PlayerEffects = (function() {
     let brightnessValue, saturationValue, contrastValue, hueValue;
     let resetFiltersBtn;
     
+    // Artistic effect sliders
+    let pixelSortSlider, digitalGlitchSlider, chromaShiftSlider, kaleidoscopeSlider, colorQuantizeSlider, noiseOverlaySlider;
+    let pixelSortValue, digitalGlitchValue, chromaShiftValue, kaleidoscopeValue, colorQuantizeValue, noiseOverlayValue;
+    
     const ELEMENT_IDS = {
         volumeSlider: 'volumeSlider',
         brightnessSlider: 'brightnessSlider',
@@ -19,7 +23,21 @@ const PlayerEffects = (function() {
         saturationValue: 'saturationValue',
         contrastValue: 'contrastValue',
         hueValue: 'hueValue',
-        resetFiltersBtn: 'resetFiltersBtn'
+        resetFiltersBtn: 'resetFiltersBtn',
+        
+        // Artistic effects
+        pixelSortSlider: 'pixelSortSlider',
+        digitalGlitchSlider: 'digitalGlitchSlider',
+        chromaShiftSlider: 'chromaShiftSlider',
+        kaleidoscopeSlider: 'kaleidoscopeSlider',
+        colorQuantizeSlider: 'colorQuantizeSlider',
+        noiseOverlaySlider: 'noiseOverlaySlider',
+        pixelSortValue: 'pixelSortValue',
+        digitalGlitchValue: 'digitalGlitchValue',
+        chromaShiftValue: 'chromaShiftValue',
+        kaleidoscopeValue: 'kaleidoscopeValue',
+        colorQuantizeValue: 'colorQuantizeValue',
+        noiseOverlayValue: 'noiseOverlayValue'
     };
     
     function cacheDOMElements() {
@@ -34,6 +52,20 @@ const PlayerEffects = (function() {
         contrastValue = elements.contrastValue;
         hueValue = elements.hueValue;
         resetFiltersBtn = elements.resetFiltersBtn;
+        
+        // Artistic effect elements
+        pixelSortSlider = elements.pixelSortSlider;
+        digitalGlitchSlider = elements.digitalGlitchSlider;
+        chromaShiftSlider = elements.chromaShiftSlider;
+        kaleidoscopeSlider = elements.kaleidoscopeSlider;
+        colorQuantizeSlider = elements.colorQuantizeSlider;
+        noiseOverlaySlider = elements.noiseOverlaySlider;
+        pixelSortValue = elements.pixelSortValue;
+        digitalGlitchValue = elements.digitalGlitchValue;
+        chromaShiftValue = elements.chromaShiftValue;
+        kaleidoscopeValue = elements.kaleidoscopeValue;
+        colorQuantizeValue = elements.colorQuantizeValue;
+        noiseOverlayValue = elements.noiseOverlayValue;
     }
     
     function applyCombinedVideoFilters() {
@@ -107,6 +139,26 @@ const PlayerEffects = (function() {
         if (hueValue && hueSlider) {
             hueValue.textContent = `${hueSlider.value}deg`;
         }
+        
+        // Update artistic effect displays
+        if (pixelSortValue && pixelSortSlider) {
+            pixelSortValue.textContent = `${pixelSortSlider.value}%`;
+        }
+        if (digitalGlitchValue && digitalGlitchSlider) {
+            digitalGlitchValue.textContent = `${digitalGlitchSlider.value}%`;
+        }
+        if (chromaShiftValue && chromaShiftSlider) {
+            chromaShiftValue.textContent = `${chromaShiftSlider.value}%`;
+        }
+        if (kaleidoscopeValue && kaleidoscopeSlider) {
+            kaleidoscopeValue.textContent = `${kaleidoscopeSlider.value}%`;
+        }
+        if (colorQuantizeValue && colorQuantizeSlider) {
+            colorQuantizeValue.textContent = `${colorQuantizeSlider.value}%`;
+        }
+        if (noiseOverlayValue && noiseOverlaySlider) {
+            noiseOverlayValue.textContent = `${noiseOverlaySlider.value}%`;
+        }
     }
     
     function resetAllFilters() {
@@ -119,6 +171,24 @@ const PlayerEffects = (function() {
                 } else if (currentFilterStyles.hasOwnProperty(effect.id)) {
                     setEffect(effect.id, effect.default);
                 }
+            }
+        });
+        
+        // Reset artistic effects
+        const artisticSliders = [
+            { slider: pixelSortSlider, effect: 'pixelSort' },
+            { slider: digitalGlitchSlider, effect: 'digitalGlitch' },
+            { slider: chromaShiftSlider, effect: 'chromaShift' },
+            { slider: kaleidoscopeSlider, effect: 'kaleidoscope' },
+            { slider: colorQuantizeSlider, effect: 'colorQuantize' },
+            { slider: noiseOverlaySlider, effect: 'noiseOverlay' }
+        ];
+        
+        artisticSliders.forEach(config => {
+            if (config.slider) {
+                config.slider.value = 0;
+                // Trigger change event to update display and apply effect
+                config.slider.dispatchEvent(new Event('input'));
             }
         });
         
@@ -197,6 +267,30 @@ const PlayerEffects = (function() {
                 config.slider.addEventListener('input', () => {
                     setEffect(config.effect, parseFloat(config.slider.value));
                     localStorage.setItem(config.storageKey, config.slider.value);
+                });
+            }
+        });
+        
+        // Artistic effect sliders (no local storage saving for these)
+        const artisticSliderConfigs = [
+            { slider: pixelSortSlider, effect: 'pixelSort' },
+            { slider: digitalGlitchSlider, effect: 'digitalGlitch' },
+            { slider: chromaShiftSlider, effect: 'chromaShift' },
+            { slider: kaleidoscopeSlider, effect: 'kaleidoscope' },
+            { slider: colorQuantizeSlider, effect: 'colorQuantize' },
+            { slider: noiseOverlaySlider, effect: 'noiseOverlay' }
+        ];
+        
+        artisticSliderConfigs.forEach(config => {
+            if (config.slider) {
+                config.slider.addEventListener('input', () => {
+                    const value = parseFloat(config.slider.value);
+                    updateFilterDisplayValues(); // Update display immediately
+                    
+                    // Dispatch custom event for artistic effects
+                    document.dispatchEvent(new CustomEvent('artisticEffect:change', {
+                        detail: { effectId: config.effect, value: value }
+                    }));
                 });
             }
         });
