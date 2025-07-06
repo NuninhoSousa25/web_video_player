@@ -62,7 +62,7 @@
                 </div>
             </div>
             
-            <!-- REMOVED: All filter control sliders -->
+            <!-- REMOVED: All video filter control sliders -->
             
         </div>
 
@@ -71,13 +71,32 @@
             <div class="point-cloud-container" id="mainPointCloudContainer">
                 <canvas id="pointCloudCanvas"></canvas>
             </div>
-            <!-- SIMPLIFIED: Keep only essential point cloud controls -->
+            <!-- RESTORED: Point cloud parameter sliders -->
             <div class="point-cloud-params-container" id="pointCloudParams">
                 <div class="filter-control">
-                    <label for="pcInvertDepthCheckbox" class="checkbox-label">
-                        <input type="checkbox" id="pcInvertDepthCheckbox">
-                        Invert Point Cloud Depth
-                    </label>
+                    <div class="filter-label">
+                        <span class="active-mapping-indicator-container">Point Density<span class="active-mapping-dot" data-effect-id="pc_density"></span></span>
+                        <span class="filter-value" id="densityValue">32</span>
+                    </div>
+                    <input type="range" min="8" max="256" value="32" step="1" class="filter-slider" id="densitySlider"> 
+                </div>
+                <div class="filter-control">
+                    <div class="filter-label">
+                        <span class="active-mapping-indicator-container">Displacement Scale<span class="active-mapping-dot" data-effect-id="pc_displacement"></span></span>
+                        <span class="filter-value" id="displacementValue">50</span>
+                    </div>
+                    <input type="range" min="0" max="360" value="50" step="1" class="filter-slider" id="displacementSlider">
+                </div>
+                <div class="filter-control">
+                    <div class="filter-label">
+                        <span class="active-mapping-indicator-container">Point Size<span class="active-mapping-dot" data-effect-id="pc_pointSize"></span></span>
+                        <span class="filter-value" id="pointSizeValue">3</span>
+                    </div>
+                    <input type="range" min="1" max="10" value="3" step="1" class="filter-slider" id="pointSizeSlider">
+                </div>
+                <div class="filter-control"> 
+                    <div class="filter-label"><span>Parallax Sensitivity</span><span class="filter-value" id="tiltSensitivityValue">10</span></div>
+                    <input type="range" min="0" max="150" value="10" step="1" class="filter-slider" id="tiltSensitivitySlider"> 
                 </div>
                 <div class="filter-control">
                     <div class="filter-label"><span>Processing Detail</span><span class="filter-value" id="pcProcessingValue">Medium</span></div>
@@ -88,11 +107,16 @@
                         <option value="240">Max (240px)</option>
                     </select>
                 </div>
-                <!-- REMOVED: Point cloud parameter sliders (density, displacement, point size, parallax) -->
+                <div class="filter-control">
+                    <label for="pcInvertDepthCheckbox" class="checkbox-label">
+                        <input type="checkbox" id="pcInvertDepthCheckbox">
+                        Invert Point Cloud Depth
+                    </label>
+                </div>
             </div>
         </div>
 
-        <!-- ENHANCED: Sensor mapping panel is now the primary way to control effects -->
+        <!-- ENHANCED: Sensor mapping panel is now the primary way to control video effects -->
         <div class="mapping-panel-toggle-container">
             <button id="toggleMappingPanelBtn" class="button">Sensor Mapping Panel</button>
             <p class="mapping-info-text">Configure sensor-to-effect mappings to control video effects with device motion</p>
@@ -117,7 +141,7 @@
         </div>
     </div>
 
-    <!-- Sensor Mapping Panel - Now the primary interface for effects -->
+    <!-- Sensor Mapping Panel - Now the primary interface for video effects -->
     <div id="sensorMappingPanel" class="sensor-mapping-panel hidden">
         <div class="panel-header">
             <h2>Sensor Effect Mappings</h2>
