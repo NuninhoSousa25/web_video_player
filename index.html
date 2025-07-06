@@ -207,74 +207,16 @@
             <div class="file-name" id="fileName">No file selected</div>
         </div>
         
+        <!-- CLEANED UP: Simplified sensor section -->
         <div class="sensor-section" id="sensorSectionControls">
             <div class="sensor-heading">
                 <div class="sensor-title">Motion Controls</div>
                 <button id="sensorToggleBtn" class="sensor-toggle">Enable Sensors</button>
             </div>
             <div class="mapping-info" id="sensorMappingInfo"></div>
-            <div class="sensor-values">
-                <div class="sensor-value"><div class="value-label">Alpha (°)</div><div id="orientAlpha" class="value-number">0.00</div></div>
-                <div class="sensor-value"><div class="value-label">Beta (°)</div><div id="orientBeta" class="value-number">0.00</div></div>
-                <div class="sensor-value"><div class="value-label">Gamma (°)</div><div id="orientGamma" class="value-number">0.00</div></div>
-                <div class="sensor-value"><div class="value-label">Proximity (%)</div><div id="proximityValue" class="value-number">0.00</div></div>
-                <div class="sensor-value"><div class="value-label">Gyro X (rad/s)</div><div id="gyroXValue" class="value-number">0.00</div></div>
-                <div class="sensor-value"><div class="value-label">Gyro Y (rad/s)</div><div id="gyroYValue" class="value-number">0.00</div></div>
-                <div class="sensor-value"><div class="value-label">Gyro Z (rad/s)</div><div id="gyroZValue" class="value-number">0.00</div></div>
-                <div class="sensor-value"><div class="value-label">Gravity X (m/s²)</div><div id="gravityXValue" class="value-number">0.00</div></div>
-                <div class="sensor-value"><div class="value-label">Gravity Y (m/s²)</div><div id="gravityYValue" class="value-number">0.00</div></div>
-                <div class="sensor-value"><div class="value-label">Gravity Z (m/s²)</div><div id="gravityZValue" class="value-number">0.00</div></div>
-                <div class="sensor-value"><div class="value-label">Mic Volume (%)</div><div id="micVolumeValue" class="value-number">0.00</div></div>
-            </div>
-            <div style="display: flex; justify-content: center;"> 
-                <div class="compass">
-                    <div id="compassNeedle" class="compass-needle"></div>
-                    <div class="compass-center"></div>
-                    <div class="compass-marker">
-                        <span class="north">N</span><span class="east">E</span><span class="south">S</span><span class="west">W</span>
-                    </div>
-                </div>
-            </div>
-            <div class="sensor-configuration">
-                <div class="sensor-config-title">Sensor Sensitivity Settings</div>
-                <div class="sensor-config-controls">
-                    <div class="sensor-config-control">
-                        <div class="config-label"><span>Alpha Sensitivity</span><span class="config-value" id="alphaSensValue">1.0</span></div>
-                        <input type="range" min="0.1" max="2" step="0.1" value="1" class="config-slider" id="alphaSensitivitySlider">
-                    </div>
-                    <div class="sensor-config-control">
-                        <div class="config-label"><span>Beta Sensitivity</span><span class="config-value" id="betaSensValue">1.0</span></div>
-                        <input type="range" min="0.1" max="2" step="0.1" value="1" class="config-slider" id="betaSensitivitySlider">
-                    </div>
-                    <div class="sensor-config-control">
-                        <div class="config-label"><span>Gamma Sensitivity</span><span class="config-value" id="gammaSensValue">1.0</span></div>
-                        <input type="range" min="0.1" max="2" step="0.1" value="1" class="config-slider" id="gammaSensitivitySlider">
-                    </div>
-                    <div class="sensor-config-control">
-                        <div class="config-label"><span>Smoothing</span><span class="config-value" id="smoothingValue">0.3</span></div>
-                        <input type="range" min="0" max="0.9" step="0.1" value="0.3" class="config-slider" id="smoothingSlider">
-                    </div>
-                </div>
-                <div class="sensor-config-title">Manual Offset Adjustments</div>
-                <div class="sensor-config-controls">
-                    <div class="sensor-config-control">
-                        <div class="config-label"><span>Alpha Offset</span><span class="config-value" id="alphaOffsetValue">0°</span></div>
-                        <input type="range" min="-180" max="180" step="5" value="0" class="config-slider" id="alphaOffsetSlider">
-                    </div>
-                    <div class="sensor-config-control">
-                        <div class="config-label"><span>Beta Offset</span><span class="config-value" id="betaOffsetValue">0°</span></div>
-                        <input type="range" min="-45" max="45" step="1" value="0" class="config-slider" id="betaOffsetSlider">
-                    </div>
-                    <div class="sensor-config-control">
-                        <div class="config-label"><span>Gamma Offset</span><span class="config-value" id="gammaOffsetValue">0°</span></div>
-                        <input type="range" min="-45" max="45" step="1" value="0" class="config-slider" id="gammaOffsetSlider">
-                    </div>
-                </div>
-                <div class="sensor-actions">
-                    <button id="calibrateBtn" class="sensor-action-btn">Calibrate</button>
-                    <button id="invertBtn" class="sensor-action-btn">Invert Controls</button>
-                </div>
-            </div>
+            
+            <!-- REMOVED: Live sensor value displays, compass, and all configuration sections -->
+            
         </div>
     </div>
 
@@ -362,11 +304,10 @@
     
     <!-- Player modules - UPDATED ORDER -->
     <script src="js/player/core.js"></script>
-    <script src="js/player/unified-effects.js"></script> <!-- NEW: Load unified effects before other player modules -->
+    <script src="js/player/unified-effects.js"></script>
     <script src="js/player/effects.js"></script>
     <script src="js/player/transforms.js"></script>
     <script src="js/player/controls.js"></script>
-    <!-- REMOVED: simple-artistic.js - no longer needed -->
     <script src="js/player.js"></script>
     
     <!-- Other modules -->
