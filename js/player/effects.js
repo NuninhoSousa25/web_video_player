@@ -1,8 +1,11 @@
-// js/player/effects.js
+// js/player/effects.js - Fixed to properly handle artistic effects
 const PlayerEffects = (function() {
     
     let videoPlayer;
     let currentFilterStyles = {};
+    
+    // Reference to artistic effects module
+    let artisticEffectsRef;
     
     // DOM elements for sliders and displays
     let volumeSlider, brightnessSlider, saturationSlider, contrastSlider, hueSlider;
@@ -94,7 +97,7 @@ const PlayerEffects = (function() {
     
     function setEffect(effectId, value) {
         const effectDetails = getEffectById(effectId);
-        if (!effectDetails || effectDetails.target !== 'player' || !videoPlayer) return;
+        if (!effectDetails || effectDetails.target !== 'player') return;
 
         if (effectDetails.isFilter) {
             currentFilterStyles[effectId] = value;
@@ -174,7 +177,14 @@ const PlayerEffects = (function() {
             }
         });
         
-        // Reset artistic effects
+        // Reset artistic effects via the artistic effects module
+        if (artisticEffectsRef) {
+            ['pixelSort', 'digitalGlitch', 'chromaShift', 'kaleidoscope', 'colorQuantize', 'noiseOverlay'].forEach(effectId => {
+                artisticEffectsRef.setEffect(effectId, 0);
+            });
+        }
+        
+        // Reset artistic effect sliders
         const artisticSliders = [
             { slider: pixelSortSlider, effect: 'pixelSort' },
             { slider: digitalGlitchSlider, effect: 'digitalGlitch' },
@@ -271,7 +281,7 @@ const PlayerEffects = (function() {
             }
         });
         
-        // Artistic effect sliders (no local storage saving for these)
+        // FIXED: Artistic effect sliders - directly call SimpleArtisticEffects
         const artisticSliderConfigs = [
             { slider: pixelSortSlider, effect: 'pixelSort' },
             { slider: digitalGlitchSlider, effect: 'digitalGlitch' },
@@ -287,10 +297,15 @@ const PlayerEffects = (function() {
                     const value = parseFloat(config.slider.value);
                     updateFilterDisplayValues(); // Update display immediately
                     
-                    // Dispatch custom event for artistic effects
-                    document.dispatchEvent(new CustomEvent('artisticEffect:change', {
-                        detail: { effectId: config.effect, value: value }
-                    }));
+                    // FIXED: Directly call SimpleArtisticEffects
+                    if (artisticEffectsRef) {
+                        artisticEffectsRef.setEffect(config.effect, value);
+                    }
+                    
+                    // Update mapping indicators
+                    if (typeof UI !== 'undefined' && UI.updateActiveMappingIndicators) {
+                        UI.updateActiveMappingIndicators();
+                    }
                 });
             }
         });
@@ -301,8 +316,9 @@ const PlayerEffects = (function() {
         }
     }
     
-    function init(playerCore) {
+    function init(playerCore, artisticEffects) {
         videoPlayer = playerCore.getVideoElement();
+        artisticEffectsRef = artisticEffects; // Store reference to artistic effects
         
         cacheDOMElements();
         setupEventListeners();
@@ -317,6 +333,11 @@ const PlayerEffects = (function() {
     function isEffectActive(effectId) {
         const effect = getEffectById(effectId);
         if (!effect) return false;
+        
+        // Check if it's an artistic effect
+        if (effect.target === 'artistic' && artisticEffectsRef) {
+            return artisticEffectsRef.isEffectActive(effectId);
+        }
         
         if (effect.isFilter) {
             return currentFilterStyles.hasOwnProperty(effectId) && 
