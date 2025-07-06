@@ -35,7 +35,7 @@
                 <p>Select a video file to play</p>
             </div>
             
-            <!-- SIMPLIFIED: Only essential playback controls -->
+            <!-- SIMPLIFIED: Basic video controls only -->
             <div class="controls" id="videoPlayerControls">
                 <div class="progress-container" id="mainProgressContainer">
                     <div class="progress-bar" id="progressBar"></div>
@@ -51,23 +51,19 @@
                     <button id="rotateBtn" class="toggle-button">Rotate: 0°</button>
                     <button id="fitToScreenBtn" class="toggle-button">Fit: OFF</button>
                 </div>
-                <!-- KEPT: Volume control as it's essential for video playback -->
+                <!-- KEPT: Volume control as it's essential for accessibility -->
                 <div class="volume-container">
-                    <div class="volume-icon active-mapping-indicator-container">
-                        🔊
-                        <span class="active-mapping-dot" data-effect-id="volume"></span>
-                    </div>
+                    <div class="volume-icon">🔊</div>
                     <input type="range" min="0" max="1" step="0.1" value="1" class="volume-slider" id="volumeSlider">
                 </div>
-                
-                <!-- SIMPLIFIED: Just a reset button for effects -->
-                <div class="effects-info">
-                    <p>Video effects are controlled by device sensors. Use the Sensor Mapping Panel to configure effects.</p>
+                <!-- ADDED: Reset effects button for convenience -->
+                <div class="effects-controls">
                     <button id="resetFiltersBtn" class="filter-reset">Reset All Effects</button>
                 </div>
             </div>
             
             <!-- REMOVED: All filter control sliders -->
+            
         </div>
 
         <!-- Point Cloud Mode Content -->
@@ -75,27 +71,31 @@
             <div class="point-cloud-container" id="mainPointCloudContainer">
                 <canvas id="pointCloudCanvas"></canvas>
             </div>
-            
-            <!-- SIMPLIFIED: Point cloud info without manual controls -->
+            <!-- SIMPLIFIED: Keep only essential point cloud controls -->
             <div class="point-cloud-params-container" id="pointCloudParams">
-                <div class="effects-info">
-                    <p>Point cloud parameters are controlled by device sensors. Use the Sensor Mapping Panel to configure point cloud effects.</p>
-                    <div class="filter-control">
-                        <label for="pcInvertDepthCheckbox" class="checkbox-label">
-                            <input type="checkbox" id="pcInvertDepthCheckbox">
-                            Invert Point Cloud Depth
-                        </label>
-                    </div>
+                <div class="filter-control">
+                    <label for="pcInvertDepthCheckbox" class="checkbox-label">
+                        <input type="checkbox" id="pcInvertDepthCheckbox">
+                        Invert Point Cloud Depth
+                    </label>
                 </div>
+                <div class="filter-control">
+                    <div class="filter-label"><span>Processing Detail</span><span class="filter-value" id="pcProcessingValue">Medium</span></div>
+                    <select id="pcProcessingResolutionSlider" class="filter-slider">
+                        <option value="60">Low (60px)</option>
+                        <option value="120" selected>Medium (120px)</option>
+                        <option value="180">High (180px)</option>
+                        <option value="240">Max (240px)</option>
+                    </select>
+                </div>
+                <!-- REMOVED: Point cloud parameter sliders (density, displacement, point size, parallax) -->
             </div>
-            
-            <!-- REMOVED: All point cloud parameter sliders -->
         </div>
 
-        <!-- ENHANCED: Prominent mapping panel access -->
+        <!-- ENHANCED: Sensor mapping panel is now the primary way to control effects -->
         <div class="mapping-panel-toggle-container">
-            <button id="toggleMappingPanelBtn" class="button primary-button">🎛️ Configure Sensor Effects</button>
-            <p class="mapping-help-text">Create mappings between device sensors and video effects</p>
+            <button id="toggleMappingPanelBtn" class="button">Sensor Mapping Panel</button>
+            <p class="mapping-info-text">Configure sensor-to-effect mappings to control video effects with device motion</p>
         </div>
 
         <!-- Common Controls -->
@@ -108,16 +108,16 @@
         <!-- SIMPLIFIED: Minimal sensor section -->
         <div class="sensor-section" id="sensorSectionControls">
             <div class="sensor-heading">
-                <div class="sensor-title">Device Sensors</div>
+                <div class="sensor-title">Motion Controls</div>
                 <button id="sensorToggleBtn" class="sensor-toggle">Enable Sensors</button>
             </div>
             <div class="mapping-info" id="sensorMappingInfo">
-                <p>Enable sensors to control video effects with device motion, rotation, and audio input.</p>
+                <p>Enable sensors and use the Sensor Mapping Panel to control video effects with device motion.</p>
             </div>
         </div>
     </div>
 
-    <!-- Sensor Mapping Panel - UNCHANGED -->
+    <!-- Sensor Mapping Panel - Now the primary interface for effects -->
     <div id="sensorMappingPanel" class="sensor-mapping-panel hidden">
         <div class="panel-header">
             <h2>Sensor Effect Mappings</h2>
@@ -184,23 +184,29 @@
 
     <!-- Scripts - Same order as before -->
     <script src="js/mapping_config.js"></script>
+    
     <script src="js/utils/dom.js"></script>
     <script src="js/utils/fullscreen.js"></script>
     <script src="js/utils/animation.js"></script>
+    
     <script src="js/utils.js"></script>
     <script src="js/device_detector.js"></script>
     <script src="js/ui.js"></script>
+    
     <script src="js/mapping_manager.js"></script>
+    
     <script src="js/player/core.js"></script>
     <script src="js/player/unified-effects.js"></script>
     <script src="js/player/effects.js"></script>
     <script src="js/player/transforms.js"></script>
     <script src="js/player/controls.js"></script>
     <script src="js/player.js"></script>
+    
     <script src="js/pointcloud.js"></script>
     <script src="js/sensors.js"></script>
     <script src="js/mapping_panel.js"></script>
     <script src="js/mappings.js"></script>
+    
     <script src="js/main.js"></script>
 </body>
 </html>
