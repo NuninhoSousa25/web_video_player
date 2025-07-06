@@ -60,6 +60,7 @@
             </div>
             
             <div class="filter-controls" id="videoFilterControls">
+                <!-- Standard CSS Filters -->
                 <div class="filter-control">
                     <div class="filter-label">
                         <span class="active-mapping-indicator-container">Brightness<span class="active-mapping-dot" data-effect-id="brightness"></span></span>
@@ -342,7 +343,7 @@
         </div>
     </div>
 
-    <!-- Scripts - FIXED ORDER: Core dependencies first -->
+    <!-- Scripts - UPDATED ORDER: Unified effects system first -->
     <!-- CRITICAL: Load mapping_config.js FIRST as it defines global functions -->
     <script src="js/mapping_config.js"></script>
     
@@ -359,12 +360,13 @@
     <!-- Mapping and core modules -->
     <script src="js/mapping_manager.js"></script>
     
-    <!-- Player modules -->
+    <!-- Player modules - UPDATED ORDER -->
     <script src="js/player/core.js"></script>
+    <script src="js/player/unified-effects.js"></script> <!-- NEW: Load unified effects before other player modules -->
     <script src="js/player/effects.js"></script>
     <script src="js/player/transforms.js"></script>
     <script src="js/player/controls.js"></script>
-    <script src="js/player/simple-artistic.js"></script>
+    <!-- REMOVED: simple-artistic.js - no longer needed -->
     <script src="js/player.js"></script>
     
     <!-- Other modules -->
