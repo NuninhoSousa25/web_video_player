@@ -88,220 +88,64 @@
                     </div>
                     <input type="range" min="0" max="360" value="0" class="filter-slider" id="hueSlider">
                 </div>
+                
+                <!-- Digital Art Effects -->
+                <div class="filter-section-divider">
+                    <h4>🎨 Digital Art Effects</h4>
+                </div>
+                
+                <div class="filter-control">
+                    <div class="filter-label">
+                        <span class="active-mapping-indicator-container">Pixel Sort<span class="active-mapping-dot" data-effect-id="pixelSort"></span></span>
+                        <span class="filter-value" id="pixelSortValue">0%</span>
+                    </div>
+                    <input type="range" min="0" max="100" value="0" class="filter-slider" id="pixelSortSlider">
+                </div>
+                
+                <div class="filter-control">
+                    <div class="filter-label">
+                        <span class="active-mapping-indicator-container">Digital Glitch<span class="active-mapping-dot" data-effect-id="digitalGlitch"></span></span>
+                        <span class="filter-value" id="digitalGlitchValue">0%</span>
+                    </div>
+                    <input type="range" min="0" max="100" value="0" class="filter-slider" id="digitalGlitchSlider">
+                </div>
+                
+                <div class="filter-control">
+                    <div class="filter-label">
+                        <span class="active-mapping-indicator-container">Chroma Shift<span class="active-mapping-dot" data-effect-id="chromaShift"></span></span>
+                        <span class="filter-value" id="chromaShiftValue">0%</span>
+                    </div>
+                    <input type="range" min="0" max="100" value="0" class="filter-slider" id="chromaShiftSlider">
+                </div>
+                
+                <div class="filter-control">
+                    <div class="filter-label">
+                        <span class="active-mapping-indicator-container">Kaleidoscope<span class="active-mapping-dot" data-effect-id="kaleidoscope"></span></span>
+                        <span class="filter-value" id="kaleidoscopeValue">0%</span>
+                    </div>
+                    <input type="range" min="0" max="100" value="0" class="filter-slider" id="kaleidoscopeSlider">
+                </div>
+                
+                <div class="filter-control">
+                    <div class="filter-label">
+                        <span class="active-mapping-indicator-container">Color Quantize<span class="active-mapping-dot" data-effect-id="colorQuantize"></span></span>
+                        <span class="filter-value" id="colorQuantizeValue">0%</span>
+                    </div>
+                    <input type="range" min="0" max="100" value="0" class="filter-slider" id="colorQuantizeSlider">
+                </div>
+                
+                <div class="filter-control">
+                    <div class="filter-label">
+                        <span class="active-mapping-indicator-container">Noise Overlay<span class="active-mapping-dot" data-effect-id="noiseOverlay"></span></span>
+                        <span class="filter-value" id="noiseOverlayValue">0%</span>
+                    </div>
+                    <input type="range" min="0" max="100" value="0" class="filter-slider" id="noiseOverlaySlider">
+                </div>
+                
                 <button id="resetFiltersBtn" class="filter-reset">Reset All Filters</button>
             </div>
         </div>
-<div class="artistic-effects-section" id="artisticEffectsSection">
-    <div class="section-header">
-        <h3>🎨 Digital Art Effects</h3>
-        <button id="toggleArtisticBtn" class="section-toggle">Show</button>
-    </div>
-    
-    <div class="artistic-controls" id="artisticControls" style="display: none;">
-        
-        <!-- Pixel Sorting Controls -->
-        <div class="effect-group">
-            <h4>Pixel Sorting</h4>
-            <div class="filter-control">
-                <div class="filter-label">
-                    <span class="active-mapping-indicator-container">Pixel Sort Intensity<span class="active-mapping-dot" data-effect-id="pixelSort"></span></span>
-                    <span class="filter-value" id="pixelSortValue">0%</span>
-                </div>
-                <input type="range" min="0" max="100" value="0" class="filter-slider" id="pixelSortSlider">
-            </div>
-            
-            <div class="filter-control">
-                <div class="filter-label">
-                    <span>Sort Threshold</span>
-                    <span class="filter-value" id="pixelSortThresholdValue">128</span>
-                </div>
-                <input type="range" min="0" max="255" value="128" class="filter-slider" id="pixelSortThresholdSlider">
-            </div>
-            
-            <div class="filter-control">
-                <div class="filter-label">
-                    <span>Sort Mode</span>
-                    <span class="filter-value" id="pixelSortModeValue">Brightness</span>
-                </div>
-                <select id="pixelSortModeSelect" class="filter-slider">
-                    <option value="brightness">Brightness</option>
-                    <option value="hue">Hue</option>
-                    <option value="saturation">Saturation</option>
-                    <option value="red">Red Channel</option>
-                    <option value="green">Green Channel</option>
-                    <option value="blue">Blue Channel</option>
-                </select>
-            </div>
-            
-            <div class="filter-control">
-                <div class="filter-label">
-                    <span>Direction</span>
-                    <span class="filter-value" id="pixelSortDirectionValue">Horizontal</span>
-                </div>
-                <select id="pixelSortDirectionSelect" class="filter-slider">
-                    <option value="horizontal">Horizontal</option>
-                    <option value="vertical">Vertical</option>
-                    <option value="diagonal">Diagonal</option>
-                    <option value="radial">Radial</option>
-                </select>
-            </div>
-        </div>
-        
-        <!-- Flow Field Controls -->
-        <div class="effect-group">
-            <h4>Flow Field Distortion</h4>
-            <div class="filter-control">
-                <div class="filter-label">
-                    <span class="active-mapping-indicator-container">Flow Field<span class="active-mapping-dot" data-effect-id="flowField"></span></span>
-                    <span class="filter-value" id="flowFieldValue">0%</span>
-                </div>
-                <input type="range" min="0" max="100" value="0" class="filter-slider" id="flowFieldSlider">
-            </div>
-            
-            <div class="filter-control">
-                <div class="filter-label">
-                    <span>Flow Resolution</span>
-                    <span class="filter-value" id="flowResolutionValue">20</span>
-                </div>
-                <input type="range" min="5" max="50" value="20" class="filter-slider" id="flowResolutionSlider">
-            </div>
-            
-            <div class="filter-control">
-                <div class="filter-label">
-                    <span>Turbulence</span>
-                    <span class="filter-value" id="flowTurbulenceValue">1.0</span>
-                </div>
-                <input type="range" min="0" max="3" step="0.1" value="1.0" class="filter-slider" id="flowTurbulenceSlider">
-            </div>
-            
-            <div class="filter-control">
-                <div class="filter-label">
-                    <span>Flow Speed</span>
-                    <span class="filter-value" id="flowSpeedValue">1.0</span>
-                </div>
-                <input type="range" min="0" max="5" step="0.1" value="1.0" class="filter-slider" id="flowSpeedSlider">
-            </div>
-        </div>
-        
-        <!-- Color Processing Controls -->
-        <div class="effect-group">
-            <h4>Color Processing</h4>
-            <div class="filter-control">
-                <div class="filter-label">
-                    <span class="active-mapping-indicator-container">Color Quantize<span class="active-mapping-dot" data-effect-id="colorQuantize"></span></span>
-                    <span class="filter-value" id="colorQuantizeValue">0%</span>
-                </div>
-                <input type="range" min="0" max="100" value="0" class="filter-slider" id="colorQuantizeSlider">
-            </div>
-            
-            <div class="filter-control">
-                <div class="filter-label">
-                    <span class="active-mapping-indicator-container">Dither Strength<span class="active-mapping-dot" data-effect-id="ditherStrength"></span></span>
-                    <span class="filter-value" id="ditherStrengthValue">0%</span>
-                </div>
-                <input type="range" min="0" max="100" value="0" class="filter-slider" id="ditherStrengthSlider">
-            </div>
-            
-            <div class="filter-control">
-                <div class="filter-label">
-                    <span class="active-mapping-indicator-container">Solarize<span class="active-mapping-dot" data-effect-id="solarize"></span></span>
-                    <span class="filter-value" id="solarizeValue">0%</span>
-                </div>
-                <input type="range" min="0" max="100" value="0" class="filter-slider" id="solarizeSlider">
-            </div>
-            
-            <div class="filter-control">
-                <div class="filter-label">
-                    <span class="active-mapping-indicator-container">Chroma Shift<span class="active-mapping-dot" data-effect-id="chromaShift"></span></span>
-                    <span class="filter-value" id="chromaShiftValue">0%</span>
-                </div>
-                <input type="range" min="0" max="100" value="0" class="filter-slider" id="chromaShiftSlider">
-            </div>
-        </div>
-        
-        <!-- Digital Glitch Controls -->
-        <div class="effect-group">
-            <h4>Digital Glitch</h4>
-            <div class="filter-control">
-                <div class="filter-label">
-                    <span class="active-mapping-indicator-container">Glitch Intensity<span class="active-mapping-dot" data-effect-id="digitalGlitch"></span></span>
-                    <span class="filter-value" id="digitalGlitchValue">0%</span>
-                </div>
-                <input type="range" min="0" max="100" value="0" class="filter-slider" id="digitalGlitchSlider">
-            </div>
-            
-            <div class="filter-control">
-                <div class="filter-label">
-                    <span class="active-mapping-indicator-container">Datamosh<span class="active-mapping-dot" data-effect-id="datamosh"></span></span>
-                    <span class="filter-value" id="datamoshValue">0%</span>
-                </div>
-                <input type="range" min="0" max="100" value="0" class="filter-slider" id="datamoshSlider">
-            </div>
-        </div>
-        
-        <!-- Kaleidoscope Controls -->
-        <div class="effect-group">
-            <h4>Kaleidoscope</h4>
-            <div class="filter-control">
-                <div class="filter-label">
-                    <span class="active-mapping-indicator-container">Kaleidoscope<span class="active-mapping-dot" data-effect-id="kaleidoscope"></span></span>
-                    <span class="filter-value" id="kaleidoscopeValue">0%</span>
-                </div>
-                <input type="range" min="0" max="100" value="0" class="filter-slider" id="kaleidoscopeSlider">
-            </div>
-            
-            <div class="filter-control">
-                <div class="filter-label">
-                    <span>Segments</span>
-                    <span class="filter-value" id="kaleidoscopeSegmentsValue">6</span>
-                </div>
-                <input type="range" min="3" max="12" value="6" class="filter-slider" id="kaleidoscopeSegmentsSlider">
-            </div>
-        </div>
-        
-        <!-- Procedural Noise Controls -->
-        <div class="effect-group">
-            <h4>Procedural Noise</h4>
-            <div class="filter-control">
-                <div class="filter-label">
-                    <span class="active-mapping-indicator-container">Perlin Noise<span class="active-mapping-dot" data-effect-id="perlinNoise"></span></span>
-                    <span class="filter-value" id="perlinNoiseValue">0%</span>
-                </div>
-                <input type="range" min="0" max="100" value="0" class="filter-slider" id="perlinNoiseSlider">
-            </div>
-            
-            <div class="filter-control">
-                <div class="filter-label">
-                    <span>Noise Scale</span>
-                    <span class="filter-value" id="noiseScaleValue">100</span>
-                </div>
-                <input type="range" min="10" max="500" value="100" class="filter-slider" id="noiseScaleSlider">
-            </div>
-            
-            <div class="filter-control">
-                <div class="filter-label">
-                    <span class="active-mapping-indicator-container">Worley Noise<span class="active-mapping-dot" data-effect-id="worleyNoise"></span></span>
-                    <span class="filter-value" id="worleyNoiseValue">0%</span>
-                </div>
-                <input type="range" min="0" max="100" value="0" class="filter-slider" id="worleyNoiseSlider">
-            </div>
-        </div>
-        
-        <!-- Preset Buttons -->
-        <div class="effect-group">
-            <h4>Art Presets</h4>
-            <div class="preset-buttons">
-                <button class="preset-btn" data-preset="glitchArt">🔧 Glitch Art</button>
-                <button class="preset-btn" data-preset="organicFlow">🌊 Organic Flow</button>
-                <button class="preset-btn" data-preset="retroDigital">🕹️ Retro Digital</button>
-                <button class="preset-btn" data-preset="dreamscape">✨ Dreamscape</button>
-            </div>
-        </div>
-        
-        <!-- Reset Button -->
-        <button id="resetArtisticBtn" class="filter-reset">Reset All Artistic Effects</button>
-    </div>
-</div>
+
         <!-- Point Cloud Mode Content -->
         <div id="pointCloudModeContent" class="hidden">
             <div class="point-cloud-container" id="mainPointCloudContainer">
@@ -515,6 +359,7 @@
     <script src="js/player/effects.js"></script>
     <script src="js/player/transforms.js"></script>
     <script src="js/player/controls.js"></script>
+    <script src="js/player/simple-artistic.js"></script>
     <script src="js/player.js"></script>
     
     <!-- Other modules -->
