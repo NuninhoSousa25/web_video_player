@@ -1,4 +1,4 @@
-// js/player/effects.js - Updated to use Unified Effects System
+// js/player/effects.js - Fixed to properly handle all effect routing
 const PlayerEffects = (function() {
     
     let videoPlayer;
@@ -72,31 +72,28 @@ const PlayerEffects = (function() {
         const effectDetails = getEffectById(effectId);
         if (!effectDetails) return;
 
+        console.log(`PlayerEffects.setEffect: ${effectId} = ${value}, target: ${effectDetails.target}`);
+
+        // FIXED: Handle different effect targets properly
         if (effectDetails.target === 'player') {
-            if (effectDetails.isFilter || effectDetails.target === 'artistic') {
-                // Use unified effects for all visual effects
-                unifiedEffects.setEffect(effectId, value);
+            if (effectDetails.isFilter) {
+                // CSS filter effects go through unified system
+                if (unifiedEffects) {
+                    unifiedEffects.setEffect(effectId, value);
+                }
                 
                 // Update corresponding slider
                 const sliderMap = {
                     'brightness': brightnessSlider,
                     'saturation': saturationSlider,
                     'contrast': contrastSlider,
-                    'hue': hueSlider,
-                    'pixelSort': pixelSortSlider,
-                    'digitalGlitch': digitalGlitchSlider,
-                    'chromaShift': chromaShiftSlider,
-                    'kaleidoscope': kaleidoscopeSlider,
-                    'colorQuantize': colorQuantizeSlider,
-                    'noiseOverlay': noiseOverlaySlider
+                    'hue': hueSlider
                 };
                 
                 const slider = sliderMap[effectId];
                 if (slider) {
                     slider.value = value;
                 }
-                
-                updateFilterDisplayValues();
                 
             } else if (effectDetails.prop === 'playbackRate') {
                 videoPlayer.playbackRate = Math.max(effectDetails.min, Math.min(effectDetails.max, value));
@@ -105,9 +102,14 @@ const PlayerEffects = (function() {
                 videoPlayer.volume = Math.max(effectDetails.min, Math.min(effectDetails.max, value));
                 if (volumeSlider) volumeSlider.value = videoPlayer.volume;
             }
+            
         } else if (effectDetails.target === 'artistic') {
-            // All artistic effects now go through unified system
-            unifiedEffects.setEffect(effectId, value);
+            // FIXED: Artistic effects should NOT be handled here - they come from Player.setEffect
+            // This method is only called for UI slider changes, not sensor mappings
+            console.log(`Artistic effect ${effectId} handled by UI slider, routing to unified system`);
+            if (unifiedEffects) {
+                unifiedEffects.setEffect(effectId, value);
+            }
             
             // Update artistic effect sliders
             const artisticSliderMap = {
@@ -123,10 +125,9 @@ const PlayerEffects = (function() {
             if (slider) {
                 slider.value = value;
             }
-            
-            updateFilterDisplayValues();
         }
         
+        updateFilterDisplayValues();
         UI.updateActiveMappingIndicators();
     }
     
@@ -262,7 +263,7 @@ const PlayerEffects = (function() {
             }
         });
         
-        // Artistic effect sliders
+        // Artistic effect sliders - these work fine for UI interaction
         const artisticSliderConfigs = [
             { slider: pixelSortSlider, effect: 'pixelSort' },
             { slider: digitalGlitchSlider, effect: 'digitalGlitch' },
@@ -300,9 +301,8 @@ const PlayerEffects = (function() {
     function init(playerCore, legacyArtisticEffects) {
         videoPlayer = playerCore.getVideoElement();
         
-        // Initialize unified effects system
+        // Get reference to unified effects system
         unifiedEffects = UnifiedVideoEffects;
-        unifiedEffects.init(playerCore);
         
         cacheDOMElements();
         setupEventListeners();
