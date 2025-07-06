@@ -1,4 +1,4 @@
-// js/player.js - Updated to use Unified Effects System
+// js/player.js - Fixed to properly route artistic effects
 const Player = (function() {
     
     let mainVideoContainer, videoFullscreenBtn, fullscreenControlsOverlay;
@@ -99,15 +99,15 @@ const Player = (function() {
         
         // Initialize sub-modules in correct order
         core = PlayerCore;
-        unifiedEffects = UnifiedVideoEffects; // Initialize unified effects first
+        unifiedEffects = UnifiedVideoEffects;
         effects = PlayerEffects;
         transforms = PlayerTransforms;
         controls = PlayerControls;
         
         // Initialize in correct dependency order
         core.init(modeGetter, pcModule);
-        unifiedEffects.init(core); // Initialize unified effects with core
-        effects.init(core, null); // No longer need legacy artistic effects
+        unifiedEffects.init(core);
+        effects.init(core, null);
         transforms.init(core, mainVideoContainer, modeGetter, pcModule);
         controls.init(core);
         
@@ -119,19 +119,47 @@ const Player = (function() {
         controls.handleModeChange(newMode);
     }
     
-    // Public API - delegate to appropriate sub-modules
+    // FIXED: Public API - properly route all effects
     function setEffect(effectId, value) {
         const effectDetails = getEffectById(effectId);
-        if (!effectDetails) return;
+        if (!effectDetails) {
+            console.warn(`Effect not found: ${effectId}`);
+            return;
+        }
         
-        // All visual effects go through the unified system now
-        if (effectDetails.isFilter || effectDetails.target === 'artistic') {
+        console.log(`Player.setEffect: ${effectId} = ${value}, target: ${effectDetails.target}`);
+        
+        // Route based on effect target
+        if (effectDetails.target === 'player') {
+            // Standard player effects (filters, volume, playback rate)
+            effects.setEffect(effectId, value);
+        } else if (effectDetails.target === 'artistic') {
+            // FIXED: Artistic effects go directly to unified system
             if (unifiedEffects) {
+                console.log(`Routing artistic effect ${effectId} to unified system`);
                 unifiedEffects.setEffect(effectId, value);
+                
+                // Also update the UI slider if this came from sensor mapping
+                const slider = document.getElementById(effectId + 'Slider');
+                if (slider && slider.value != value) {
+                    slider.value = value;
+                    // Trigger display update
+                    const event = new Event('input');
+                    slider.dispatchEvent(event);
+                }
+                
+                // Update mapping indicators
+                if (typeof UI !== 'undefined' && UI.updateActiveMappingIndicators) {
+                    UI.updateActiveMappingIndicators();
+                }
+            }
+        } else if (effectDetails.target === 'pointcloud') {
+            // Point cloud effects
+            if (pointCloudModuleRef) {
+                pointCloudModuleRef.setEffect(effectId, value);
             }
         } else {
-            // Non-visual effects (volume, playback rate) still go through effects module
-            effects.setEffect(effectId, value);
+            console.warn(`Unknown effect target: ${effectDetails.target} for effect: ${effectId}`);
         }
     }
     
