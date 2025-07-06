@@ -1,4 +1,4 @@
-// js/player.js - Fixed Player Module with proper SimpleArtisticEffects initialization
+// js/player.js - Updated to use Unified Effects System
 const Player = (function() {
     
     let mainVideoContainer, videoFullscreenBtn, fullscreenControlsOverlay;
@@ -7,7 +7,7 @@ const Player = (function() {
     let pointCloudModuleRef;
     
     // Sub-modules
-    let core, effects, transforms, controls, artisticEffects;
+    let core, effects, transforms, controls, unifiedEffects;
     
     // Fullscreen controls management
     let fsControlsTimeout;
@@ -97,17 +97,17 @@ const Player = (function() {
         
         cacheDOMElements();
         
-        // Initialize sub-modules
+        // Initialize sub-modules in correct order
         core = PlayerCore;
-        artisticEffects = SimpleArtisticEffects; // FIXED: Initialize artistic effects first
+        unifiedEffects = UnifiedVideoEffects; // Initialize unified effects first
         effects = PlayerEffects;
         transforms = PlayerTransforms;
         controls = PlayerControls;
         
-        // FIXED: Initialize in correct order - core first, then artistic effects, then effects
+        // Initialize in correct dependency order
         core.init(modeGetter, pcModule);
-        artisticEffects.init(core); // Initialize artistic effects
-        effects.init(core, artisticEffects); // FIXED: Pass artistic effects reference to effects
+        unifiedEffects.init(core); // Initialize unified effects with core
+        effects.init(core, null); // No longer need legacy artistic effects
         transforms.init(core, mainVideoContainer, modeGetter, pcModule);
         controls.init(core);
         
@@ -124,9 +124,13 @@ const Player = (function() {
         const effectDetails = getEffectById(effectId);
         if (!effectDetails) return;
         
-        if (effectDetails.target === 'artistic') {
-            artisticEffects.setEffect(effectId, value);
+        // All visual effects go through the unified system now
+        if (effectDetails.isFilter || effectDetails.target === 'artistic') {
+            if (unifiedEffects) {
+                unifiedEffects.setEffect(effectId, value);
+            }
         } else {
+            // Non-visual effects (volume, playback rate) still go through effects module
             effects.setEffect(effectId, value);
         }
     }
@@ -149,12 +153,7 @@ const Player = (function() {
     
     function resetFilters() {
         effects.resetAllFilters();
-        // Reset artistic effects too
-        if (artisticEffects) {
-            ['pixelSort', 'digitalGlitch', 'chromaShift', 'kaleidoscope', 'colorQuantize', 'noiseOverlay'].forEach(effectId => {
-                artisticEffects.setEffect(effectId, 0);
-            });
-        }
+        // Unified effects reset is handled by effects module
     }
     
     function getDOM() {
@@ -163,16 +162,16 @@ const Player = (function() {
     
     function isFilterApplied(effectId) {
         const effectDetails = getEffectById(effectId);
-        if (effectDetails && effectDetails.target === 'artistic') {
-            return artisticEffects.isEffectActive(effectId);
+        if (effectDetails && (effectDetails.isFilter || effectDetails.target === 'artistic')) {
+            return unifiedEffects ? unifiedEffects.isEffectActive(effectId) : false;
         }
         return effects.isFilterApplied(effectId);
     }
     
     function isEffectActive(effectId) {
         const effectDetails = getEffectById(effectId);
-        if (effectDetails && effectDetails.target === 'artistic') {
-            return artisticEffects.isEffectActive(effectId);
+        if (effectDetails && (effectDetails.isFilter || effectDetails.target === 'artistic')) {
+            return unifiedEffects ? unifiedEffects.isEffectActive(effectId) : false;
         }
         return effects.isEffectActive(effectId);
     }
@@ -201,6 +200,10 @@ const Player = (function() {
     function destroy() {
         if (fullscreenManager) {
             fullscreenManager.destroy();
+        }
+        
+        if (unifiedEffects && unifiedEffects.stopProcessing) {
+            unifiedEffects.stopProcessing();
         }
         
         if (core) {
