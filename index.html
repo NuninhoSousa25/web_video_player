@@ -44,11 +44,11 @@
                     <span id="duration">0:00</span>
                 </div>
                 <div class="main-controls">
-                        <button id="playPauseBtn" class="toggle-button">Play</button>
-                        <button id="videoFullscreenBtn" class="toggle-button">Fullscreen</button>
-                        <button id="loopBtn" class="toggle-button">Loop: ON</button>
-                        <button id="rotateBtn" class="toggle-button">Rotate: 0°</button>
-                        <button id="fitToScreenBtn" class="toggle-button">Fit: OFF</button>
+                    <button id="playPauseBtn" class="toggle-button">Play</button>
+                    <button id="videoFullscreenBtn" class="toggle-button">Fullscreen</button>
+                    <button id="loopBtn" class="toggle-button">Loop: ON</button>
+                    <button id="rotateBtn" class="toggle-button">Rotate: 0°</button>
+                    <button id="fitToScreenBtn" class="toggle-button">Fit: OFF</button>
                 </div>
                 <div class="volume-container">
                     <div class="volume-icon active-mapping-indicator-container">
@@ -60,7 +60,7 @@
             </div>
             
             <div class="filter-controls" id="videoFilterControls">
-                 <div class="filter-control">
+                <div class="filter-control">
                     <div class="filter-label">
                         <span class="active-mapping-indicator-container">Brightness<span class="active-mapping-dot" data-effect-id="brightness"></span></span>
                         <span class="filter-value" id="brightnessValue">100%</span>
@@ -95,7 +95,7 @@
         <!-- Point Cloud Mode Content -->
         <div id="pointCloudModeContent" class="hidden">
             <div class="point-cloud-container" id="mainPointCloudContainer">
-                 <canvas id="pointCloudCanvas"></canvas>
+                <canvas id="pointCloudCanvas"></canvas>
             </div>
             <div class="point-cloud-params-container" id="pointCloudParams">
                 <div class="filter-control">
@@ -112,7 +112,7 @@
                     </div>
                     <input type="range" min="0" max="360" value="50" step="1" class="filter-slider" id="displacementSlider">
                 </div>
-                 <div class="filter-control">
+                <div class="filter-control">
                     <div class="filter-label">
                         <span class="active-mapping-indicator-container">Point Size<span class="active-mapping-dot" data-effect-id="pc_pointSize"></span></span>
                         <span class="filter-value" id="pointSizeValue">3</span>
@@ -125,14 +125,14 @@
                 </div>
                 <div class="filter-control">
                     <div class="filter-label"><span>Processing Detail</span><span class="filter-value" id="pcProcessingValue">Medium</span></div>
-                    <select id="pcProcessingResolutionSlider" class="filter-slider" style="height: auto; padding: 5px;">
+                    <select id="pcProcessingResolutionSlider" class="filter-slider">
                         <option value="60">Low (60px)</option>
                         <option value="120" selected>Medium (120px)</option>
                         <option value="180">High (180px)</option>
                         <option value="240">Max (240px)</option>
                     </select>
                 </div>
-                <div class="filter-control"> <!-- NEW: Invert Depth Checkbox -->
+                <div class="filter-control">
                     <label for="pcInvertDepthCheckbox" class="checkbox-label">
                         <input type="checkbox" id="pcInvertDepthCheckbox">
                         Invert Point Cloud Depth
@@ -140,9 +140,11 @@
                 </div>
             </div>
         </div>
-        <div class="mapping-panel-toggle-container" style="padding: 10px; text-align: center; background-color: #2d2d2d; border-top: 1px solid #333;">
+
+        <div class="mapping-panel-toggle-container">
             <button id="toggleMappingPanelBtn" class="button">Sensor Mapping Panel</button>
         </div>
+
         <!-- Common Controls -->
         <div class="file-controls">
             <input type="file" id="fileInput" accept="video/*">
@@ -220,6 +222,8 @@
             </div>
         </div>
     </div>
+
+    <!-- Sensor Mapping Panel -->
     <div id="sensorMappingPanel" class="sensor-mapping-panel hidden">
         <div class="panel-header">
             <h2>Sensor Effect Mappings</h2>
@@ -228,9 +232,7 @@
         <div class="panel-content">
             <div class="mappings-list-container">
                 <h3>Active Mappings</h3>
-                <ul id="mappingsList" class="mappings-list">
-                    <!-- Mappings will be rendered here -->
-                </ul>
+                <ul id="mappingsList" class="mappings-list"></ul>
                 <button id="addNewMappingBtn" class="button add-new-button">+ Add New Mapping</button>
             </div>
 
@@ -286,16 +288,33 @@
         </div>
     </div>
 
-   <script src="js/utils.js"></script>
-<script src="js/mapping_config.js"></script>
-<script src="js/device_detector.js"></script> 
-<script src="js/ui.js"></script>
-<script src="js/player.js"></script>
-<script src="js/pointcloud.js"></script>
-<script src="js/sensors.js"></script>
-<script src="js/mapping_manager.js"></script>
-<script src="js/mapping_panel.js"></script>
-<script src="js/mappings.js"></script>
-<script src="js/main.js"></script>
+    <!-- Scripts - New modular structure -->
+    <!-- Core utilities -->
+    <script src="js/utils/dom.js"></script>
+    <script src="js/utils/fullscreen.js"></script>
+    <script src="js/utils/animation.js"></script>
+    
+    <!-- Original utilities and configs -->
+    <script src="js/utils.js"></script>
+    <script src="js/mapping_config.js"></script>
+    <script src="js/device_detector.js"></script>
+    <script src="js/ui.js"></script>
+    
+    <!-- Player modules -->
+    <script src="js/player/core.js"></script>
+    <script src="js/player/effects.js"></script>
+    <script src="js/player/transforms.js"></script>
+    <script src="js/player/controls.js"></script>
+    <script src="js/player.js"></script>
+    
+    <!-- Other modules -->
+    <script src="js/pointcloud.js"></script>
+    <script src="js/sensors.js"></script>
+    <script src="js/mapping_manager.js"></script>
+    <script src="js/mapping_panel.js"></script>
+    <script src="js/mappings.js"></script>
+    
+    <!-- Main app -->
+    <script src="js/main.js"></script>
 </body>
 </html>
