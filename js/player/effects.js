@@ -1,11 +1,8 @@
-// js/player/effects.js - Fixed to properly handle artistic effects
+// js/player/effects.js - Updated to use Unified Effects System
 const PlayerEffects = (function() {
     
     let videoPlayer;
-    let currentFilterStyles = {};
-    
-    // Reference to artistic effects module
-    let artisticEffectsRef;
+    let unifiedEffects; // Reference to unified effects system
     
     // DOM elements for sliders and displays
     let volumeSlider, brightnessSlider, saturationSlider, contrastSlider, hueSlider;
@@ -71,65 +68,70 @@ const PlayerEffects = (function() {
         noiseOverlayValue = elements.noiseOverlayValue;
     }
     
-    function applyCombinedVideoFilters() {
-        if (!videoPlayer) return;
-        
-        let filterString = "";
-        
-        AVAILABLE_EFFECTS.forEach(effect => {
-            if (effect.isFilter && currentFilterStyles[effect.id] !== undefined) {
-                const value = currentFilterStyles[effect.id];
-                const isDefaultValue = (effect.id === 'blur' && value === 0) ||
-                                     (effect.id === 'hue' && value === 0) || 
-                                     (effect.id === 'sepia' && value === 0) ||
-                                     (effect.id === 'grayscale' && value === 0) ||
-                                     (effect.id === 'invertColors' && value === 0);
-                
-                if (!isDefaultValue) {
-                    filterString += `${effect.prop}(${value}${effect.unit}) `;
-                }
-            }
-        });
-        
-        videoPlayer.style.filter = filterString.trim();
-        UI.updateActiveMappingIndicators();
-    }
-    
     function setEffect(effectId, value) {
         const effectDetails = getEffectById(effectId);
-        if (!effectDetails || effectDetails.target !== 'player') return;
+        if (!effectDetails) return;
 
-        if (effectDetails.isFilter) {
-            currentFilterStyles[effectId] = value;
-            applyCombinedVideoFilters();
+        if (effectDetails.target === 'player') {
+            if (effectDetails.isFilter || effectDetails.target === 'artistic') {
+                // Use unified effects for all visual effects
+                unifiedEffects.setEffect(effectId, value);
+                
+                // Update corresponding slider
+                const sliderMap = {
+                    'brightness': brightnessSlider,
+                    'saturation': saturationSlider,
+                    'contrast': contrastSlider,
+                    'hue': hueSlider,
+                    'pixelSort': pixelSortSlider,
+                    'digitalGlitch': digitalGlitchSlider,
+                    'chromaShift': chromaShiftSlider,
+                    'kaleidoscope': kaleidoscopeSlider,
+                    'colorQuantize': colorQuantizeSlider,
+                    'noiseOverlay': noiseOverlaySlider
+                };
+                
+                const slider = sliderMap[effectId];
+                if (slider) {
+                    slider.value = value;
+                }
+                
+                updateFilterDisplayValues();
+                
+            } else if (effectDetails.prop === 'playbackRate') {
+                videoPlayer.playbackRate = Math.max(effectDetails.min, Math.min(effectDetails.max, value));
+                
+            } else if (effectDetails.prop === 'volume') {
+                videoPlayer.volume = Math.max(effectDetails.min, Math.min(effectDetails.max, value));
+                if (volumeSlider) volumeSlider.value = videoPlayer.volume;
+            }
+        } else if (effectDetails.target === 'artistic') {
+            // All artistic effects now go through unified system
+            unifiedEffects.setEffect(effectId, value);
             
-            // Update corresponding slider
-            const sliderMap = {
-                'brightness': brightnessSlider,
-                'saturation': saturationSlider,
-                'contrast': contrastSlider,
-                'hue': hueSlider
+            // Update artistic effect sliders
+            const artisticSliderMap = {
+                'pixelSort': pixelSortSlider,
+                'digitalGlitch': digitalGlitchSlider,
+                'chromaShift': chromaShiftSlider,
+                'kaleidoscope': kaleidoscopeSlider,
+                'colorQuantize': colorQuantizeSlider,
+                'noiseOverlay': noiseOverlaySlider
             };
             
-            const slider = sliderMap[effectId];
+            const slider = artisticSliderMap[effectId];
             if (slider) {
                 slider.value = value;
             }
             
             updateFilterDisplayValues();
-            
-        } else if (effectDetails.prop === 'playbackRate') {
-            videoPlayer.playbackRate = Math.max(effectDetails.min, Math.min(effectDetails.max, value));
-            UI.updateActiveMappingIndicators();
-            
-        } else if (effectDetails.prop === 'volume') {
-            videoPlayer.volume = Math.max(effectDetails.min, Math.min(effectDetails.max, value));
-            if (volumeSlider) volumeSlider.value = videoPlayer.volume;
-            UI.updateActiveMappingIndicators();
         }
+        
+        UI.updateActiveMappingIndicators();
     }
     
     function updateFilterDisplayValues() {
+        // Standard filter displays
         if (brightnessValue && brightnessSlider) {
             brightnessValue.textContent = `${brightnessSlider.value}%`;
         }
@@ -143,7 +145,7 @@ const PlayerEffects = (function() {
             hueValue.textContent = `${hueSlider.value}deg`;
         }
         
-        // Update artistic effect displays
+        // Artistic effect displays
         if (pixelSortValue && pixelSortSlider) {
             pixelSortValue.textContent = `${pixelSortSlider.value}%`;
         }
@@ -165,46 +167,34 @@ const PlayerEffects = (function() {
     }
     
     function resetAllFilters() {
-        AVAILABLE_EFFECTS.forEach(effect => {
-            if (effect.isFilter && effect.target === 'player') {
-                const slider = document.getElementById(effect.id + 'Slider');
-                if (slider) {
-                    setEffect(effect.id, effect.default);
-                    slider.value = effect.default;
-                } else if (currentFilterStyles.hasOwnProperty(effect.id)) {
-                    setEffect(effect.id, effect.default);
-                }
-            }
-        });
-        
-        // Reset artistic effects via the artistic effects module
-        if (artisticEffectsRef) {
-            ['pixelSort', 'digitalGlitch', 'chromaShift', 'kaleidoscope', 'colorQuantize', 'noiseOverlay'].forEach(effectId => {
-                artisticEffectsRef.setEffect(effectId, 0);
-            });
+        // Reset unified effects
+        if (unifiedEffects) {
+            unifiedEffects.resetAllEffects();
         }
         
-        // Reset artistic effect sliders
-        const artisticSliders = [
-            { slider: pixelSortSlider, effect: 'pixelSort' },
-            { slider: digitalGlitchSlider, effect: 'digitalGlitch' },
-            { slider: chromaShiftSlider, effect: 'chromaShift' },
-            { slider: kaleidoscopeSlider, effect: 'kaleidoscope' },
-            { slider: colorQuantizeSlider, effect: 'colorQuantize' },
-            { slider: noiseOverlaySlider, effect: 'noiseOverlay' }
+        // Reset all sliders to default values
+        const sliderDefaults = [
+            { slider: brightnessSlider, value: 100 },
+            { slider: saturationSlider, value: 100 },
+            { slider: contrastSlider, value: 100 },
+            { slider: hueSlider, value: 0 },
+            { slider: pixelSortSlider, value: 0 },
+            { slider: digitalGlitchSlider, value: 0 },
+            { slider: chromaShiftSlider, value: 0 },
+            { slider: kaleidoscopeSlider, value: 0 },
+            { slider: colorQuantizeSlider, value: 0 },
+            { slider: noiseOverlaySlider, value: 0 }
         ];
         
-        artisticSliders.forEach(config => {
+        sliderDefaults.forEach(config => {
             if (config.slider) {
-                config.slider.value = 0;
-                // Trigger change event to update display and apply effect
-                config.slider.dispatchEvent(new Event('input'));
+                config.slider.value = config.value;
             }
         });
         
         updateFilterDisplayValues();
         saveFilterSettings();
-        applyCombinedVideoFilters();
+        UI.updateActiveMappingIndicators();
     }
     
     function loadFilterSettings() {
@@ -223,28 +213,19 @@ const PlayerEffects = (function() {
         if (hueSlider) hueSlider.value = settings.hue;
         if (volumeSlider) volumeSlider.value = settings.volume;
         
-        // Apply effects
-        setEffect('brightness', parseFloat(settings.brightness));
-        setEffect('saturation', parseFloat(settings.saturation));
-        setEffect('contrast', parseFloat(settings.contrast));
-        setEffect('hue', parseFloat(settings.hue));
-        setEffect('volume', parseFloat(settings.volume));
-        
-        // Set defaults for effects not saved
-        AVAILABLE_EFFECTS.forEach(effect => {
-            if (effect.target === 'player' && currentFilterStyles[effect.id] === undefined && effect.prop !== 'volume' && effect.prop !== 'playbackRate') {
-                if (effect.isFilter) {
-                    setEffect(effect.id, effect.default);
-                }
-            }
-        });
-        
-        if (videoPlayer && videoPlayer.playbackRate === 1) {
-            setEffect('playbackRate', getEffectById('playbackRate').default);
+        // Apply effects through unified system
+        if (unifiedEffects) {
+            unifiedEffects.setEffect('brightness', parseFloat(settings.brightness));
+            unifiedEffects.setEffect('saturation', parseFloat(settings.saturation));
+            unifiedEffects.setEffect('contrast', parseFloat(settings.contrast));
+            unifiedEffects.setEffect('hue', parseFloat(settings.hue));
         }
         
+        // Set volume and playback rate directly on video element
+        setEffect('volume', parseFloat(settings.volume));
+        setEffect('playbackRate', 1); // Default playback rate
+        
         updateFilterDisplayValues();
-        applyCombinedVideoFilters();
     }
     
     function saveFilterSettings() {
@@ -264,7 +245,7 @@ const PlayerEffects = (function() {
             });
         }
         
-        // Filter sliders with auto-save
+        // Standard filter sliders
         const sliderConfigs = [
             { slider: brightnessSlider, effect: 'brightness', storageKey: 'videoPlayerBrightness' },
             { slider: saturationSlider, effect: 'saturation', storageKey: 'videoPlayerSaturation' },
@@ -281,7 +262,7 @@ const PlayerEffects = (function() {
             }
         });
         
-        // FIXED: Artistic effect sliders - directly call SimpleArtisticEffects
+        // Artistic effect sliders
         const artisticSliderConfigs = [
             { slider: pixelSortSlider, effect: 'pixelSort' },
             { slider: digitalGlitchSlider, effect: 'digitalGlitch' },
@@ -297,9 +278,9 @@ const PlayerEffects = (function() {
                     const value = parseFloat(config.slider.value);
                     updateFilterDisplayValues(); // Update display immediately
                     
-                    // FIXED: Directly call SimpleArtisticEffects
-                    if (artisticEffectsRef) {
-                        artisticEffectsRef.setEffect(config.effect, value);
+                    // Apply through unified effects system
+                    if (unifiedEffects) {
+                        unifiedEffects.setEffect(config.effect, value);
                     }
                     
                     // Update mapping indicators
@@ -316,9 +297,12 @@ const PlayerEffects = (function() {
         }
     }
     
-    function init(playerCore, artisticEffects) {
+    function init(playerCore, legacyArtisticEffects) {
         videoPlayer = playerCore.getVideoElement();
-        artisticEffectsRef = artisticEffects; // Store reference to artistic effects
+        
+        // Initialize unified effects system
+        unifiedEffects = UnifiedVideoEffects;
+        unifiedEffects.init(playerCore);
         
         cacheDOMElements();
         setupEventListeners();
@@ -326,23 +310,34 @@ const PlayerEffects = (function() {
     }
     
     function isFilterApplied(effectId) {
-        return currentFilterStyles.hasOwnProperty(effectId) && 
-               currentFilterStyles[effectId] !== getEffectById(effectId)?.default;
+        if (unifiedEffects) {
+            return unifiedEffects.isEffectActive(effectId);
+        }
+        
+        // Fallback for non-visual effects
+        const effect = getEffectById(effectId);
+        if (!effect) return false;
+        
+        if (effect.prop === 'volume') {
+            return videoPlayer.volume !== effect.default;
+        } else if (effect.prop === 'playbackRate') {
+            return videoPlayer.playbackRate !== effect.default;
+        }
+        
+        return false;
     }
     
     function isEffectActive(effectId) {
         const effect = getEffectById(effectId);
         if (!effect) return false;
         
-        // Check if it's an artistic effect
-        if (effect.target === 'artistic' && artisticEffectsRef) {
-            return artisticEffectsRef.isEffectActive(effectId);
+        // Check unified effects for visual effects
+        if (effect.isFilter || effect.target === 'artistic') {
+            return unifiedEffects ? unifiedEffects.isEffectActive(effectId) : false;
         }
         
-        if (effect.isFilter) {
-            return currentFilterStyles.hasOwnProperty(effectId) && 
-                   currentFilterStyles[effectId] !== effect.default;
-        } else if (effect.prop === 'volume') {
+        // Check video element properties for non-visual effects
+        if (effect.prop === 'volume') {
             return videoPlayer.volume !== effect.default;
         } else if (effect.prop === 'playbackRate') {
             return videoPlayer.playbackRate !== effect.default;
@@ -352,7 +347,22 @@ const PlayerEffects = (function() {
     }
     
     function getCurrentFilterValue(effectId) {
-        return currentFilterStyles[effectId];
+        // For unified effects, get from the effects object
+        if (unifiedEffects && unifiedEffects.effects) {
+            return unifiedEffects.effects[effectId];
+        }
+        
+        // Fallback for video properties
+        const effect = getEffectById(effectId);
+        if (effect) {
+            if (effect.prop === 'volume') {
+                return videoPlayer.volume;
+            } else if (effect.prop === 'playbackRate') {
+                return videoPlayer.playbackRate;
+            }
+        }
+        
+        return null;
     }
     
     return {
