@@ -72,7 +72,9 @@ const Sensors = (function() {
             micVolume: 0,
             compassHeading: 0,
             gyroX: 0, gyroY: 0, gyroZ: 0,
-            gravityX: 0, gravityY: 0, gravityZ: 0
+            gravityX: 0, gravityY: 0, gravityZ: 0,
+            batteryLevel: 50,  // Default to 50% if unknown
+            timeOfDay: 0.5     // Default to noon if unknown
         };
     }
 
