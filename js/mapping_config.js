@@ -18,7 +18,10 @@ const AVAILABLE_SENSORS = [
     { id: 'ambientLight', name: 'Ambient Light', description: 'Ambient light level in the environment', typicalMin: 0, typicalMax: 100, unit: '%' },
     { id: 'magneticX', name: 'Magnetic X', description: 'Magnetic field strength along X-axis', typicalMin: -100, typicalMax: 100, unit: 'µT' },
     { id: 'magneticY', name: 'Magnetic Y', description: 'Magnetic field strength along Y-axis', typicalMin: -100, typicalMax: 100, unit: 'µT' },
-    { id: 'magneticZ', name: 'Magnetic Z', description: 'Magnetic field strength along Z-axis', typicalMin: -100, typicalMax: 100, unit: 'µT' }
+    { id: 'magneticZ', name: 'Magnetic Z', description: 'Magnetic field strength along Z-axis', typicalMin: -100, typicalMax: 100, unit: 'µT' },
+    { id: 'batteryLevel', name: '🔋 Battery Level', description: 'Device battery percentage (0-100%)', typicalMin: 0, typicalMax: 100, unit: '%' },
+    { id: 'timeOfDay', name: '🌅 Time of Day', description: 'Hour of day normalized (0=midnight, 0.5=noon, 1=near midnight)', typicalMin: 0, typicalMax: 1, unit: '' }
+
 ];
 
 const AVAILABLE_EFFECTS = [
