@@ -1,4 +1,4 @@
-// js/sensors.js - Complete version with point cloud references removed
+// js/sensors.js - Corrected version with battery and time sensors
 const Sensors = (function() {
     // Constants
     const SENSOR_CONFIG = {
@@ -37,7 +37,7 @@ const Sensors = (function() {
         }
     };
 
-    // DOM Elements - Only the toggle button now
+    // DOM Elements
     let sensorToggleBtn, sensorSectionControls;
 
     // Module References
@@ -53,119 +53,56 @@ const Sensors = (function() {
         gyroscope: false,
         gravity: false
     };
-    
-    // Sensor Data
-function createInitialSensorData() {
-    let proximityMax = SENSOR_CONFIG.DEFAULT_PROXIMITY_MAX;
-    
-    if (typeof getSensorById === 'function') {
-        const proxSensor = getSensorById('proximity');
-        if (proxSensor && proxSensor.typicalMax) {
-            proximityMax = proxSensor.typicalMax;
+
+    // Battery and time variables
+    let batteryManager = null;
+    let timeUpdateInterval = null;
+
+    // Helper functions for initial values
+    function getBatteryLevelSync() {
+        if (typeof navigator.getBattery === 'function') {
+            return 75; // Reasonable default until we get real value
         }
+        return 50; // Fallback if no battery API
     }
-    
+
+    function getTimeOfDaySync() {
+        const now = new Date();
+        const hours = now.getHours();
+        const minutes = now.getMinutes();
+        return (hours + minutes / 60) / 24; // Convert to 0-1 immediately
+    }
+
+    // Sensor Data
+    function createInitialSensorData() {
+        let proximityMax = SENSOR_CONFIG.DEFAULT_PROXIMITY_MAX;
+        
+        if (typeof getSensorById === 'function') {
+            const proxSensor = getSensorById('proximity');
+            if (proxSensor && proxSensor.typicalMax) {
+                proximityMax = proxSensor.typicalMax;
+            }
+        }
         
         return {
-             alpha: 0, beta: 0, gamma: 0,
-        accelX: 0, accelY: 0, accelZ: 0,
-        proximity: proximityMax,
-        micVolume: 0,
-        compassHeading: 0,
-        gyroX: 0, gyroY: 0, gyroZ: 0,
-        gravityX: 0, gravityY: 0, gravityZ: 0,
-        
-        // FIXED: Initialize with actual values, not defaults
-        batteryLevel: getBatteryLevelSync(),  // Get current battery
-        timeOfDay: getTimeOfDaySync()         // Get current time
-    };
-
-
-   / Add these helper functions to get initial values:
-function getBatteryLevelSync() {
-    // Return current battery if already available, otherwise reasonable default
-    if (typeof navigator.getBattery === 'function') {
-        // Battery API is async, so we'll update this shortly after init
-        return 75; // Reasonable default until we get real value
+            alpha: 0, beta: 0, gamma: 0,
+            accelX: 0, accelY: 0, accelZ: 0,
+            proximity: proximityMax,
+            micVolume: 0,
+            compassHeading: 0,
+            gyroX: 0, gyroY: 0, gyroZ: 0,
+            gravityX: 0, gravityY: 0, gravityZ: 0,
+            
+            // NEW: Battery and time sensors
+            batteryLevel: getBatteryLevelSync(),
+            timeOfDay: getTimeOfDaySync()
+        };
     }
-    return 50; // Fallback if no battery API
-}
 
-function getTimeOfDaySync() {
-    const now = new Date();
-    const hours = now.getHours();
-    const minutes = now.getMinutes();
-    return (hours + minutes / 60) / 24; // Convert to 0-1 immediately
-}
-
-// FIXED BATTERY API SETUP:
-let batteryManager = null;
-
-async function setupBatteryAPI() {
-    Logger.info("Setting up Battery API...");
-    try {
-        if ('getBattery' in navigator) {
-            batteryManager = await navigator.getBattery();
-            
-            const updateBatteryData = () => {
-                const newLevel = batteryManager.level * 100;
-                
-                // Only update if significantly changed
-                if (Math.abs(latestSensorData.batteryLevel - newLevel) > 1) {
-                    latestSensorData.batteryLevel = newLevel;
-                    Logger.info(`Battery level updated: ${newLevel.toFixed(1)}%`);
-                    processSensorDataAndUpdate();
-                }
-            };
-            
-            // Initial update
-            updateBatteryData();
-            
-            // Listen for battery changes (these don't fire constantly)
-            batteryManager.addEventListener('levelchange', updateBatteryData);
-            batteryManager.addEventListener('chargingchange', updateBatteryData);
-            
-            Logger.info(`Battery API initialized successfully. Current level: ${(batteryManager.level * 100).toFixed(1)}%`);
-            return true;
-        } else {
-            Logger.warn('Battery API not supported in this browser');
-            return false;
-        }
-    } catch (error) {
-        Logger.warn('Failed to initialize Battery API:', error);
-        return false;
-    }
-}
-
-// FIXED TIME OF DAY UPDATES:
-function updateTimeOfDay() {
-    const now = new Date();
-    const hours = now.getHours();
-    const minutes = now.getMinutes();
-    const seconds = now.getSeconds();
-    
-    // More precise calculation including seconds
-    const newTimeOfDay = (hours + minutes / 60 + seconds / 3600) / 24;
-    
-    // Only update if it's a meaningful change (more than 1 minute)
-    if (Math.abs(latestSensorData.timeOfDay - newTimeOfDay) > (1 / (24 * 60))) {
-        latestSensorData.timeOfDay = newTimeOfDay;
-        
-        // Log time updates less frequently
-        if (seconds === 0) { // Only log on the minute
-            Logger.info(`Time of day updated: ${hours}:${minutes.toString().padStart(2, '0')} (${(newTimeOfDay * 100).toFixed(1)}%)`);
-        }
-        
-        processSensorDataAndUpdate();
-    }
-}
-
-
-    
     let latestSensorData = createInitialSensorData();
     let smoothedSensorData = Object.assign({}, latestSensorData);
 
-    // Configuration - simplified, no user controls
+    // Configuration
     let smoothingFactor = SENSOR_CONFIG.DEFAULT_SMOOTHING_FACTOR;
 
     // Callbacks
@@ -210,6 +147,66 @@ function updateTimeOfDay() {
                     enable();
                 }
             });
+        }
+    }
+
+    // BATTERY API SETUP
+    async function setupBatteryAPI() {
+        Logger.info("Setting up Battery API...");
+        try {
+            if ('getBattery' in navigator) {
+                batteryManager = await navigator.getBattery();
+                
+                const updateBatteryData = () => {
+                    const newLevel = batteryManager.level * 100;
+                    
+                    // Only update if significantly changed
+                    if (Math.abs(latestSensorData.batteryLevel - newLevel) > 1) {
+                        latestSensorData.batteryLevel = newLevel;
+                        Logger.info(`Battery level updated: ${newLevel.toFixed(1)}%`);
+                        processSensorDataAndUpdate();
+                    }
+                };
+                
+                // Initial update
+                updateBatteryData();
+                
+                // Listen for battery changes
+                batteryManager.addEventListener('levelchange', updateBatteryData);
+                batteryManager.addEventListener('chargingchange', updateBatteryData);
+                
+                Logger.info(`Battery API initialized successfully. Current level: ${(batteryManager.level * 100).toFixed(1)}%`);
+                return true;
+            } else {
+                Logger.warn('Battery API not supported in this browser');
+                return false;
+            }
+        } catch (error) {
+            Logger.warn('Failed to initialize Battery API:', error);
+            return false;
+        }
+    }
+
+    // TIME OF DAY UPDATES
+    function updateTimeOfDay() {
+        const now = new Date();
+        const hours = now.getHours();
+        const minutes = now.getMinutes();
+        const seconds = now.getSeconds();
+        
+        // More precise calculation including seconds
+        const newTimeOfDay = (hours + minutes / 60 + seconds / 3600) / 24;
+        
+        // Only update if it's a meaningful change (more than 1 minute)
+        if (Math.abs(latestSensorData.timeOfDay - newTimeOfDay) > (1 / (24 * 60))) {
+            latestSensorData.timeOfDay = newTimeOfDay;
+            
+            // Log time updates less frequently
+            if (seconds === 0) { // Only log on the minute
+                Logger.info(`Time of day updated: ${hours}:${minutes.toString().padStart(2, '0')} (${(newTimeOfDay * 100).toFixed(1)}%)`);
+            }
+            
+            processSensorDataAndUpdate();
         }
     }
 
@@ -260,7 +257,6 @@ function updateTimeOfDay() {
         if (!globallyEnabled) return;
         
         try {
-            // Simple handling without calibration or offsets
             latestSensorData.alpha = event.alpha || 0;
             latestSensorData.beta = event.beta || 0;
             latestSensorData.gamma = event.gamma || 0;
@@ -513,7 +509,6 @@ function updateTimeOfDay() {
         // Device Orientation (includes compass/alpha)
         if (typeof DeviceOrientationEvent !== 'undefined') {
             if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-                // iOS 13+ requires explicit permission
                 try {
                     const permission = await DeviceOrientationEvent.requestPermission();
                     permissionGranted.orientation = permission === 'granted';
@@ -523,7 +518,6 @@ function updateTimeOfDay() {
                     permissionGranted.orientation = false;
                 }
             } else {
-                // Android and older iOS versions
                 permissionGranted.orientation = true;
                 Logger.info('Device orientation permission granted (no explicit request needed)');
             }
@@ -532,7 +526,6 @@ function updateTimeOfDay() {
         // Device Motion (includes accelerometer and gyroscope)
         if (typeof DeviceMotionEvent !== 'undefined') {
             if (typeof DeviceMotionEvent.requestPermission === 'function') {
-                // iOS 13+ requires explicit permission
                 try {
                     const permission = await DeviceMotionEvent.requestPermission();
                     permissionGranted.motion = permission === 'granted';
@@ -542,7 +535,6 @@ function updateTimeOfDay() {
                     permissionGranted.motion = false;
                 }
             } else {
-                // Android and older iOS versions
                 permissionGranted.motion = true;
                 Logger.info('Device motion permission granted (no explicit request needed)');
             }
@@ -563,9 +555,9 @@ function updateTimeOfDay() {
             permissionGranted.proximity = false;
         }
 
-        // Check for microphone permission (will be requested when mic sensor is set up)
+        // Check for microphone permission
         if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-            permissionGranted.microphone = true; // Will be verified during setupMicrophoneSensor
+            permissionGranted.microphone = true;
         } else {
             Logger.warn('Microphone API not available');
             permissionGranted.microphone = false;
@@ -587,12 +579,10 @@ function updateTimeOfDay() {
             Logger.info('Device motion listener added');
         }
 
-        // Set up proximity sensor
         if (permissionGranted.proximity) {
             setupProximitySensor();
         }
 
-        // Set up microphone sensor
         if (permissionGranted.microphone) {
             setupMicrophoneSensor();
         }
@@ -625,6 +615,20 @@ function updateTimeOfDay() {
         }
     }
 
+    // DEBUGGING HELPER
+    function debugSensorValues() {
+        if (!globallyEnabled) {
+            console.log("Sensors not enabled");
+            return;
+        }
+        
+        console.log("=== CURRENT SENSOR VALUES ===");
+        console.log(`Battery Level: ${latestSensorData.batteryLevel.toFixed(1)}%`);
+        console.log(`Time of Day: ${(latestSensorData.timeOfDay * 100).toFixed(1)}% (${new Date().toLocaleTimeString()})`);
+        console.log(`Microphone: ${latestSensorData.micVolume.toFixed(1)}%`);
+        console.log("==============================");
+    }
+
     // PUBLIC API
     async function enable() {
         if (globallyEnabled) {
@@ -637,8 +641,19 @@ function updateTimeOfDay() {
         try {
             await requestPermissions();
             
-            // Check if any permissions were granted
-            const hasAnyPermission = Object.values(permissionGranted).some(granted => granted);
+            // Setup battery API
+            const batterySuccess = await setupBatteryAPI();
+            
+            // Setup time updates (every 10 seconds)
+            timeUpdateInterval = setInterval(updateTimeOfDay, 10000);
+            updateTimeOfDay(); // Initial update
+            
+            // Log initial sensor values
+            Logger.info(`Initial battery level: ${latestSensorData.batteryLevel.toFixed(1)}%`);
+            Logger.info(`Initial time of day: ${(latestSensorData.timeOfDay * 100).toFixed(1)}%`);
+            
+            // Check if any permissions were granted OR we have battery/time
+            const hasAnyPermission = Object.values(permissionGranted).some(granted => granted) || batterySuccess;
             
             if (!hasAnyPermission) {
                 Logger.warn('No sensor permissions granted');
@@ -650,56 +665,14 @@ function updateTimeOfDay() {
             setupSensorListeners();
             updateUI();
             
-            Logger.info('Sensors enabled successfully');
+            Logger.info('Sensors enabled successfully with battery and time sensors');
         } catch (error) {
             Logger.error('Error enabling sensors:', error);
             globallyEnabled = false;
             updateUI();
         }
     }
-// UPDATED ENABLE FUNCTION:
-async function enable() {
-    if (globallyEnabled) {
-        Logger.info("Sensors already enabled");
-        return;
-    }
 
-    Logger.info("Enabling sensors...");
-    
-    try {
-        await requestPermissions();
-        
-        // Setup battery API first
-        const batterySuccess = await setupBatteryAPI();
-        
-        // Setup time updates (every 10 seconds is fine)
-        timeUpdateInterval = setInterval(updateTimeOfDay, 10000);
-        updateTimeOfDay(); // Initial update
-        
-        // Log initial sensor values
-        Logger.info(`Initial battery level: ${latestSensorData.batteryLevel.toFixed(1)}%`);
-        Logger.info(`Initial time of day: ${(latestSensorData.timeOfDay * 100).toFixed(1)}%`);
-        
-        // Check if any permissions were granted OR we have battery/time
-        const hasAnyPermission = Object.values(permissionGranted).some(granted => granted) || batterySuccess;
-        
-        if (!hasAnyPermission) {
-            Logger.warn('No sensor permissions granted');
-            updateUI();
-            return;
-        }
-
-        globallyEnabled = true;
-        setupSensorListeners();
-        updateUI();
-        
-        Logger.info('Sensors enabled successfully with battery and time sensors');
-    } catch (error) {
-        Logger.error('Error enabling sensors:', error);
-        globallyEnabled = false;
-        updateUI();
-    }
-    // Modified disable function to clean up new sensors
     function disable() {
         if (!globallyEnabled) {
             Logger.info("Sensors already disabled");
@@ -719,8 +692,12 @@ async function enable() {
         
         // Clean up battery listeners
         if (batteryManager) {
-            batteryManager.removeEventListener('levelchange', updateBatteryData);
-            batteryManager.removeEventListener('chargingchange', updateBatteryData);
+            try {
+                batteryManager.removeEventListener('levelchange', () => {});
+                batteryManager.removeEventListener('chargingchange', () => {});
+            } catch (e) {
+                Logger.warn('Error removing battery listeners:', e);
+            }
             batteryManager = null;
         }
         
@@ -732,6 +709,7 @@ async function enable() {
         
         Logger.info('Sensors disabled');
     }
+
     function getSensorValue(sensorId) {
         if (!globallyEnabled) return null;
         
@@ -754,22 +732,7 @@ async function enable() {
     function getPermissions() {
         return { ...permissionGranted };
     }
-// Add this function to test your sensors
-function debugSensorValues() {
-    if (!globallyEnabled) {
-        console.log("Sensors not enabled");
-        return;
-    }
-    
-    console.log("=== CURRENT SENSOR VALUES ===");
-    console.log(`Battery Level: ${latestSensorData.batteryLevel.toFixed(1)}%`);
-    console.log(`Time of Day: ${(latestSensorData.timeOfDay * 100).toFixed(1)}% (${new Date().toLocaleTimeString()})`);
-    console.log(`Microphone: ${latestSensorData.micVolume.toFixed(1)}%`);
-    console.log("==============================");
-}
 
-// Add this to window for debugging
-window.debugSensors = debugSensorValues;
     function init(updateCallback, player, capabilities) {
         Logger.info("Initializing sensors module...");
         
@@ -781,11 +744,14 @@ window.debugSensors = debugSensorValues;
         setupEventListeners();
         updateUI();
         
+        // Add debug function to window
+        window.debugSensors = debugSensorValues;
+        
         Logger.info('Sensors module initialized');
     }
 
     return {
-         init,
+        init,
         enable,
         disable,
         getSensorValue,
