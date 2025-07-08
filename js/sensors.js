@@ -1,4 +1,9 @@
 // js/sensors.js - Corrected version with battery and time sensors
+
+// Add at the top (after constants):
+let sensorUpdateTimeout = null;
+const SENSOR_UPDATE_THROTTLE = 33; // 30f
+
 const Sensors = (function() {
     // Constants
     const SENSOR_CONFIG = {
@@ -235,6 +240,14 @@ const Sensors = (function() {
     }
 
     function processSensorDataAndUpdate() {
+    // Cancel any pending update to avoid stacking
+    if (sensorUpdateTimeout) {
+        clearTimeout(sensorUpdateTimeout);
+    }
+    
+    // Throttle updates to 30fps maximum
+    sensorUpdateTimeout = setTimeout(() => {
+        // Do the actual sensor data processing
         for (const key in latestSensorData) {
             if (!smoothedSensorData.hasOwnProperty(key)) continue;
 
@@ -251,7 +264,11 @@ const Sensors = (function() {
         if (onSensorUpdateCallback) {
             onSensorUpdateCallback();
         }
-    }
+        
+        // Clear the timeout reference
+        sensorUpdateTimeout = null;
+    }, SENSOR_UPDATE_THROTTLE);
+}
 
     function handleOrientationEvent(event) {
         if (!globallyEnabled) return;
@@ -683,6 +700,18 @@ const Sensors = (function() {
         
         globallyEnabled = false;
         removeSensorListeners();
+
+         // NEW: Clear any pending sensor updates to prevent memory leaks
+    if (sensorUpdateTimeout) {
+        clearTimeout(sensorUpdateTimeout);
+        sensorUpdateTimeout = null;
+    }
+    
+    // Clean up time interval
+    if (timeUpdateInterval) {
+        clearInterval(timeUpdateInterval);
+        timeUpdateInterval = null;
+    }
         
         // Clean up time interval
         if (timeUpdateInterval) {
