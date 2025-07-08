@@ -78,6 +78,97 @@ const Sensors = (function() {
         };
     }
 
+
+     // Battery API setup
+    let batteryManager = null;
+    
+    async function setupBatteryAPI() {
+        try {
+            if ('getBattery' in navigator) {
+                batteryManager = await navigator.getBattery();
+                
+                const updateBatteryData = () => {
+                    latestSensorData.batteryLevel = batteryManager.level * 100;
+                    processSensorDataAndUpdate();
+                };
+                
+                // Initial update
+                updateBatteryData();
+                
+                // Listen for battery changes
+                batteryManager.addEventListener('levelchange', updateBatteryData);
+                batteryManager.addEventListener('chargingchange', updateBatteryData);
+                
+                Logger.info('Battery API initialized successfully');
+                return true;
+            } else {
+                Logger.warn('Battery API not supported in this browser');
+                return false;
+            }
+        } catch (error) {
+            Logger.warn('Failed to initialize Battery API:', error);
+            return false;
+        }
+    }
+
+    // Time of day sensor
+    function updateTimeOfDay() {
+        const now = new Date();
+        const hours = now.getHours();
+        const minutes = now.getMinutes();
+        
+        // Convert to 0-1 scale where 0 = midnight, 0.5 = noon
+        latestSensorData.timeOfDay = (hours + minutes / 60) / 24;
+        
+        processSensorDataAndUpdate();
+    }
+
+    // Time update interval
+    let timeUpdateInterval = null;
+
+    // Modified enable function to include new sensors
+    async function enable() {
+        if (globallyEnabled) {
+            Logger.info("Sensors already enabled");
+            return;
+        }
+
+        Logger.info("Enabling sensors...");
+        
+        try {
+            await requestPermissions();
+            
+            // Setup battery API
+            await setupBatteryAPI();
+            
+            // Setup time updates (every 30 seconds is plenty for time of day)
+            timeUpdateInterval = setInterval(updateTimeOfDay, 30000);
+            updateTimeOfDay(); // Initial update
+            
+            // Check if any permissions were granted
+            const hasAnyPermission = Object.values(permissionGranted).some(granted => granted);
+            
+            if (!hasAnyPermission) {
+                Logger.warn('No sensor permissions granted');
+                updateUI();
+                return;
+            }
+
+            globallyEnabled = true;
+            setupSensorListeners();
+            updateUI();
+            
+            Logger.info('Sensors enabled successfully with battery and time sensors');
+        } catch (error) {
+            Logger.error('Error enabling sensors:', error);
+            globallyEnabled = false;
+            updateUI();
+        }
+    }
+
+
+
+    
     let latestSensorData = createInitialSensorData();
     let smoothedSensorData = Object.assign({}, latestSensorData);
 
@@ -574,6 +665,7 @@ const Sensors = (function() {
         }
     }
 
+    // Modified disable function to clean up new sensors
     function disable() {
         if (!globallyEnabled) {
             Logger.info("Sensors already disabled");
@@ -585,6 +677,19 @@ const Sensors = (function() {
         globallyEnabled = false;
         removeSensorListeners();
         
+        // Clean up time interval
+        if (timeUpdateInterval) {
+            clearInterval(timeUpdateInterval);
+            timeUpdateInterval = null;
+        }
+        
+        // Clean up battery listeners
+        if (batteryManager) {
+            batteryManager.removeEventListener('levelchange', updateBatteryData);
+            batteryManager.removeEventListener('chargingchange', updateBatteryData);
+            batteryManager = null;
+        }
+        
         // Reset sensor data
         latestSensorData = createInitialSensorData();
         smoothedSensorData = Object.assign({}, latestSensorData);
@@ -593,7 +698,6 @@ const Sensors = (function() {
         
         Logger.info('Sensors disabled');
     }
-
     function getSensorValue(sensorId) {
         if (!globallyEnabled) return null;
         
@@ -632,7 +736,7 @@ const Sensors = (function() {
     }
 
     return {
-        init,
+         init,
         enable,
         disable,
         getSensorValue,
