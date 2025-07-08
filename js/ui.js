@@ -1,6 +1,8 @@
-// js/ui.js - Point cloud functions removed
-const UI = (function() {
+// js/ui.js - Point cloud functions removed + Performance optimized
+let uiUpdateScheduled = false;
 
+const UI = (function() {
+    
     function updateFilterDisplayValues(brightnessSlider, saturationSlider, contrastSlider, hueSlider,
                                        brightnessValueEl, saturationValueEl, contrastValueEl, hueValueEl) {
         if (brightnessValueEl && brightnessSlider) brightnessValueEl.textContent = `${brightnessSlider.value}%`;
@@ -48,18 +50,35 @@ const UI = (function() {
         }
     }
 
+    // OPTIMIZED: Batched DOM updates using requestAnimationFrame
     function updateActiveMappingIndicators() {
-        const activeMappings = MappingManager.getActiveMappings();
-        const allDots = document.querySelectorAll('.active-mapping-dot');
+        // Skip if an update is already scheduled for this frame
+        if (uiUpdateScheduled) return;
+        
+        uiUpdateScheduled = true;
+        
+        // Use requestAnimationFrame to batch DOM updates
+        requestAnimationFrame(() => {
+            try {
+                const activeMappings = MappingManager.getActiveMappings();
+                const allDots = document.querySelectorAll('.active-mapping-dot');
 
-        allDots.forEach(dot => dot.classList.remove('active'));
+                // Batch all DOM operations together
+                allDots.forEach(dot => dot.classList.remove('active'));
 
-        activeMappings.forEach(mapping => {
-            if (mapping.enabled) {
-                const dot = document.querySelector(`.active-mapping-dot[data-effect-id="${mapping.effectId}"]`);
-                if (dot) {
-                    dot.classList.add('active');
-                }
+                activeMappings.forEach(mapping => {
+                    if (mapping.enabled) {
+                        const dot = document.querySelector(`.active-mapping-dot[data-effect-id="${mapping.effectId}"]`);
+                        if (dot) {
+                            dot.classList.add('active');
+                        }
+                    }
+                });
+            } catch (error) {
+                console.warn('Error updating mapping indicators:', error);
+            } finally {
+                // Reset the flag after the update is complete
+                uiUpdateScheduled = false;
             }
         });
     }
