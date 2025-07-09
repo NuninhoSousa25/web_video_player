@@ -1,128 +1,310 @@
-// js/mapping_config.js - Fixed with correct mobile sensor ranges
-const AVAILABLE_SENSORS = [
-    // Orientation sensors - updated ranges for mobile devices
-    { id: 'alpha', name: 'Rotation (Alpha)', description: 'Device rotation around Z-axis (0-360°)', typicalMin: 0, typicalMax: 360, unit: '°' },
-    { id: 'beta', name: 'Tilt Fwd/Back (Beta)', description: 'Device tilt front/back (-180° to 180°)', typicalMin: -180, typicalMax: 180, unit: '°' },
-    { id: 'gamma', name: 'Tilt Left/Right (Gamma)', description: 'Device tilt left/right (-90° to 90°)', typicalMin: -90, typicalMax: 90, unit: '°' },
-    { id: 'compassHeading', name: 'Compass Heading', description: 'Device compass heading (0-360°), derived from Alpha.', typicalMin: 0, typicalMax: 360, unit: '°' },
-    
-    // Motion sensors - updated ranges for mobile devices
-    { id: 'accelX', name: 'Acceleration X', description: 'Linear acceleration along X-axis', typicalMin: -20, typicalMax: 20, unit: 'm/s²' },
-    { id: 'accelY', name: 'Acceleration Y', description: 'Linear acceleration along Y-axis', typicalMin: -20, typicalMax: 20, unit: 'm/s²' },
-    { id: 'accelZ', name: 'Acceleration Z', description: 'Linear acceleration along Z-axis (excluding gravity)', typicalMin: -20, typicalMax: 20, unit: 'm/s²' },
-    
-    // Gyroscope sensors - updated ranges for mobile devices
-    { id: 'gyroX', name: 'Gyroscope X', description: 'Angular velocity around X-axis', typicalMin: -20, typicalMax: 20, unit: 'rad/s' },
-    { id: 'gyroY', name: 'Gyroscope Y', description: 'Angular velocity around Y-axis', typicalMin: -20, typicalMax: 20, unit: 'rad/s' },
-    { id: 'gyroZ', name: 'Gyroscope Z', description: 'Angular velocity around Z-axis', typicalMin: -20, typicalMax: 20, unit: 'rad/s' },
-    
-    // Gravity sensors - updated ranges for mobile devices
-    { id: 'gravityX', name: 'Gravity X', description: 'Gravity force along X-axis', typicalMin: -20, typicalMax: 20, unit: 'm/s²' },
-    { id: 'gravityY', name: 'Gravity Y', description: 'Gravity force along Y-axis', typicalMin: -20, typicalMax: 20, unit: 'm/s²' },
-    { id: 'gravityZ', name: 'Gravity Z', description: 'Gravity force along Z-axis', typicalMin: -20, typicalMax: 20, unit: 'm/s²' },
-    
-    // Other sensors - unchanged
-    { id: 'proximity', name: 'Proximity', description: 'Distance to nearby objects', typicalMin: 0, typicalMax: 100, unit: 'cm' },
-    { id: 'micVolume', name: 'Microphone Volume', description: 'Audio input level from microphone (0-100%)', typicalMin: 0, typicalMax: 100, unit: '%' },
-    { id: 'ambientLight', name: 'Ambient Light', description: 'Ambient light level in the environment', typicalMin: 0, typicalMax: 100, unit: '%' },
-    { id: 'magneticX', name: 'Magnetic X', description: 'Magnetic field strength along X-axis', typicalMin: -100, typicalMax: 100, unit: 'µT' },
-    { id: 'magneticY', name: 'Magnetic Y', description: 'Magnetic field strength along Y-axis', typicalMin: -100, typicalMax: 100, unit: 'µT' },
-    { id: 'magneticZ', name: 'Magnetic Z', description: 'Magnetic field strength along Z-axis', typicalMin: -100, typicalMax: 100, unit: 'µT' }
-];
+// js/mapping_manager.js - Fixed for mobile sensor calculations
+const MappingManager = (function() {
+    let mappings = [];
+    const MAPPINGS_STORAGE_KEY = 'sensorEffectMappings';
+    const DEBUG_MODE = false; // Set to true for detailed logging
 
-const AVAILABLE_EFFECTS = [
-    // Video effects
-    { id: 'brightness', name: 'Brightness', target: 'player', prop: 'brightness', min: 0, max: 300, default: 100, unit: '%', isFilter: true },
-    { id: 'contrast', name: 'Contrast', target: 'player', prop: 'contrast', min: 0, max: 300, default: 100, unit: '%', isFilter: true },
-    { id: 'saturation', name: 'Saturation', target: 'player', prop: 'saturate', min: 0, max: 300, default: 100, unit: '%', isFilter: true },
-    { id: 'hue', name: 'Hue Rotate', target: 'player', prop: 'hue-rotate', min: 0, max: 360, default: 0, unit: 'deg', isFilter: true },
-    { id: 'blur', name: 'Blur', target: 'player', prop: 'blur', min: 0, max: 20, default: 0, unit: 'px', isFilter: true },
-    { id: 'sepia', name: 'Sepia', target: 'player', prop: 'sepia', min: 0, max: 100, default: 0, unit: '%', isFilter: true },
-    { id: 'grayscale', name: 'Grayscale', target: 'player', prop: 'grayscale', min: 0, max: 100, default: 0, unit: '%', isFilter: true },
-    { id: 'invertColors', name: 'Invert Colors', target: 'player', prop: 'invert', min: 0, max: 100, default: 0, unit: '%', isFilter: true },
-    { id: 'playbackRate', name: 'Playback Speed', target: 'player', prop: 'playbackRate', min: 0.25, max: 4, default: 1, unit: 'x' },
-    { id: 'volume', name: 'Volume', target: 'player', prop: 'volume', min: 0, max: 1, default: 1, unit: '' },
+    function debugLog(message, data = null) {
+        if (DEBUG_MODE) {
+            console.log('[MappingManager]', message, data);
+        }
+    }
+
+    function loadMappings() {
+        const storedMappings = localStorage.getItem(MAPPINGS_STORAGE_KEY);
+        if (storedMappings) {
+            mappings = JSON.parse(storedMappings);
+        } else {
+            // Use mobile-optimized default mappings
+            mappings = [
+                { id: Date.now() + 1, sensorId: 'beta', effectId: 'brightness', enabled: true, sensitivity: 1.0, invert: false, rangeMin: 50, rangeMax: 200 },
+                { id: Date.now() + 2, sensorId: 'gamma', effectId: 'contrast', enabled: true, sensitivity: 1.0, invert: false, rangeMin: 50, rangeMax: 200 },
+                { id: Date.now() + 3, sensorId: 'alpha', effectId: 'hue', enabled: true, sensitivity: 1.0, invert: false, rangeMin: 0, rangeMax: 360 },
+                { id: Date.now() + 4, sensorId: 'accelX', effectId: 'saturation', enabled: true, sensitivity: 2.0, invert: false, rangeMin: 0, rangeMax: 200 },
+            ];
+            saveMappings();
+        }
+        
+        // Ensure all effects have default ranges if missing
+        mappings.forEach(m => {
+            const effect = getEffectById(m.effectId);
+            if (effect && (m.rangeMin === undefined || m.rangeMax === undefined)) {
+                m.rangeMin = effect.min;
+                m.rangeMax = effect.max;
+            }
+        });
+
+        debugLog('Loaded mappings:', mappings);
+    }
+
+    function saveMappings() {
+        localStorage.setItem(MAPPINGS_STORAGE_KEY, JSON.stringify(mappings));
+        debugLog('Saved mappings to localStorage');
+    }
+
+    function getMappings() {
+        return [...mappings]; // Return a copy
+    }
+
+    function getActiveMappings() {
+        const active = mappings.filter(m => m.enabled);
+        debugLog('Active mappings:', active);
+        return active;
+    }
+
+    function addMapping(newMappingData) {
+        const newId = Date.now();
+        const effect = getEffectById(newMappingData.effectId);
+        const mappingToAdd = {
+            id: newId,
+            sensorId: newMappingData.sensorId,
+            effectId: newMappingData.effectId,
+            enabled: newMappingData.enabled !== undefined ? newMappingData.enabled : true,
+            sensitivity: parseFloat(newMappingData.sensitivity) || 1.0,
+            invert: newMappingData.invert || false,
+            rangeMin: parseFloat(newMappingData.rangeMin) ?? effect?.min ?? 0,
+            rangeMax: parseFloat(newMappingData.rangeMax) ?? effect?.max ?? 100,
+        };
+        mappings.push(mappingToAdd);
+        saveMappings();
+        debugLog('Added new mapping:', mappingToAdd);
+        return mappingToAdd;
+    }
+
+    function updateMapping(mappingId, updatedData) {
+        const index = mappings.findIndex(m => m.id === mappingId);
+        if (index !== -1) {
+            mappings[index] = { ...mappings[index], ...updatedData };
+            // Ensure numeric types
+            mappings[index].sensitivity = parseFloat(mappings[index].sensitivity);
+            mappings[index].rangeMin = parseFloat(mappings[index].rangeMin);
+            mappings[index].rangeMax = parseFloat(mappings[index].rangeMax);
+            saveMappings();
+            debugLog('Updated mapping:', mappings[index]);
+            return mappings[index];
+        }
+        return null;
+    }
+
+    function deleteMapping(mappingId) {
+        const beforeCount = mappings.length;
+        mappings = mappings.filter(m => m.id !== mappingId);
+        saveMappings();
+        debugLog(`Deleted mapping ${mappingId}, ${beforeCount} -> ${mappings.length}`);
+    }
+
+    function getMappingById(id) {
+        return mappings.find(m => m.id === id);
+    }
+
+    // NEW: Improved calculation for mobile devices
+    function calculateEffectValue(sensorValue, mapping) {
+        const sensorDetails = getSensorById(mapping.sensorId);
+        const effectDetails = getEffectById(mapping.effectId);
+
+        if (!sensorDetails || !effectDetails) {
+            debugLog('Missing sensor or effect details', { sensorId: mapping.sensorId, effectId: mapping.effectId });
+            return effectDetails ? effectDetails.default : 0;
+        }
+
+        debugLog('Calculating effect value', {
+            sensorValue,
+            sensorId: mapping.sensorId,
+            effectId: mapping.effectId,
+            mapping: mapping
+        });
+
+        // Handle null or undefined sensor values
+        if (sensorValue === null || sensorValue === undefined || isNaN(sensorValue)) {
+            debugLog('Invalid sensor value, returning default');
+            return effectDetails.default;
+        }
+
+        // Step 1: Normalize sensor input to 0-1 range
+        const sensorRange = sensorDetails.typicalMax - sensorDetails.typicalMin;
+        let normalizedSensor = 0;
+        
+        if (sensorRange !== 0) {
+            // Clamp sensor value to expected range first
+            const clampedSensorValue = Math.max(
+                sensorDetails.typicalMin, 
+                Math.min(sensorDetails.typicalMax, sensorValue)
+            );
+            
+            normalizedSensor = (clampedSensorValue - sensorDetails.typicalMin) / sensorRange;
+        }
+
+        // Ensure normalized value is between 0 and 1
+        normalizedSensor = Math.max(0, Math.min(1, normalizedSensor));
+
+        debugLog('Normalized sensor value', {
+            originalValue: sensorValue,
+            normalizedValue: normalizedSensor,
+            sensorRange: sensorRange,
+            sensorMin: sensorDetails.typicalMin,
+            sensorMax: sensorDetails.typicalMax
+        });
+
+        // Step 2: Apply sensitivity
+        // Sensitivity affects how much the sensor movement translates to effect change
+        // Values > 1 make the effect more sensitive, < 1 less sensitive
+        let sensitizedValue = normalizedSensor;
+        
+        if (mapping.sensitivity !== 1.0) {
+            // Apply sensitivity as a power function for better control
+            if (mapping.sensitivity > 1) {
+                // More sensitive: compress the input range
+                sensitizedValue = Math.pow(normalizedSensor, 1 / mapping.sensitivity);
+            } else {
+                // Less sensitive: expand the input range
+                sensitizedValue = Math.pow(normalizedSensor, mapping.sensitivity);
+            }
+        }
+
+        // Step 3: Apply inversion if needed
+        if (mapping.invert) {
+            sensitizedValue = 1 - sensitizedValue;
+        }
+
+        debugLog('After sensitivity and inversion', {
+            sensitizedValue: sensitizedValue,
+            sensitivity: mapping.sensitivity,
+            inverted: mapping.invert
+        });
+
+        // Step 4: Map to effect's output range
+        const outputRange = mapping.rangeMax - mapping.rangeMin;
+        let effectValue = mapping.rangeMin + (sensitizedValue * outputRange);
+
+        // Step 5: Clamp to effect's absolute min/max
+        effectValue = Math.max(effectDetails.min, Math.min(effectDetails.max, effectValue));
+
+        // Step 6: Apply effect-specific formatting
+        if (effectDetails.id === 'playbackRate') {
+            effectValue = parseFloat(effectValue.toFixed(2));
+        } else if (effectDetails.unit === '%' || effectDetails.prop === 'blur' || effectDetails.prop === 'hue-rotate') {
+            effectValue = Math.round(effectValue);
+        } else if (effectDetails.prop === 'volume') {
+            effectValue = parseFloat(effectValue.toFixed(2));
+        }
+
+        debugLog('Final effect value', {
+            effectValue: effectValue,
+            mappingRange: [mapping.rangeMin, mapping.rangeMax],
+            effectRange: [effectDetails.min, effectDetails.max],
+            effectUnit: effectDetails.unit
+        });
+
+        return effectValue;
+    }
+
+    // NEW: Batch calculation for multiple mappings (performance optimization)
+    function calculateMultipleEffectValues(sensorValues, activeMappings) {
+        const results = {};
+        
+        activeMappings.forEach(mapping => {
+            if (!mapping.enabled) return;
+            
+            const sensorValue = sensorValues[mapping.sensorId];
+            if (sensorValue !== undefined && sensorValue !== null) {
+                results[mapping.effectId] = calculateEffectValue(sensorValue, mapping);
+            }
+        });
+        
+        return results;
+    }
+
+    // NEW: Validation function for mappings
+    function validateMapping(mapping) {
+        const sensor = getSensorById(mapping.sensorId);
+        const effect = getEffectById(mapping.effectId);
+        
+        if (!sensor || !effect) {
+            return { valid: false, errors: ['Invalid sensor or effect ID'] };
+        }
+
+        const errors = [];
+        
+        // Validate sensitivity
+        if (mapping.sensitivity <= 0 || mapping.sensitivity > 10) {
+            errors.push('Sensitivity must be between 0.1 and 10');
+        }
+
+        // Validate range
+        if (mapping.rangeMin >= mapping.rangeMax) {
+            errors.push('Range minimum must be less than maximum');
+        }
+
+        if (mapping.rangeMin < effect.min || mapping.rangeMax > effect.max) {
+            errors.push(`Range must be within effect bounds (${effect.min} - ${effect.max})`);
+        }
+
+        return { valid: errors.length === 0, errors };
+    }
+
+    // NEW: Debug function to test mapping calculations
+    function testMapping(mappingId, testSensorValue) {
+        const mapping = getMappingById(mappingId);
+        if (!mapping) {
+            console.error('Mapping not found:', mappingId);
+            return;
+        }
+
+        console.log('Testing mapping:', mapping);
+        console.log('Test sensor value:', testSensorValue);
+        
+        const result = calculateEffectValue(testSensorValue, mapping);
+        console.log('Result:', result);
+        
+        return result;
+    }
+
+    // NEW: Get mapping statistics
+    function getMappingStats() {
+        const stats = {
+            total: mappings.length,
+            active: mappings.filter(m => m.enabled).length,
+            bySensor: {},
+            byEffect: {}
+        };
+
+        mappings.forEach(mapping => {
+            // Count by sensor
+            if (!stats.bySensor[mapping.sensorId]) {
+                stats.bySensor[mapping.sensorId] = 0;
+            }
+            stats.bySensor[mapping.sensorId]++;
+
+            // Count by effect
+            if (!stats.byEffect[mapping.effectId]) {
+                stats.byEffect[mapping.effectId] = 0;
+            }
+            stats.byEffect[mapping.effectId]++;
+        });
+
+        return stats;
+    }
+
+    // NEW: Enable debug mode
+    function enableDebugMode() {
+        DEBUG_MODE = true;
+        console.log('[MappingManager] Debug mode enabled');
+    }
     
-    // Artistic Effects
-    { id: 'pixelSort', name: '🎨 Pixel Sort', target: 'artistic', prop: 'pixelSort', min: 0, max: 100, default: 0, unit: '%' },
-    { id: 'digitalGlitch', name: '🎨 Digital Glitch', target: 'artistic', prop: 'digitalGlitch', min: 0, max: 100, default: 0, unit: '%' },
-    { id: 'chromaShift', name: '🎨 Chroma Shift', target: 'artistic', prop: 'chromaShift', min: 0, max: 100, default: 0, unit: '%' },
-    { id: 'kaleidoscope', name: '🎨 Kaleidoscope', target: 'artistic', prop: 'kaleidoscope', min: 0, max: 100, default: 0, unit: '%' },
-    { id: 'colorQuantize', name: '🎨 Color Quantize', target: 'artistic', prop: 'colorQuantize', min: 0, max: 100, default: 0, unit: '%' },
-    { id: 'noiseOverlay', name: '🎨 Noise Overlay', target: 'artistic', prop: 'noiseOverlay', min: 0, max: 100, default: 0, unit: '%' }
-];
+    loadMappings(); // Load on init
 
-function getSensorById(id) {
-    return AVAILABLE_SENSORS.find(sensor => sensor.id === id);
-}
-
-function getEffectById(id) {
-    return AVAILABLE_EFFECTS.find(effect => effect.id === id);
-}
-
-// Helper function to get effects by category
-function getEffectsByTarget(target) {
-    return AVAILABLE_EFFECTS.filter(effect => effect.target === target);
-}
-
-// Get artistic effects specifically
-function getArtisticEffects() {
-    return AVAILABLE_EFFECTS.filter(effect => effect.target === 'artistic');
-}
-
-// NEW: Mobile-optimized default mappings with appropriate ranges
-const DEFAULT_MOBILE_MAPPINGS = [
-    // Orientation-based mappings (work well on mobile)
-    { sensorId: 'beta', effectId: 'brightness', sensitivity: 1.0, rangeMin: 50, rangeMax: 200, invert: false },
-    { sensorId: 'gamma', effectId: 'contrast', sensitivity: 1.0, rangeMin: 50, rangeMax: 200, invert: false },
-    { sensorId: 'alpha', effectId: 'hue', sensitivity: 1.0, rangeMin: 0, rangeMax: 360, invert: false },
-    
-    // Motion-based mappings (responsive on mobile)
-    { sensorId: 'accelX', effectId: 'saturation', sensitivity: 2.0, rangeMin: 0, rangeMax: 200, invert: false },
-    { sensorId: 'accelY', effectId: 'sepia', sensitivity: 1.5, rangeMin: 0, rangeMax: 50, invert: false },
-    { sensorId: 'accelZ', effectId: 'blur', sensitivity: 1.5, rangeMin: 0, rangeMax: 5, invert: false },
-    
-    // Gyroscope-based artistic effects
-    { sensorId: 'gyroX', effectId: 'pixelSort', sensitivity: 3.0, rangeMin: 0, rangeMax: 80, invert: false },
-    { sensorId: 'gyroY', effectId: 'digitalGlitch', sensitivity: 2.5, rangeMin: 0, rangeMax: 60, invert: false },
-    { sensorId: 'gyroZ', effectId: 'chromaShift', sensitivity: 2.0, rangeMin: 0, rangeMax: 40, invert: false }
-];
-
-// Default artistic effect mappings for quick setup
-const DEFAULT_ARTISTIC_MAPPINGS = [
-    { sensorId: 'gyroX', effectId: 'pixelSort', sensitivity: 2.0, rangeMin: 0, rangeMax: 80 },
-    { sensorId: 'gyroY', effectId: 'digitalGlitch', sensitivity: 1.5, rangeMin: 0, rangeMax: 60 },
-    { sensorId: 'micVolume', effectId: 'noiseOverlay', sensitivity: 1.0, rangeMin: 0, rangeMax: 100 },
-    { sensorId: 'alpha', effectId: 'kaleidoscope', sensitivity: 0.8, rangeMin: 0, rangeMax: 100 },
-    { sensorId: 'beta', effectId: 'chromaShift', sensitivity: 1.2, rangeMin: 0, rangeMax: 50 },
-    { sensorId: 'gamma', effectId: 'colorQuantize', sensitivity: 1.0, rangeMin: 0, rangeMax: 40 }
-];
-
-// NEW: Function to get mobile-optimized mappings
-function getMobileOptimizedMappings() {
-    return DEFAULT_MOBILE_MAPPINGS;
-}
-
-// NEW: Function to validate sensor ranges for mobile
-function validateSensorRangeForMobile(sensorId, value) {
-    const sensor = getSensorById(sensorId);
-    if (!sensor) return false;
-    
-    // Check if value is within expected mobile range
-    return value >= sensor.typicalMin && value <= sensor.typicalMax;
-}
-
-// NEW: Function to normalize sensor value for mobile devices
-function normalizeSensorValueForMobile(sensorId, value) {
-    const sensor = getSensorById(sensorId);
-    if (!sensor) return 0;
-    
-    // Clamp value to expected range
-    const clampedValue = Math.max(sensor.typicalMin, Math.min(sensor.typicalMax, value));
-    
-    // Normalize to 0-1 range
-    const range = sensor.typicalMax - sensor.typicalMin;
-    if (range === 0) return 0;
-    
-    return (clampedValue - sensor.typicalMin) / range;
-}
+    return {
+        getMappings,
+        getActiveMappings,
+        addMapping,
+        updateMapping,
+        deleteMapping,
+        getMappingById,
+        calculateEffectValue,
+        calculateMultipleEffectValues,
+        validateMapping,
+        testMapping,
+        getMappingStats,
+        enableDebugMode
+    };
+})();
