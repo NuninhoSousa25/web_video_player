@@ -74,4 +74,3 @@ const UI = (function() {
         updateActiveMappingIndicators 
     };
 })();
-
