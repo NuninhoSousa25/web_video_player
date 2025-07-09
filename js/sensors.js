@@ -1,4 +1,4 @@
-// js/sensors.js - Fixed version with battery and time sensors
+// js/sensors.js - Clean version with battery and time sensors
 const Sensors = (function() {
     // Constants
     const SENSOR_CONFIG = {
@@ -9,9 +9,6 @@ const Sensors = (function() {
         MAX_MIC_RETRIES: 3,
         MIC_UPDATE_INTERVAL: 50
     };
-
-    // Add the missing throttle constant
-    const SENSOR_UPDATE_THROTTLE = 33; // ~30fps throttling
 
     const MIC_CONFIG = {
         ANALYZER: {
@@ -60,7 +57,7 @@ const Sensors = (function() {
     // Battery and time variables
     let batteryManager = null;
     let timeUpdateInterval = null;
-    let sensorUpdateTimeout = null; // Add this variable for throttling
+    let sensorUpdateTimeout = null;
 
     // Helper functions for initial values
     function getBatteryLevelSync() {
@@ -97,7 +94,7 @@ const Sensors = (function() {
             gyroX: 0, gyroY: 0, gyroZ: 0,
             gravityX: 0, gravityY: 0, gravityZ: 0,
             
-            // NEW: Battery and time sensors
+            // Battery and time sensors
             batteryLevel: getBatteryLevelSync(),
             timeOfDay: getTimeOfDaySync()
         };
@@ -244,29 +241,33 @@ const Sensors = (function() {
             clearTimeout(sensorUpdateTimeout);
         }
         
-        // Throttle updates to 30fps maximum
+        // Throttle updates using hardcoded delay to avoid reference errors
         sensorUpdateTimeout = setTimeout(() => {
-            // Do the actual sensor data processing
-            for (const key in latestSensorData) {
-                if (!smoothedSensorData.hasOwnProperty(key)) continue;
+            try {
+                // Do the actual sensor data processing
+                for (const key in latestSensorData) {
+                    if (!smoothedSensorData.hasOwnProperty(key)) continue;
 
-                if (SENSOR_CONFIG.CIRCULAR_SENSORS.indexOf(key) !== -1) {
-                    const mappedValue = mapCircularValue(latestSensorData[key], 0, 360);
-                    const mappedSmoothed = mapCircularValue(smoothedSensorData[key], 0, 360);
-                    smoothedSensorData[key] = applySmoothing(mappedSmoothed, mappedValue);
-                } else {
-                    smoothedSensorData[key] = applySmoothing(smoothedSensorData[key], latestSensorData[key]);
+                    if (SENSOR_CONFIG.CIRCULAR_SENSORS.indexOf(key) !== -1) {
+                        const mappedValue = mapCircularValue(latestSensorData[key], 0, 360);
+                        const mappedSmoothed = mapCircularValue(smoothedSensorData[key], 0, 360);
+                        smoothedSensorData[key] = applySmoothing(mappedSmoothed, mappedValue);
+                    } else {
+                        smoothedSensorData[key] = applySmoothing(smoothedSensorData[key], latestSensorData[key]);
+                    }
                 }
-            }
 
-            // Trigger mappings update
-            if (onSensorUpdateCallback) {
-                onSensorUpdateCallback();
+                // Trigger mappings update
+                if (onSensorUpdateCallback) {
+                    onSensorUpdateCallback();
+                }
+            } catch (error) {
+                Logger.error('Error in sensor data processing:', error);
             }
             
             // Clear the timeout reference
             sensorUpdateTimeout = null;
-        }, SENSOR_UPDATE_THROTTLE);
+        }, 33); // 30fps throttling
     }
 
     function handleOrientationEvent(event) {
@@ -447,6 +448,13 @@ const Sensors = (function() {
                 cleanupMicrophone();
                 
                 const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                if (!AudioContextClass) {
+                    Logger.warn('Web Audio API not supported');
+                    permissionGranted.microphone = false;
+                    resolve();
+                    return;
+                }
+                
                 audioContext = new AudioContextClass();
                 
                 const constraints = {
@@ -461,6 +469,16 @@ const Sensors = (function() {
                 
                 navigator.mediaDevices.getUserMedia(constraints)
                     .then(function(stream) {
+                        // Check if audioContext is still valid
+                        if (!audioContext || audioContext.state === 'closed') {
+                            Logger.warn('Audio context was closed during microphone setup');
+                            if (stream) {
+                                stream.getTracks().forEach(track => track.stop());
+                            }
+                            resolve();
+                            return;
+                        }
+                        
                         currentMicStream = stream;
                         microphoneSource = audioContext.createMediaStreamSource(stream);
                         analyserNode = audioContext.createAnalyser();
@@ -475,17 +493,21 @@ const Sensors = (function() {
                         micUpdateInterval = setInterval(function() {
                             if (!globallyEnabled || !analyserNode || !audioDataArray) return;
                             
-                            analyserNode.getByteFrequencyData(audioDataArray);
-                            
-                            let sum = 0;
-                            for (let i = 0; i < audioDataArray.length; i++) {
-                                sum += audioDataArray[i];
+                            try {
+                                analyserNode.getByteFrequencyData(audioDataArray);
+                                
+                                let sum = 0;
+                                for (let i = 0; i < audioDataArray.length; i++) {
+                                    sum += audioDataArray[i];
+                                }
+                                
+                                const average = sum / audioDataArray.length;
+                                latestSensorData.micVolume = Math.min(100, (average / 128) * 100);
+                                
+                                processSensorDataAndUpdate();
+                            } catch (error) {
+                                Logger.warn('Error in microphone data processing:', error);
                             }
-                            
-                            const average = sum / audioDataArray.length;
-                            latestSensorData.micVolume = Math.min(100, (average / 128) * 100);
-                            
-                            processSensorDataAndUpdate();
                         }, SENSOR_CONFIG.MIC_UPDATE_INTERVAL);
                         
                         permissionGranted.microphone = true;
@@ -642,6 +664,9 @@ const Sensors = (function() {
         console.log(`Battery Level: ${latestSensorData.batteryLevel.toFixed(1)}%`);
         console.log(`Time of Day: ${(latestSensorData.timeOfDay * 100).toFixed(1)}% (${new Date().toLocaleTimeString()})`);
         console.log(`Microphone: ${latestSensorData.micVolume.toFixed(1)}%`);
+        console.log(`Alpha: ${latestSensorData.alpha.toFixed(1)}°`);
+        console.log(`Beta: ${latestSensorData.beta.toFixed(1)}°`);
+        console.log(`Gamma: ${latestSensorData.gamma.toFixed(1)}°`);
         console.log("==============================");
     }
 
