@@ -2,8 +2,22 @@
 
 // Add at the top (after constants):
 let sensorUpdateTimeout = null;
-const SENSOR_UPDATE_THROTTLE = 33; // 30f
+function startSensorUpdateLoop() {
+    if (sensorUpdateLoop) return;
+    
+    sensorUpdateLoop = setInterval(() => {
+        if (globallyEnabled && onSensorUpdateCallback) {
+            onSensorUpdateCallback();
+        }
+    }, 33); // 30fps
+}
 
+function stopSensorUpdateLoop() {
+    if (sensorUpdateLoop) {
+        clearInterval(sensorUpdateLoop);
+        sensorUpdateLoop = null;
+    }
+}
 const Sensors = (function() {
     // Constants
     const SENSOR_CONFIG = {
