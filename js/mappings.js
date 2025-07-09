@@ -56,3 +56,4 @@ const Mappings = (function() {
         applyAllActiveMappings 
     };
 })();
+    
