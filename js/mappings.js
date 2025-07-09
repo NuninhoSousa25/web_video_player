@@ -48,3 +48,4 @@ const Mappings = (function() {
         applyAllActiveMappings 
     };
 })();
+
