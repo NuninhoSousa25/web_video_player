@@ -1,13 +1,29 @@
-// js/sensors.js - Complete version with point cloud references removed
+// js/sensors.js - Fixed version with mobile sensor improvements
 const Sensors = (function() {
-    // Constants
+    // Constants - Updated for mobile optimization
     const SENSOR_CONFIG = {
         DEFAULT_SMOOTHING_FACTOR: 0.3,
         DEFAULT_PROXIMITY_MAX: 25,
         UPDATE_FREQUENCY: 2,
         CIRCULAR_SENSORS: ['alpha', 'compassHeading'],
         MAX_MIC_RETRIES: 3,
-        MIC_UPDATE_INTERVAL: 50
+        MIC_UPDATE_INTERVAL: 50,
+        // NEW: Throttling for mobile performance
+        SENSOR_THROTTLE_MS: 16, // ~60fps
+        DEBUG_MODE: false
+    };
+
+    // NEW: More accurate mobile sensor ranges
+    const MOBILE_SENSOR_RANGES = {
+        alpha: { min: 0, max: 360 },
+        beta: { min: -180, max: 180 }, // Full range for Android
+        gamma: { min: -90, max: 90 },
+        accelX: { min: -20, max: 20 }, // Increased range for mobile
+        accelY: { min: -20, max: 20 },
+        accelZ: { min: -20, max: 20 },
+        gyroX: { min: -20, max: 20 },
+        gyroY: { min: -20, max: 20 },
+        gyroZ: { min: -20, max: 20 }
     };
 
     const MIC_CONFIG = {
@@ -33,11 +49,13 @@ const Sensors = (function() {
         },
         SENSORS: {
             'noPermissions': 'No sensor permissions granted or APIs available.',
-            'proximityNotAvailable': 'Proximity Sensor API not available in this browser/context.'
+            'proximityNotAvailable': 'Proximity Sensor API not available in this browser/context.',
+            'orientationBlocked': 'Device orientation blocked. Please enable motion sensors in browser settings.',
+            'motionBlocked': 'Device motion blocked. Please enable motion sensors in browser settings.'
         }
     };
 
-    // DOM Elements - Only the toggle button now
+    // DOM Elements
     let sensorToggleBtn, sensorSectionControls;
 
     // Module References
@@ -53,6 +71,10 @@ const Sensors = (function() {
         gyroscope: false,
         gravity: false
     };
+    
+    // NEW: Throttling system
+    let lastSensorUpdate = 0;
+    let pendingUpdate = false;
     
     // Sensor Data
     function createInitialSensorData() {
@@ -79,7 +101,7 @@ const Sensors = (function() {
     let latestSensorData = createInitialSensorData();
     let smoothedSensorData = Object.assign({}, latestSensorData);
 
-    // Configuration - simplified, no user controls
+    // Configuration
     let smoothingFactor = SENSOR_CONFIG.DEFAULT_SMOOTHING_FACTOR;
 
     // Callbacks
@@ -107,7 +129,8 @@ const Sensors = (function() {
     const Logger = {
         error: (message, ...args) => console.error('[Sensors]', message, ...args),
         warn: (message, ...args) => console.warn('[Sensors]', message, ...args),
-        info: (message, ...args) => console.log('[Sensors]', message, ...args)
+        info: (message, ...args) => console.log('[Sensors]', message, ...args),
+        debug: (message, ...args) => SENSOR_CONFIG.DEBUG_MODE && console.log('[Sensors DEBUG]', message, ...args)
     };
 
     function cacheDOMElements() {
@@ -127,34 +150,53 @@ const Sensors = (function() {
         }
     }
 
+    // NEW: Improved circular value mapping
     function mapCircularValue(value, min, max) {
-        if (value == null) return 0;
+        if (value == null || isNaN(value)) return 0;
         
         const range = max - min;
-        const halfRange = range / 2;
+        if (range === 0) return min;
         
+        // Normalize to 0-1 range
         let normalized = ((value - min) % range + range) % range;
-        
-        if (normalized > halfRange) {
-            normalized = range - normalized;
-        }
-        
-        return normalized;
+        return normalized + min;
     }
 
     function applySmoothing(currentSmoothed, rawNewValue) {
         if (smoothingFactor === 0) return rawNewValue;
-        if (rawNewValue == null) return currentSmoothed;
+        if (rawNewValue == null || isNaN(rawNewValue)) return currentSmoothed;
         
         const current = Number(currentSmoothed) || 0;
         const raw = Number(rawNewValue) || 0;
         return current * smoothingFactor + raw * (1 - smoothingFactor);
     }
 
+    // NEW: Throttled sensor processing
     function processSensorDataAndUpdate() {
+        const now = Date.now();
+        
+        // Throttle updates for mobile performance
+        if (now - lastSensorUpdate < SENSOR_CONFIG.SENSOR_THROTTLE_MS) {
+            if (!pendingUpdate) {
+                pendingUpdate = true;
+                setTimeout(() => {
+                    pendingUpdate = false;
+                    processSensorDataAndUpdate();
+                }, SENSOR_CONFIG.SENSOR_THROTTLE_MS);
+            }
+            return;
+        }
+        
+        lastSensorUpdate = now;
+        
+        // Process all sensor data
+        let hasChanges = false;
+        
         for (const key in latestSensorData) {
             if (!smoothedSensorData.hasOwnProperty(key)) continue;
 
+            const oldValue = smoothedSensorData[key];
+            
             if (SENSOR_CONFIG.CIRCULAR_SENSORS.indexOf(key) !== -1) {
                 const mappedValue = mapCircularValue(latestSensorData[key], 0, 360);
                 const mappedSmoothed = mapCircularValue(smoothedSensorData[key], 0, 360);
@@ -162,30 +204,53 @@ const Sensors = (function() {
             } else {
                 smoothedSensorData[key] = applySmoothing(smoothedSensorData[key], latestSensorData[key]);
             }
+            
+            // Check if value changed significantly
+            if (Math.abs(smoothedSensorData[key] - oldValue) > 0.1) {
+                hasChanges = true;
+            }
         }
 
-        // Trigger mappings update
-        if (onSensorUpdateCallback) {
+        // Only trigger callback if there are significant changes
+        if (hasChanges && onSensorUpdateCallback) {
+            Logger.debug('Triggering sensor update callback', smoothedSensorData);
             onSensorUpdateCallback();
         }
     }
 
+    // NEW: Improved orientation event handling
     function handleOrientationEvent(event) {
         if (!globallyEnabled) return;
         
         try {
-            // Simple handling without calibration or offsets
-            latestSensorData.alpha = event.alpha || 0;
-            latestSensorData.beta = event.beta || 0;
-            latestSensorData.gamma = event.gamma || 0;
-            latestSensorData.compassHeading = latestSensorData.alpha;
+            // More robust value extraction
+            const alpha = event.alpha !== null ? event.alpha : latestSensorData.alpha;
+            const beta = event.beta !== null ? event.beta : latestSensorData.beta;
+            const gamma = event.gamma !== null ? event.gamma : latestSensorData.gamma;
             
+            // Validate values are within expected ranges
+            if (alpha >= 0 && alpha <= 360) {
+                latestSensorData.alpha = alpha;
+                latestSensorData.compassHeading = alpha;
+            }
+            
+            if (beta >= -180 && beta <= 180) {
+                latestSensorData.beta = beta;
+            }
+            
+            if (gamma >= -90 && gamma <= 90) {
+                latestSensorData.gamma = gamma;
+            }
+            
+            Logger.debug('Orientation event:', { alpha, beta, gamma });
             processSensorDataAndUpdate();
+            
         } catch (error) {
             Logger.error('Error processing orientation event:', error);
         }
     }
 
+    // NEW: Improved motion event handling  
     function handleMotionEvent(event) {
         if (!globallyEnabled) return;
 
@@ -194,26 +259,38 @@ const Sensors = (function() {
             const accGravity = event.accelerationIncludingGravity;
             const rotationRate = event.rotationRate;
 
-            if (acceleration && acceleration.x != null) {
-                latestSensorData.accelX = acceleration.x;
-                latestSensorData.accelY = acceleration.y;
-                latestSensorData.accelZ = acceleration.z;
-            } else if (accGravity && accGravity.x != null) {
-                latestSensorData.accelX = accGravity.x;
-                latestSensorData.accelY = accGravity.y;
-                latestSensorData.accelZ = accGravity.z;
+            Logger.debug('Motion event:', { acceleration, accGravity, rotationRate });
+
+            // Handle acceleration data
+            if (acceleration && acceleration.x !== null) {
+                latestSensorData.accelX = Math.max(-20, Math.min(20, acceleration.x));
+                latestSensorData.accelY = Math.max(-20, Math.min(20, acceleration.y));
+                latestSensorData.accelZ = Math.max(-20, Math.min(20, acceleration.z));
+            } else if (accGravity && accGravity.x !== null) {
+                // Fallback to gravity-included acceleration
+                latestSensorData.accelX = Math.max(-20, Math.min(20, accGravity.x));
+                latestSensorData.accelY = Math.max(-20, Math.min(20, accGravity.y));
+                latestSensorData.accelZ = Math.max(-20, Math.min(20, accGravity.z));
             }
 
+            // Handle rotation rate (gyroscope)
             if (rotationRate) {
-                latestSensorData.gyroX = rotationRate.alpha || 0;
-                latestSensorData.gyroY = rotationRate.beta || 0;
-                latestSensorData.gyroZ = rotationRate.gamma || 0;
+                if (rotationRate.alpha !== null) {
+                    latestSensorData.gyroX = Math.max(-20, Math.min(20, rotationRate.alpha));
+                }
+                if (rotationRate.beta !== null) {
+                    latestSensorData.gyroY = Math.max(-20, Math.min(20, rotationRate.beta));
+                }
+                if (rotationRate.gamma !== null) {
+                    latestSensorData.gyroZ = Math.max(-20, Math.min(20, rotationRate.gamma));
+                }
             }
 
+            // Handle gravity data
             if (accGravity) {
-                latestSensorData.gravityX = accGravity.x || 0;
-                latestSensorData.gravityY = accGravity.y || 0;
-                latestSensorData.gravityZ = accGravity.z || 0;
+                latestSensorData.gravityX = Math.max(-20, Math.min(20, accGravity.x || 0));
+                latestSensorData.gravityY = Math.max(-20, Math.min(20, accGravity.y || 0));
+                latestSensorData.gravityZ = Math.max(-20, Math.min(20, accGravity.z || 0));
             }
             
             processSensorDataAndUpdate();
@@ -289,7 +366,7 @@ const Sensors = (function() {
         });
     }
 
-    // MICROPHONE HANDLING
+    // MICROPHONE HANDLING - Same as before
     function cleanupMicrophone() {
         Logger.info("Cleaning up microphone...");
         
@@ -420,7 +497,7 @@ const Sensors = (function() {
         });
     }
 
-    // PERMISSION HANDLING
+    // NEW: Improved permission handling for iOS 13+
     async function requestPermissions() {
         Logger.info("Requesting sensor permissions...");
         
@@ -429,11 +506,16 @@ const Sensors = (function() {
             if (typeof DeviceOrientationEvent.requestPermission === 'function') {
                 // iOS 13+ requires explicit permission
                 try {
+                    Logger.info('Requesting iOS device orientation permission...');
                     const permission = await DeviceOrientationEvent.requestPermission();
                     permissionGranted.orientation = permission === 'granted';
                     Logger.info('Device orientation permission:', permission);
+                    
+                    if (permission === 'denied') {
+                        Logger.error('Device orientation permission denied by user');
+                    }
                 } catch (error) {
-                    Logger.warn('Error requesting device orientation permission:', error);
+                    Logger.error('Error requesting device orientation permission:', error);
                     permissionGranted.orientation = false;
                 }
             } else {
@@ -441,6 +523,9 @@ const Sensors = (function() {
                 permissionGranted.orientation = true;
                 Logger.info('Device orientation permission granted (no explicit request needed)');
             }
+        } else {
+            Logger.warn('DeviceOrientationEvent not supported');
+            permissionGranted.orientation = false;
         }
 
         // Device Motion (includes accelerometer and gyroscope)
@@ -448,11 +533,16 @@ const Sensors = (function() {
             if (typeof DeviceMotionEvent.requestPermission === 'function') {
                 // iOS 13+ requires explicit permission
                 try {
+                    Logger.info('Requesting iOS device motion permission...');
                     const permission = await DeviceMotionEvent.requestPermission();
                     permissionGranted.motion = permission === 'granted';
                     Logger.info('Device motion permission:', permission);
+                    
+                    if (permission === 'denied') {
+                        Logger.error('Device motion permission denied by user');
+                    }
                 } catch (error) {
-                    Logger.warn('Error requesting device motion permission:', error);
+                    Logger.error('Error requesting device motion permission:', error);
                     permissionGranted.motion = false;
                 }
             } else {
@@ -460,6 +550,9 @@ const Sensors = (function() {
                 permissionGranted.motion = true;
                 Logger.info('Device motion permission granted (no explicit request needed)');
             }
+        } else {
+            Logger.warn('DeviceMotionEvent not supported');
+            permissionGranted.motion = false;
         }
 
         // Proximity Sensor (Experimental API)
@@ -477,14 +570,15 @@ const Sensors = (function() {
             permissionGranted.proximity = false;
         }
 
-        // Check for microphone permission (will be requested when mic sensor is set up)
+        // Check for microphone permission
         if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-            permissionGranted.microphone = true; // Will be verified during setupMicrophoneSensor
+            permissionGranted.microphone = true;
         } else {
             Logger.warn('Microphone API not available');
             permissionGranted.microphone = false;
         }
 
+        Logger.info('Final permissions:', permissionGranted);
         return permissionGranted;
     }
 
@@ -539,6 +633,22 @@ const Sensors = (function() {
         }
     }
 
+    // NEW: Test function to verify sensor data flow
+    function testSensorDataFlow() {
+        Logger.info('Testing sensor data flow...');
+        Logger.info('Current sensor data:', smoothedSensorData);
+        Logger.info('Permissions:', permissionGranted);
+        Logger.info('Globally enabled:', globallyEnabled);
+        
+        // Test callback
+        if (onSensorUpdateCallback) {
+            Logger.info('Callback function exists');
+            onSensorUpdateCallback();
+        } else {
+            Logger.warn('No callback function set');
+        }
+    }
+
     // PUBLIC API
     async function enable() {
         if (globallyEnabled) {
@@ -555,7 +665,7 @@ const Sensors = (function() {
             const hasAnyPermission = Object.values(permissionGranted).some(granted => granted);
             
             if (!hasAnyPermission) {
-                Logger.warn('No sensor permissions granted');
+                Logger.error('No sensor permissions granted');
                 updateUI();
                 return;
             }
@@ -565,6 +675,10 @@ const Sensors = (function() {
             updateUI();
             
             Logger.info('Sensors enabled successfully');
+            
+            // NEW: Test data flow after enabling
+            setTimeout(testSensorDataFlow, 2000);
+            
         } catch (error) {
             Logger.error('Error enabling sensors:', error);
             globallyEnabled = false;
@@ -593,10 +707,15 @@ const Sensors = (function() {
     }
 
     function getSensorValue(sensorId) {
-        if (!globallyEnabled) return null;
+        if (!globallyEnabled) {
+            Logger.debug(`getSensorValue(${sensorId}) called but sensors disabled`);
+            return null;
+        }
         
         if (smoothedSensorData.hasOwnProperty(sensorId)) {
-            return smoothedSensorData[sensorId];
+            const value = smoothedSensorData[sensorId];
+            Logger.debug(`getSensorValue(${sensorId}) = ${value}`);
+            return value;
         }
         
         Logger.warn(`Unknown sensor ID: ${sensorId}`);
@@ -615,12 +734,21 @@ const Sensors = (function() {
         return { ...permissionGranted };
     }
 
+    // NEW: Enable debug mode
+    function enableDebugMode() {
+        SENSOR_CONFIG.DEBUG_MODE = true;
+        Logger.info('Debug mode enabled');
+    }
+
     function init(updateCallback, player, capabilities) {
         Logger.info("Initializing sensors module...");
         
         onSensorUpdateCallback = updateCallback;
         playerModuleRef = player;
         deviceCapabilities = capabilities || deviceCapabilities;
+        
+        Logger.info('Update callback set:', typeof updateCallback);
+        Logger.info('Device capabilities:', deviceCapabilities);
         
         cacheDOMElements();
         setupEventListeners();
@@ -636,7 +764,8 @@ const Sensors = (function() {
         getSensorValue,
         getAllSensorValues,
         isGloballyEnabled,
-        getPermissions
+        getPermissions,
+        enableDebugMode, // NEW: For debugging
+        testSensorDataFlow // NEW: For testing
     };
 })();
-
