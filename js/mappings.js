@@ -1,4 +1,4 @@
-// js/mappings.js - Fixed to prevent console spam
+// js/mappings.js - Point cloud references removed
 const Mappings = (function() {
     let playerModuleRef;
     let sensorsModuleRef;
@@ -24,11 +24,6 @@ const Mappings = (function() {
             
             const targetEffectValue = MappingManager.calculateEffectValue(sensorValue, mapping);
 
-            // **FIX: Only update if value actually changed significantly**
-            if (!MappingManager.hasValueChanged(mapping.effectId, targetEffectValue)) {
-                return; // Skip if value hasn't changed enough
-            }
-
             // Handle video effects (both standard and artistic)
             if (effectDetails.target === 'player' || effectDetails.target === 'artistic') {
                 if (playerModuleRef) {
@@ -40,10 +35,7 @@ const Mappings = (function() {
             }
         });
         
-        // Only update indicators if something actually changed
-        if (activeMappingApplied) {
-            UI.updateActiveMappingIndicators();
-        }
+        UI.updateActiveMappingIndicators();
     }
 
     function init(player, sensors) {
@@ -56,4 +48,3 @@ const Mappings = (function() {
         applyAllActiveMappings 
     };
 })();
-    
