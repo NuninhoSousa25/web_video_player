@@ -1,4 +1,4 @@
-// js/sensors.js - Mobile-optimized version with proper permissions
+// js/sensors.js - Complete version with point cloud references removed
 const Sensors = (function() {
     // Constants
     const SENSOR_CONFIG = {
@@ -37,7 +37,7 @@ const Sensors = (function() {
         }
     };
 
-    // DOM Elements
+    // DOM Elements - Only the toggle button now
     let sensorToggleBtn, sensorSectionControls;
 
     // Module References
@@ -53,65 +53,7 @@ const Sensors = (function() {
         gyroscope: false,
         gravity: false
     };
-
-    // Battery and time variables
-    let batteryManager = null;
-    let timeUpdateInterval = null;
-    let sensorUpdateTimeout = null;
-
-    // Mobile-specific variables
-    let isMobile = false;
-    let requiresUserGesture = false;
-    let hasUserInteracted = false;
-
-    // Helper functions for initial values
-    function getBatteryLevelSync() {
-        if (typeof navigator.getBattery === 'function') {
-            return 75; // Reasonable default until we get real value
-        }
-        return 50; // Fallback if no battery API
-    }
-
-    function getTimeOfDaySync() {
-        const now = new Date();
-        const hours = now.getHours();
-        const minutes = now.getMinutes();
-        return (hours + minutes / 60) / 24; // Convert to 0-1 immediately
-    }
-
-    // Detect mobile device
-    function detectMobile() {
-        const userAgent = navigator.userAgent || navigator.vendor || window.opera;
-        isMobile = /android|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent.toLowerCase());
-        
-        // iOS specifically requires user gesture for sensor permissions
-        requiresUserGesture = /iphone|ipad|ipod/i.test(userAgent.toLowerCase());
-        
-        Logger.info(`Mobile detected: ${isMobile}, Requires user gesture: ${requiresUserGesture}`);
-        return isMobile;
-    }
-
-    // Setup user interaction tracking for iOS
-    function setupUserInteractionTracking() {
-        if (!requiresUserGesture) return;
-
-        const events = ['touchstart', 'touchend', 'click', 'tap'];
-        
-        function markUserInteraction() {
-            hasUserInteracted = true;
-            Logger.info('User interaction detected - sensors can now be enabled');
-            
-            // Remove listeners after first interaction
-            events.forEach(event => {
-                document.removeEventListener(event, markUserInteraction, true);
-            });
-        }
-
-        events.forEach(event => {
-            document.addEventListener(event, markUserInteraction, true);
-        });
-    }
-
+    
     // Sensor Data
     function createInitialSensorData() {
         let proximityMax = SENSOR_CONFIG.DEFAULT_PROXIMITY_MAX;
@@ -130,18 +72,14 @@ const Sensors = (function() {
             micVolume: 0,
             compassHeading: 0,
             gyroX: 0, gyroY: 0, gyroZ: 0,
-            gravityX: 0, gravityY: 0, gravityZ: 0,
-            
-            // Battery and time sensors
-            batteryLevel: getBatteryLevelSync(),
-            timeOfDay: getTimeOfDaySync()
+            gravityX: 0, gravityY: 0, gravityZ: 0
         };
     }
 
     let latestSensorData = createInitialSensorData();
     let smoothedSensorData = Object.assign({}, latestSensorData);
 
-    // Configuration
+    // Configuration - simplified, no user controls
     let smoothingFactor = SENSOR_CONFIG.DEFAULT_SMOOTHING_FACTOR;
 
     // Callbacks
@@ -189,66 +127,6 @@ const Sensors = (function() {
         }
     }
 
-    // BATTERY API SETUP - Mobile optimized
-    async function setupBatteryAPI() {
-        Logger.info("Setting up Battery API...");
-        try {
-            if ('getBattery' in navigator) {
-                batteryManager = await navigator.getBattery();
-                
-                const updateBatteryData = () => {
-                    const newLevel = batteryManager.level * 100;
-                    
-                    // Only update if significantly changed
-                    if (Math.abs(latestSensorData.batteryLevel - newLevel) > 1) {
-                        latestSensorData.batteryLevel = newLevel;
-                        Logger.info(`Battery level updated: ${newLevel.toFixed(1)}%`);
-                        processSensorDataAndUpdate();
-                    }
-                };
-                
-                // Initial update
-                updateBatteryData();
-                
-                // Listen for battery changes
-                batteryManager.addEventListener('levelchange', updateBatteryData);
-                batteryManager.addEventListener('chargingchange', updateBatteryData);
-                
-                Logger.info(`Battery API initialized successfully. Current level: ${(batteryManager.level * 100).toFixed(1)}%`);
-                return true;
-            } else {
-                Logger.warn('Battery API not supported in this browser');
-                return false;
-            }
-        } catch (error) {
-            Logger.warn('Failed to initialize Battery API:', error);
-            return false;
-        }
-    }
-
-    // TIME OF DAY UPDATES
-    function updateTimeOfDay() {
-        const now = new Date();
-        const hours = now.getHours();
-        const minutes = now.getMinutes();
-        const seconds = now.getSeconds();
-        
-        // More precise calculation including seconds
-        const newTimeOfDay = (hours + minutes / 60 + seconds / 3600) / 24;
-        
-        // Only update if it's a meaningful change (more than 1 minute)
-        if (Math.abs(latestSensorData.timeOfDay - newTimeOfDay) > (1 / (24 * 60))) {
-            latestSensorData.timeOfDay = newTimeOfDay;
-            
-            // Log time updates less frequently
-            if (seconds === 0) { // Only log on the minute
-                Logger.info(`Time of day updated: ${hours}:${minutes.toString().padStart(2, '0')} (${(newTimeOfDay * 100).toFixed(1)}%)`);
-            }
-            
-            processSensorDataAndUpdate();
-        }
-    }
-
     function mapCircularValue(value, min, max) {
         if (value == null) return 0;
         
@@ -274,53 +152,33 @@ const Sensors = (function() {
     }
 
     function processSensorDataAndUpdate() {
-        // Cancel any pending update to avoid stacking
-        if (sensorUpdateTimeout) {
-            clearTimeout(sensorUpdateTimeout);
-        }
-        
-        // Throttle updates using hardcoded delay to avoid reference errors
-        sensorUpdateTimeout = setTimeout(() => {
-            try {
-                // Do the actual sensor data processing
-                for (const key in latestSensorData) {
-                    if (!smoothedSensorData.hasOwnProperty(key)) continue;
+        for (const key in latestSensorData) {
+            if (!smoothedSensorData.hasOwnProperty(key)) continue;
 
-                    if (SENSOR_CONFIG.CIRCULAR_SENSORS.indexOf(key) !== -1) {
-                        const mappedValue = mapCircularValue(latestSensorData[key], 0, 360);
-                        const mappedSmoothed = mapCircularValue(smoothedSensorData[key], 0, 360);
-                        smoothedSensorData[key] = applySmoothing(mappedSmoothed, mappedValue);
-                    } else {
-                        smoothedSensorData[key] = applySmoothing(smoothedSensorData[key], latestSensorData[key]);
-                    }
-                }
-
-                // Trigger mappings update
-                if (onSensorUpdateCallback) {
-                    onSensorUpdateCallback();
-                }
-            } catch (error) {
-                Logger.error('Error in sensor data processing:', error);
+            if (SENSOR_CONFIG.CIRCULAR_SENSORS.indexOf(key) !== -1) {
+                const mappedValue = mapCircularValue(latestSensorData[key], 0, 360);
+                const mappedSmoothed = mapCircularValue(smoothedSensorData[key], 0, 360);
+                smoothedSensorData[key] = applySmoothing(mappedSmoothed, mappedValue);
+            } else {
+                smoothedSensorData[key] = applySmoothing(smoothedSensorData[key], latestSensorData[key]);
             }
-            
-            // Clear the timeout reference
-            sensorUpdateTimeout = null;
-        }, 33); // 30fps throttling
+        }
+
+        // Trigger mappings update
+        if (onSensorUpdateCallback) {
+            onSensorUpdateCallback();
+        }
     }
 
     function handleOrientationEvent(event) {
         if (!globallyEnabled) return;
         
         try {
-            // Mobile devices often provide null values initially
-            const alpha = event.alpha !== null ? event.alpha : 0;
-            const beta = event.beta !== null ? event.beta : 0;
-            const gamma = event.gamma !== null ? event.gamma : 0;
-            
-            latestSensorData.alpha = alpha;
-            latestSensorData.beta = beta;
-            latestSensorData.gamma = gamma;
-            latestSensorData.compassHeading = alpha;
+            // Simple handling without calibration or offsets
+            latestSensorData.alpha = event.alpha || 0;
+            latestSensorData.beta = event.beta || 0;
+            latestSensorData.gamma = event.gamma || 0;
+            latestSensorData.compassHeading = latestSensorData.alpha;
             
             processSensorDataAndUpdate();
         } catch (error) {
@@ -336,23 +194,23 @@ const Sensors = (function() {
             const accGravity = event.accelerationIncludingGravity;
             const rotationRate = event.rotationRate;
 
-            if (acceleration && acceleration.x !== null) {
+            if (acceleration && acceleration.x != null) {
                 latestSensorData.accelX = acceleration.x;
                 latestSensorData.accelY = acceleration.y;
                 latestSensorData.accelZ = acceleration.z;
-            } else if (accGravity && accGravity.x !== null) {
+            } else if (accGravity && accGravity.x != null) {
                 latestSensorData.accelX = accGravity.x;
                 latestSensorData.accelY = accGravity.y;
                 latestSensorData.accelZ = accGravity.z;
             }
 
-            if (rotationRate && rotationRate.alpha !== null) {
+            if (rotationRate) {
                 latestSensorData.gyroX = rotationRate.alpha || 0;
                 latestSensorData.gyroY = rotationRate.beta || 0;
                 latestSensorData.gyroZ = rotationRate.gamma || 0;
             }
 
-            if (accGravity && accGravity.x !== null) {
+            if (accGravity) {
                 latestSensorData.gravityX = accGravity.x || 0;
                 latestSensorData.gravityY = accGravity.y || 0;
                 latestSensorData.gravityZ = accGravity.z || 0;
@@ -431,7 +289,7 @@ const Sensors = (function() {
         });
     }
 
-    // MICROPHONE HANDLING - Mobile optimized
+    // MICROPHONE HANDLING
     function cleanupMicrophone() {
         Logger.info("Cleaning up microphone...");
         
@@ -487,35 +345,11 @@ const Sensors = (function() {
         return new Promise(function(resolve) {
             Logger.info("Setting up microphone sensor...");
             
-            // Skip microphone on mobile if no user interaction yet
-            if (requiresUserGesture && !hasUserInteracted) {
-                Logger.info('Microphone requires user gesture on iOS - skipping for now');
-                permissionGranted.microphone = false;
-                resolve();
-                return;
-            }
-            
             try {
                 cleanupMicrophone();
                 
                 const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-                if (!AudioContextClass) {
-                    Logger.warn('Web Audio API not supported');
-                    permissionGranted.microphone = false;
-                    resolve();
-                    return;
-                }
-                
                 audioContext = new AudioContextClass();
-                
-                // Resume audio context for mobile
-                if (audioContext.state === 'suspended') {
-                    audioContext.resume().then(() => {
-                        Logger.info('Audio context resumed');
-                    }).catch(err => {
-                        Logger.warn('Failed to resume audio context:', err);
-                    });
-                }
                 
                 const constraints = {
                     audio: {
@@ -529,16 +363,6 @@ const Sensors = (function() {
                 
                 navigator.mediaDevices.getUserMedia(constraints)
                     .then(function(stream) {
-                        // Check if audioContext is still valid
-                        if (!audioContext || audioContext.state === 'closed') {
-                            Logger.warn('Audio context was closed during microphone setup');
-                            if (stream) {
-                                stream.getTracks().forEach(track => track.stop());
-                            }
-                            resolve();
-                            return;
-                        }
-                        
                         currentMicStream = stream;
                         microphoneSource = audioContext.createMediaStreamSource(stream);
                         analyserNode = audioContext.createAnalyser();
@@ -553,21 +377,17 @@ const Sensors = (function() {
                         micUpdateInterval = setInterval(function() {
                             if (!globallyEnabled || !analyserNode || !audioDataArray) return;
                             
-                            try {
-                                analyserNode.getByteFrequencyData(audioDataArray);
-                                
-                                let sum = 0;
-                                for (let i = 0; i < audioDataArray.length; i++) {
-                                    sum += audioDataArray[i];
-                                }
-                                
-                                const average = sum / audioDataArray.length;
-                                latestSensorData.micVolume = Math.min(100, (average / 128) * 100);
-                                
-                                processSensorDataAndUpdate();
-                            } catch (error) {
-                                Logger.warn('Error in microphone data processing:', error);
+                            analyserNode.getByteFrequencyData(audioDataArray);
+                            
+                            let sum = 0;
+                            for (let i = 0; i < audioDataArray.length; i++) {
+                                sum += audioDataArray[i];
                             }
+                            
+                            const average = sum / audioDataArray.length;
+                            latestSensorData.micVolume = Math.min(100, (average / 128) * 100);
+                            
+                            processSensorDataAndUpdate();
                         }, SENSOR_CONFIG.MIC_UPDATE_INTERVAL);
                         
                         permissionGranted.microphone = true;
@@ -581,14 +401,14 @@ const Sensors = (function() {
                         
                         const errorMessage = ERROR_MESSAGES.MICROPHONE[error.name] || ERROR_MESSAGES.MICROPHONE.default;
                         
-                        if (micRetryCount < SENSOR_CONFIG.MAX_MIC_RETRIES && !isMobile) {
+                        if (micRetryCount < SENSOR_CONFIG.MAX_MIC_RETRIES) {
                             micRetryCount++;
                             Logger.info(`Retrying microphone setup (${micRetryCount}/${SENSOR_CONFIG.MAX_MIC_RETRIES})...`);
                             setTimeout(function() {
                                 setupMicrophoneSensor().then(resolve);
                             }, 1000);
                         } else {
-                            Logger.error('Max microphone retries reached or mobile device:', errorMessage);
+                            Logger.error('Max microphone retries reached:', errorMessage);
                             resolve();
                         }
                     });
@@ -600,34 +420,24 @@ const Sensors = (function() {
         });
     }
 
-    // PERMISSION HANDLING - Mobile optimized
+    // PERMISSION HANDLING
     async function requestPermissions() {
         Logger.info("Requesting sensor permissions...");
-        
-        // Check if user interaction is required but not yet obtained
-        if (requiresUserGesture && !hasUserInteracted) {
-            Logger.warn('iOS device detected but no user interaction yet. Permissions will be requested after user interaction.');
-            return permissionGranted;
-        }
         
         // Device Orientation (includes compass/alpha)
         if (typeof DeviceOrientationEvent !== 'undefined') {
             if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+                // iOS 13+ requires explicit permission
                 try {
-                    Logger.info('Requesting DeviceOrientationEvent permission (iOS)...');
                     const permission = await DeviceOrientationEvent.requestPermission();
                     permissionGranted.orientation = permission === 'granted';
                     Logger.info('Device orientation permission:', permission);
-                    
-                    if (permission === 'denied') {
-                        Logger.warn('Device orientation permission denied. Sensor features will be limited.');
-                    }
                 } catch (error) {
                     Logger.warn('Error requesting device orientation permission:', error);
                     permissionGranted.orientation = false;
                 }
             } else {
-                // Android or older iOS - permission is implicit
+                // Android and older iOS versions
                 permissionGranted.orientation = true;
                 Logger.info('Device orientation permission granted (no explicit request needed)');
             }
@@ -636,27 +446,23 @@ const Sensors = (function() {
         // Device Motion (includes accelerometer and gyroscope)
         if (typeof DeviceMotionEvent !== 'undefined') {
             if (typeof DeviceMotionEvent.requestPermission === 'function') {
+                // iOS 13+ requires explicit permission
                 try {
-                    Logger.info('Requesting DeviceMotionEvent permission (iOS)...');
                     const permission = await DeviceMotionEvent.requestPermission();
                     permissionGranted.motion = permission === 'granted';
                     Logger.info('Device motion permission:', permission);
-                    
-                    if (permission === 'denied') {
-                        Logger.warn('Device motion permission denied. Motion sensors will not work.');
-                    }
                 } catch (error) {
                     Logger.warn('Error requesting device motion permission:', error);
                     permissionGranted.motion = false;
                 }
             } else {
-                // Android or older iOS - permission is implicit
+                // Android and older iOS versions
                 permissionGranted.motion = true;
                 Logger.info('Device motion permission granted (no explicit request needed)');
             }
         }
 
-        // Proximity Sensor (Experimental API - rare on mobile)
+        // Proximity Sensor (Experimental API)
         if ('ProximitySensor' in window) {
             try {
                 await navigator.permissions.query({ name: 'proximity' });
@@ -671,9 +477,9 @@ const Sensors = (function() {
             permissionGranted.proximity = false;
         }
 
-        // Check for microphone permission
+        // Check for microphone permission (will be requested when mic sensor is set up)
         if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-            permissionGranted.microphone = true;
+            permissionGranted.microphone = true; // Will be verified during setupMicrophoneSensor
         } else {
             Logger.warn('Microphone API not available');
             permissionGranted.microphone = false;
@@ -686,19 +492,21 @@ const Sensors = (function() {
         Logger.info("Setting up sensor event listeners...");
         
         if (permissionGranted.orientation) {
-            window.addEventListener('deviceorientation', handleOrientationEvent, { passive: true });
+            window.addEventListener('deviceorientation', handleOrientationEvent);
             Logger.info('Device orientation listener added');
         }
 
         if (permissionGranted.motion) {
-            window.addEventListener('devicemotion', handleMotionEvent, { passive: true });
+            window.addEventListener('devicemotion', handleMotionEvent);
             Logger.info('Device motion listener added');
         }
 
+        // Set up proximity sensor
         if (permissionGranted.proximity) {
             setupProximitySensor();
         }
 
+        // Set up microphone sensor
         if (permissionGranted.microphone) {
             setupMicrophoneSensor();
         }
@@ -728,33 +536,7 @@ const Sensors = (function() {
         if (sensorToggleBtn) {
             sensorToggleBtn.textContent = globallyEnabled ? 'Disable Sensors' : 'Enable Sensors';
             sensorToggleBtn.classList.toggle('active', globallyEnabled);
-            
-            // Update button text for mobile guidance
-            if (requiresUserGesture && !hasUserInteracted && !globallyEnabled) {
-                sensorToggleBtn.textContent = 'Tap to Enable Sensors';
-            }
         }
-    }
-
-    // DEBUGGING HELPER
-    function debugSensorValues() {
-        if (!globallyEnabled) {
-            console.log("Sensors not enabled");
-            return;
-        }
-        
-        console.log("=== CURRENT SENSOR VALUES ===");
-        console.log(`Device: ${isMobile ? 'Mobile' : 'Desktop'}, Requires gesture: ${requiresUserGesture}, Has interaction: ${hasUserInteracted}`);
-        console.log(`Battery Level: ${latestSensorData.batteryLevel.toFixed(1)}%`);
-        console.log(`Time of Day: ${(latestSensorData.timeOfDay * 100).toFixed(1)}% (${new Date().toLocaleTimeString()})`);
-        console.log(`Microphone: ${latestSensorData.micVolume.toFixed(1)}%`);
-        console.log(`Alpha: ${latestSensorData.alpha.toFixed(1)}°`);
-        console.log(`Beta: ${latestSensorData.beta.toFixed(1)}°`);
-        console.log(`Gamma: ${latestSensorData.gamma.toFixed(1)}°`);
-        console.log(`Acceleration X/Y/Z: ${latestSensorData.accelX.toFixed(2)}, ${latestSensorData.accelY.toFixed(2)}, ${latestSensorData.accelZ.toFixed(2)}`);
-        console.log(`Gyro X/Y/Z: ${latestSensorData.gyroX.toFixed(2)}, ${latestSensorData.gyroY.toFixed(2)}, ${latestSensorData.gyroZ.toFixed(2)}`);
-        console.log(`Permissions:`, permissionGranted);
-        console.log("==============================");
     }
 
     // PUBLIC API
@@ -766,29 +548,11 @@ const Sensors = (function() {
 
         Logger.info("Enabling sensors...");
         
-        // On iOS, require user interaction first
-        if (requiresUserGesture && !hasUserInteracted) {
-            Logger.warn('Cannot enable sensors on iOS without user interaction. Please tap the enable button.');
-            updateUI();
-            return;
-        }
-        
         try {
             await requestPermissions();
             
-            // Setup battery API
-            const batterySuccess = await setupBatteryAPI();
-            
-            // Setup time updates (every 10 seconds)
-            timeUpdateInterval = setInterval(updateTimeOfDay, 10000);
-            updateTimeOfDay(); // Initial update
-            
-            // Log initial sensor values
-            Logger.info(`Initial battery level: ${latestSensorData.batteryLevel.toFixed(1)}%`);
-            Logger.info(`Initial time of day: ${(latestSensorData.timeOfDay * 100).toFixed(1)}%`);
-            
-            // Check if any permissions were granted OR we have battery/time
-            const hasAnyPermission = Object.values(permissionGranted).some(granted => granted) || batterySuccess;
+            // Check if any permissions were granted
+            const hasAnyPermission = Object.values(permissionGranted).some(granted => granted);
             
             if (!hasAnyPermission) {
                 Logger.warn('No sensor permissions granted');
@@ -800,7 +564,7 @@ const Sensors = (function() {
             setupSensorListeners();
             updateUI();
             
-            Logger.info('Sensors enabled successfully with battery and time sensors');
+            Logger.info('Sensors enabled successfully');
         } catch (error) {
             Logger.error('Error enabling sensors:', error);
             globallyEnabled = false;
@@ -818,29 +582,6 @@ const Sensors = (function() {
         
         globallyEnabled = false;
         removeSensorListeners();
-
-        // Clear any pending sensor updates to prevent memory leaks
-        if (sensorUpdateTimeout) {
-            clearTimeout(sensorUpdateTimeout);
-            sensorUpdateTimeout = null;
-        }
-        
-        // Clean up time interval
-        if (timeUpdateInterval) {
-            clearInterval(timeUpdateInterval);
-            timeUpdateInterval = null;
-        }
-        
-        // Clean up battery listeners
-        if (batteryManager) {
-            try {
-                batteryManager.removeEventListener('levelchange', () => {});
-                batteryManager.removeEventListener('chargingchange', () => {});
-            } catch (e) {
-                Logger.warn('Error removing battery listeners:', e);
-            }
-            batteryManager = null;
-        }
         
         // Reset sensor data
         latestSensorData = createInitialSensorData();
@@ -881,16 +622,9 @@ const Sensors = (function() {
         playerModuleRef = player;
         deviceCapabilities = capabilities || deviceCapabilities;
         
-        // Detect mobile and setup interaction tracking
-        detectMobile();
-        setupUserInteractionTracking();
-        
         cacheDOMElements();
         setupEventListeners();
         updateUI();
-        
-        // Add debug function to window
-        window.debugSensors = debugSensorValues;
         
         Logger.info('Sensors module initialized');
     }
