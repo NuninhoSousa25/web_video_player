@@ -639,3 +639,4 @@ const Sensors = (function() {
         getPermissions
     };
 })();
+
