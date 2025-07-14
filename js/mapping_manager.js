@@ -1,41 +1,64 @@
-// js/mapping_manager.js - Updated with battery and time mappings
+// js/mapping_manager.js - Performance optimized version
 const MappingManager = (function() {
     let mappings = [];
     const MAPPINGS_STORAGE_KEY = 'sensorEffectMappings';
     let lastEffectValues = {}; // Track last values to prevent spam
+    
+    // Performance optimization: increase change thresholds to reduce updates
+    const CHANGE_THRESHOLDS = {
+        // CSS filters - can tolerate larger changes
+        brightness: 2,
+        contrast: 2, 
+        saturation: 2,
+        hue: 3,
+        blur: 0.5,
+        sepia: 2,
+        grayscale: 2,
+        invert: 2,
+        
+        // Video properties - need more precision
+        volume: 0.01,
+        playbackRate: 0.05,
+        
+        // Artistic effects - can tolerate moderate changes
+        pixelSort: 1,
+        digitalGlitch: 1,
+        chromaShift: 1,
+        kaleidoscope: 1,
+        colorQuantize: 1,
+        noiseOverlay: 1,
+        
+        // Default threshold
+        default: 1
+    };
 
     function loadMappings() {
         const storedMappings = localStorage.getItem(MAPPINGS_STORAGE_KEY);
         if (storedMappings) {
             mappings = JSON.parse(storedMappings);
         } else {
-            // NEW: Default mappings with battery and time sensors
+            // Default mappings with battery and time sensors
             mappings = [
-                // Time of day controls hue (color temperature throughout day)
                 { 
                     id: Date.now() + 100, 
                     sensorId: 'timeOfDay', 
                     effectId: 'hue', 
                     sensitivity: 1.0, 
-                    rangeMin: 200,    // Warm orange/red in morning
-                    rangeMax: 320,    // Cool blue at night  
+                    rangeMin: 200,
+                    rangeMax: 320,
                     invert: false,
                     enabled: true
                 },
-                
-                // Battery level controls brightness
                 { 
                     id: Date.now() + 101, 
                     sensorId: 'batteryLevel', 
                     effectId: 'brightness', 
                     sensitivity: 1.0, 
-                    rangeMin: 60,     // Dim when battery low
-                    rangeMax: 120,    // Bright when battery full
+                    rangeMin: 60,
+                    rangeMax: 120,
                     invert: false,
                     enabled: true
                 },
-                
-                // Keep some original mappings that work
                 { id: Date.now() + 102, sensorId: 'beta', effectId: 'contrast', enabled: true, sensitivity: 1.0, invert: false, rangeMin: 50, rangeMax: 150 },
                 { id: Date.now() + 103, sensorId: 'gamma', effectId: 'saturation', enabled: true, sensitivity: 1.0, invert: false, rangeMin: 50, rangeMax: 150 },
                 { id: Date.now() + 104, sensorId: 'micVolume', effectId: 'noiseOverlay', enabled: true, sensitivity: 2.0, invert: false, rangeMin: 0, rangeMax: 80 }
@@ -106,12 +129,24 @@ const MappingManager = (function() {
         return mappings.find(m => m.id === id);
     }
 
-    // UPDATED: Calculates the output value with change detection
+    // OPTIMIZED: Faster calculation with caching
+    const calculationCache = new Map();
+    
     function calculateEffectValue(sensorValue, mapping) {
+        // Create cache key
+        const cacheKey = `${mapping.sensorId}_${mapping.effectId}_${sensorValue}_${mapping.sensitivity}_${mapping.rangeMin}_${mapping.rangeMax}_${mapping.invert}`;
+        
+        // Check cache first (but only for stable values)
+        if (calculationCache.has(cacheKey)) {
+            return calculationCache.get(cacheKey);
+        }
+        
         const sensorDetails = getSensorById(mapping.sensorId);
         const effectDetails = getEffectById(mapping.effectId);
 
-        if (!sensorDetails || !effectDetails) return effectDetails ? effectDetails.default : 0;
+        if (!sensorDetails || !effectDetails) {
+            return effectDetails ? effectDetails.default : 0;
+        }
 
         // Normalize sensor input (0 to 1)
         let normalizedSensor = 0;
@@ -146,16 +181,26 @@ const MappingManager = (function() {
              effectValue = parseFloat(effectValue.toFixed(2));
         }
 
+        // Cache result (limit cache size)
+        if (calculationCache.size > 100) {
+            const firstKey = calculationCache.keys().next().value;
+            calculationCache.delete(firstKey);
+        }
+        calculationCache.set(cacheKey, effectValue);
+
         return effectValue;
     }
 
-    // NEW: Function to check if effect value has meaningfully changed
-    function hasValueChanged(effectId, newValue, threshold = 0.5) {
+    // OPTIMIZED: Improved change detection with dynamic thresholds
+    function hasValueChanged(effectId, newValue) {
         const lastValue = lastEffectValues[effectId];
         if (lastValue === undefined) {
             lastEffectValues[effectId] = newValue;
             return true;
         }
+        
+        // Get threshold for this specific effect
+        const threshold = CHANGE_THRESHOLDS[effectId] || CHANGE_THRESHOLDS.default;
         
         const changed = Math.abs(lastValue - newValue) >= threshold;
         if (changed) {
@@ -165,9 +210,10 @@ const MappingManager = (function() {
         return changed;
     }
 
-    // NEW: Reset the change tracking (useful when sensors are disabled/enabled)
+    // OPTIMIZED: Faster reset
     function resetChangeTracking() {
         lastEffectValues = {};
+        calculationCache.clear();
     }
     
     loadMappings(); // Load on init
