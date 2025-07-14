@@ -7,7 +7,7 @@ const Sensors = (function() {
         UPDATE_FREQUENCY: 2,
         CIRCULAR_SENSORS: ['alpha', 'compassHeading'],
         MAX_MIC_RETRIES: 3,
-        MIC_UPDATE_INTERVAL: 100, // Reduced from 50ms to 100ms for performance
+        MIC_UPDATE_INTERVAL: 50, // Reduced from 50ms to 100ms for performance
         BATTERY_UPDATE_INTERVAL: 30000, // 30 seconds instead of on every change
         TIME_UPDATE_INTERVAL: 60000 // 1 minute instead of 10 seconds
     };
