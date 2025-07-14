@@ -1,8 +1,6 @@
-// js/mappings.js - Fixed to handle unified effects properly
+// js/mappings.js - Fixed to prevent console spam
 const Mappings = (function() {
     let playerModuleRef;
-    let pointCloudModuleRef;
-    let currentModeGetter = () => 'videoPlayer';
     let sensorsModuleRef;
 
     function applyAllActiveMappings() {
@@ -26,34 +24,31 @@ const Mappings = (function() {
             
             const targetEffectValue = MappingManager.calculateEffectValue(sensorValue, mapping);
 
-            // FIXED: Handle all effect targets properly
-            if (effectDetails.target === 'player') {
+            // **FIX: Only update if value actually changed significantly**
+            if (!MappingManager.hasValueChanged(mapping.effectId, targetEffectValue)) {
+                return; // Skip if value hasn't changed enough
+            }
+
+            // Handle video effects (both standard and artistic)
+            if (effectDetails.target === 'player' || effectDetails.target === 'artistic') {
                 if (playerModuleRef) {
                     playerModuleRef.setEffect(effectDetails.id, targetEffectValue);
                     activeMappingApplied = true;
                 }
-            } else if (effectDetails.target === 'artistic') {
-                // FIXED: Artistic effects should also go through player module
-                if (playerModuleRef) {
-                    playerModuleRef.setEffect(effectDetails.id, targetEffectValue);
-                    activeMappingApplied = true;
-                }
-            } else if (effectDetails.target === 'pointcloud') {
-                if (pointCloudModuleRef) {
-                    pointCloudModuleRef.setEffect(effectDetails.id, targetEffectValue);
-                    activeMappingApplied = true;
-                }
+            } else {
+                console.warn(`Unknown effect target: ${effectDetails.target} for effect: ${effectDetails.id}`);
             }
         });
         
-        UI.updateActiveMappingIndicators();
+        // Only update indicators if something actually changed
+        if (activeMappingApplied) {
+            UI.updateActiveMappingIndicators();
+        }
     }
 
-    function init(player, pointcloud, sensors, modeGetterFn) {
+    function init(player, sensors) {
         playerModuleRef = player;
-        pointCloudModuleRef = pointcloud;
         sensorsModuleRef = sensors; 
-        currentModeGetter = modeGetterFn;
     }
 
     return {

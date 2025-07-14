@@ -1,11 +1,9 @@
-// js/player/core.js
+// js/player/core.js - Point cloud references removed
 const PlayerCore = (function() {
     
     // Core elements
     let videoPlayer, fileInput, fileName, currentTimeEl, durationEl;
     let isLooping = true;
-    let currentModeGetter = () => 'videoPlayer';
-    let pointCloudModuleRef;
     let wakeLock = null;
     
     // DOM element mapping for caching
@@ -137,11 +135,6 @@ const PlayerCore = (function() {
                     videoHeight: videoPlayer.videoHeight
                 }
             }));
-            
-            // Auto-play if video loads while in point cloud mode
-            if (videoPlayer.src && videoPlayer.paused && currentModeGetter() === 'pointCloud') {
-                videoPlayer.play().catch(handlePlayError);
-            }
         });
         
         // Time updates
@@ -162,10 +155,6 @@ const PlayerCore = (function() {
         // Play/pause events
         videoPlayer.addEventListener('play', () => {
             document.dispatchEvent(new CustomEvent('video:play'));
-            
-            if (currentModeGetter() === 'pointCloud' && pointCloudModuleRef) {
-                pointCloudModuleRef.startRendering();
-            }
         });
         
         videoPlayer.addEventListener('pause', () => {
@@ -187,10 +176,7 @@ const PlayerCore = (function() {
         });
     }
     
-    function init(modeGetter, pcModule) {
-        currentModeGetter = modeGetter;
-        pointCloudModuleRef = pcModule;
-        
+    function init() {
         cacheDOMElements();
         setupCoreEventListeners();
         
@@ -294,4 +280,3 @@ const PlayerCore = (function() {
         get isLooping() { return isLooping; }
     };
 })();
-        

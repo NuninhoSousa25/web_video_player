@@ -3,22 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Video Player & Point Cloud Viewer</title>
+    <title>Video Player with Effects</title>
     <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
     <div class="container">
         <div class="player-header">
-            <h1>Video & Point Cloud Tool</h1>
+            <h1>Video Player with Effects</h1>
         </div>
 
-        <div class="mode-switcher">
-            <button id="showVideoPlayerModeBtn" class="active">Video Player</button>
-            <button id="showPointCloudModeBtn">Point Cloud</button>
-        </div>
-
-        <!-- Video Player Mode Content -->
-        <div id="videoPlayerModeContent">
+        <!-- Video Player Content (always visible now) -->
+        <div id="videoPlayerContent">
             <div class="video-container" id="mainVideoContainer">
                 <video id="videoPlayer" playsinline webkit-playsinline></video>
                 <div class="controls-overlay" id="fullscreenControlsOverlay">
@@ -35,6 +30,7 @@
                 <p>Select a video file to play</p>
             </div>
             
+            <!-- Video controls -->
             <div class="controls" id="videoPlayerControls">
                 <div class="progress-container" id="mainProgressContainer">
                     <div class="progress-bar" id="progressBar"></div>
@@ -50,173 +46,40 @@
                     <button id="rotateBtn" class="toggle-button">Rotate: 0°</button>
                     <button id="fitToScreenBtn" class="toggle-button">Fit: OFF</button>
                 </div>
+                <!-- Volume control -->
                 <div class="volume-container">
-                    <div class="volume-icon active-mapping-indicator-container">
-                        🔊
-                        <span class="active-mapping-dot" data-effect-id="volume"></span>
-                    </div>
+                    <div class="volume-icon">🔊</div>
                     <input type="range" min="0" max="1" step="0.1" value="1" class="volume-slider" id="volumeSlider">
                 </div>
-            </div>
-            
-            <div class="filter-controls" id="videoFilterControls">
-                <!-- Standard CSS Filters -->
-                <div class="filter-control">
-                    <div class="filter-label">
-                        <span class="active-mapping-indicator-container">Brightness<span class="active-mapping-dot" data-effect-id="brightness"></span></span>
-                        <span class="filter-value" id="brightnessValue">100%</span>
-                    </div>
-                    <input type="range" min="25" max="200" value="100" class="filter-slider" id="brightnessSlider">
-                </div>
-                <div class="filter-control">
-                    <div class="filter-label">
-                        <span class="active-mapping-indicator-container">Saturation<span class="active-mapping-dot" data-effect-id="saturation"></span></span>
-                        <span class="filter-value" id="saturationValue">100%</span>
-                    </div>
-                    <input type="range" min="25" max="200" value="100" class="filter-slider" id="saturationSlider">
-                </div>
-                <div class="filter-control">
-                    <div class="filter-label">
-                        <span class="active-mapping-indicator-container">Contrast<span class="active-mapping-dot" data-effect-id="contrast"></span></span>
-                        <span class="filter-value" id="contrastValue">100%</span>
-                    </div>
-                    <input type="range" min="25" max="200" value="100" class="filter-slider" id="contrastSlider">
-                </div>
-                <div class="filter-control">
-                    <div class="filter-label">
-                        <span class="active-mapping-indicator-container">Hue Rotate<span class="active-mapping-dot" data-effect-id="hue"></span></span>
-                        <span class="filter-value" id="hueValue">0deg</span>
-                    </div>
-                    <input type="range" min="0" max="360" value="0" class="filter-slider" id="hueSlider">
-                </div>
-                
-                <!-- Digital Art Effects -->
-                <div class="filter-section-divider">
-                    <h4>🎨 Digital Art Effects</h4>
-                </div>
-                
-                <div class="filter-control">
-                    <div class="filter-label">
-                        <span class="active-mapping-indicator-container">Pixel Sort<span class="active-mapping-dot" data-effect-id="pixelSort"></span></span>
-                        <span class="filter-value" id="pixelSortValue">0%</span>
-                    </div>
-                    <input type="range" min="0" max="100" value="0" class="filter-slider" id="pixelSortSlider">
-                </div>
-                
-                <div class="filter-control">
-                    <div class="filter-label">
-                        <span class="active-mapping-indicator-container">Digital Glitch<span class="active-mapping-dot" data-effect-id="digitalGlitch"></span></span>
-                        <span class="filter-value" id="digitalGlitchValue">0%</span>
-                    </div>
-                    <input type="range" min="0" max="100" value="0" class="filter-slider" id="digitalGlitchSlider">
-                </div>
-                
-                <div class="filter-control">
-                    <div class="filter-label">
-                        <span class="active-mapping-indicator-container">Chroma Shift<span class="active-mapping-dot" data-effect-id="chromaShift"></span></span>
-                        <span class="filter-value" id="chromaShiftValue">0%</span>
-                    </div>
-                    <input type="range" min="0" max="100" value="0" class="filter-slider" id="chromaShiftSlider">
-                </div>
-                
-                <div class="filter-control">
-                    <div class="filter-label">
-                        <span class="active-mapping-indicator-container">Kaleidoscope<span class="active-mapping-dot" data-effect-id="kaleidoscope"></span></span>
-                        <span class="filter-value" id="kaleidoscopeValue">0%</span>
-                    </div>
-                    <input type="range" min="0" max="100" value="0" class="filter-slider" id="kaleidoscopeSlider">
-                </div>
-                
-                <div class="filter-control">
-                    <div class="filter-label">
-                        <span class="active-mapping-indicator-container">Color Quantize<span class="active-mapping-dot" data-effect-id="colorQuantize"></span></span>
-                        <span class="filter-value" id="colorQuantizeValue">0%</span>
-                    </div>
-                    <input type="range" min="0" max="100" value="0" class="filter-slider" id="colorQuantizeSlider">
-                </div>
-                
-                <div class="filter-control">
-                    <div class="filter-label">
-                        <span class="active-mapping-indicator-container">Noise Overlay<span class="active-mapping-dot" data-effect-id="noiseOverlay"></span></span>
-                        <span class="filter-value" id="noiseOverlayValue">0%</span>
-                    </div>
-                    <input type="range" min="0" max="100" value="0" class="filter-slider" id="noiseOverlaySlider">
-                </div>
-                
-                <button id="resetFiltersBtn" class="filter-reset">Reset All Filters</button>
-            </div>
-        </div>
-
-        <!-- Point Cloud Mode Content -->
-        <div id="pointCloudModeContent" class="hidden">
-            <div class="point-cloud-container" id="mainPointCloudContainer">
-                <canvas id="pointCloudCanvas"></canvas>
-            </div>
-            <div class="point-cloud-params-container" id="pointCloudParams">
-                <div class="filter-control">
-                    <div class="filter-label">
-                        <span class="active-mapping-indicator-container">Point Density<span class="active-mapping-dot" data-effect-id="pc_density"></span></span>
-                        <span class="filter-value" id="densityValue">32</span>
-                    </div>
-                    <input type="range" min="8" max="256" value="32" step="1" class="filter-slider" id="densitySlider"> 
-                </div>
-                <div class="filter-control">
-                    <div class="filter-label">
-                        <span class="active-mapping-indicator-container">Displacement Scale<span class="active-mapping-dot" data-effect-id="pc_displacement"></span></span>
-                        <span class="filter-value" id="displacementValue">50</span>
-                    </div>
-                    <input type="range" min="0" max="360" value="50" step="1" class="filter-slider" id="displacementSlider">
-                </div>
-                <div class="filter-control">
-                    <div class="filter-label">
-                        <span class="active-mapping-indicator-container">Point Size<span class="active-mapping-dot" data-effect-id="pc_pointSize"></span></span>
-                        <span class="filter-value" id="pointSizeValue">3</span>
-                    </div>
-                    <input type="range" min="1" max="10" value="3" step="1" class="filter-slider" id="pointSizeSlider">
-                </div>
-                <div class="filter-control"> 
-                    <div class="filter-label"><span>Parallax Sensitivity</span><span class="filter-value" id="tiltSensitivityValue">10</span></div>
-                    <input type="range" min="0" max="150" value="10" step="1" class="filter-slider" id="tiltSensitivitySlider"> 
-                </div>
-                <div class="filter-control">
-                    <div class="filter-label"><span>Processing Detail</span><span class="filter-value" id="pcProcessingValue">Medium</span></div>
-                    <select id="pcProcessingResolutionSlider" class="filter-slider">
-                        <option value="60">Low (60px)</option>
-                        <option value="120" selected>Medium (120px)</option>
-                        <option value="180">High (180px)</option>
-                        <option value="240">Max (240px)</option>
-                    </select>
-                </div>
-                <div class="filter-control">
-                    <label for="pcInvertDepthCheckbox" class="checkbox-label">
-                        <input type="checkbox" id="pcInvertDepthCheckbox">
-                        Invert Point Cloud Depth
-                    </label>
+                <!-- Reset effects button -->
+                <div class="effects-controls">
+                    <button id="resetFiltersBtn" class="filter-reset">Reset All Effects</button>
                 </div>
             </div>
         </div>
 
+        <!-- Sensor mapping panel toggle -->
         <div class="mapping-panel-toggle-container">
             <button id="toggleMappingPanelBtn" class="button">Sensor Mapping Panel</button>
+            <p class="mapping-info-text">Configure sensor-to-effect mappings to control video effects with device motion</p>
         </div>
 
-        <!-- Common Controls -->
+        <!-- File Controls -->
         <div class="file-controls">
             <input type="file" id="fileInput" accept="video/*">
             <label for="fileInput" class="file-label">Choose Video File</label>
             <div class="file-name" id="fileName">No file selected</div>
         </div>
         
-        <!-- CLEANED UP: Simplified sensor section -->
+        <!-- Sensor section -->
         <div class="sensor-section" id="sensorSectionControls">
             <div class="sensor-heading">
                 <div class="sensor-title">Motion Controls</div>
                 <button id="sensorToggleBtn" class="sensor-toggle">Enable Sensors</button>
             </div>
-            <div class="mapping-info" id="sensorMappingInfo"></div>
-            
-            <!-- REMOVED: Live sensor value displays, compass, and all configuration sections -->
-            
+            <div class="mapping-info" id="sensorMappingInfo">
+                <p>Enable sensors and use the Sensor Mapping Panel to control video effects with device motion.</p>
+            </div>
         </div>
     </div>
 
@@ -285,24 +148,19 @@
         </div>
     </div>
 
-    <!-- Scripts - UPDATED ORDER: Unified effects system first -->
-    <!-- CRITICAL: Load mapping_config.js FIRST as it defines global functions -->
+    <!-- Scripts -->
     <script src="js/mapping_config.js"></script>
     
-    <!-- Core utilities -->
     <script src="js/utils/dom.js"></script>
     <script src="js/utils/fullscreen.js"></script>
     <script src="js/utils/animation.js"></script>
     
-    <!-- Original utilities -->
     <script src="js/utils.js"></script>
     <script src="js/device_detector.js"></script>
     <script src="js/ui.js"></script>
     
-    <!-- Mapping and core modules -->
     <script src="js/mapping_manager.js"></script>
     
-    <!-- Player modules - UPDATED ORDER -->
     <script src="js/player/core.js"></script>
     <script src="js/player/unified-effects.js"></script>
     <script src="js/player/effects.js"></script>
@@ -310,13 +168,10 @@
     <script src="js/player/controls.js"></script>
     <script src="js/player.js"></script>
     
-    <!-- Other modules -->
-    <script src="js/pointcloud.js"></script>
     <script src="js/sensors.js"></script>
     <script src="js/mapping_panel.js"></script>
     <script src="js/mappings.js"></script>
     
-    <!-- Main app LAST -->
     <script src="js/main.js"></script>
 </body>
 </html>

@@ -1,4 +1,4 @@
-// js/ui.js
+// js/ui.js - Point cloud functions removed
 const UI = (function() {
 
     function updateFilterDisplayValues(brightnessSlider, saturationSlider, contrastSlider, hueSlider,
@@ -7,18 +7,6 @@ const UI = (function() {
         if (saturationValueEl && saturationSlider) saturationValueEl.textContent = `${saturationSlider.value}%`;
         if (contrastValueEl && contrastSlider) contrastValueEl.textContent = `${contrastSlider.value}%`;
         if (hueValueEl && hueSlider) hueValueEl.textContent = `${hueSlider.value}deg`;
-    }
-
-    function updatePointCloudParamDisplays(config, densityValueEl, displacementValueEl, pointSizeValueEl, 
-                                           parallaxSensitivityValueEl, pcProcessingValueEl) { // Renamed tiltSensitivityValueEl
-        if(densityValueEl) densityValueEl.textContent = config.density;
-        if(displacementValueEl) displacementValueEl.textContent = config.displacementScale;
-        if(pointSizeValueEl) pointSizeValueEl.textContent = config.pointSize;
-        if(parallaxSensitivityValueEl) parallaxSensitivityValueEl.textContent = config.parallaxSensitivity; // Use parallaxSensitivity
-        if(pcProcessingValueEl) { 
-            const selectedOption = document.getElementById('pcProcessingResolutionSlider')?.selectedOptions[0];
-            pcProcessingValueEl.textContent = selectedOption ? selectedOption.text.split(' ')[0] : config.maxProcessingDimension + 'px';
-        }
     }
     
     function updateSensorConfigDisplayValues(sliders, values) {
@@ -41,7 +29,7 @@ const UI = (function() {
         if (playPauseFullscreenBtn) playPauseFullscreenBtn.textContent = text;
     }
     
-    function updateSensorMappingInfoText(sensorMappingInfoEl, currentMode) {
+    function updateSensorMappingInfoText(sensorMappingInfoEl) {
          if (sensorMappingInfoEl) {
              sensorMappingInfoEl.innerHTML = ``; 
          }
@@ -76,10 +64,8 @@ const UI = (function() {
         });
     }
 
-
     return {
         updateFilterDisplayValues,
-        updatePointCloudParamDisplays,
         updateSensorConfigDisplayValues,
         updateLoopButton,
         updatePlayPauseButtons,
