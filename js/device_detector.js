@@ -45,3 +45,4 @@ const DeviceDetector = (function() {
         getCapabilities: () => capabilities
     };
 })();
+
