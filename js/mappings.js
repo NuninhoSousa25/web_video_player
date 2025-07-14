@@ -1,6 +1,8 @@
-// js/mappings.js - Point cloud references removed
+// js/mappings.js - Fixed to handle unified effects properly
 const Mappings = (function() {
     let playerModuleRef;
+    let pointCloudModuleRef;
+    let currentModeGetter = () => 'videoPlayer';
     let sensorsModuleRef;
 
     function applyAllActiveMappings() {
@@ -24,23 +26,34 @@ const Mappings = (function() {
             
             const targetEffectValue = MappingManager.calculateEffectValue(sensorValue, mapping);
 
-            // Handle video effects (both standard and artistic)
-            if (effectDetails.target === 'player' || effectDetails.target === 'artistic') {
+            // FIXED: Handle all effect targets properly
+            if (effectDetails.target === 'player') {
                 if (playerModuleRef) {
                     playerModuleRef.setEffect(effectDetails.id, targetEffectValue);
                     activeMappingApplied = true;
                 }
-            } else {
-                console.warn(`Unknown effect target: ${effectDetails.target} for effect: ${effectDetails.id}`);
+            } else if (effectDetails.target === 'artistic') {
+                // FIXED: Artistic effects should also go through player module
+                if (playerModuleRef) {
+                    playerModuleRef.setEffect(effectDetails.id, targetEffectValue);
+                    activeMappingApplied = true;
+                }
+            } else if (effectDetails.target === 'pointcloud') {
+                if (pointCloudModuleRef) {
+                    pointCloudModuleRef.setEffect(effectDetails.id, targetEffectValue);
+                    activeMappingApplied = true;
+                }
             }
         });
         
         UI.updateActiveMappingIndicators();
     }
 
-    function init(player, sensors) {
+    function init(player, pointcloud, sensors, modeGetterFn) {
         playerModuleRef = player;
+        pointCloudModuleRef = pointcloud;
         sensorsModuleRef = sensors; 
+        currentModeGetter = modeGetterFn;
     }
 
     return {
@@ -48,4 +61,3 @@ const Mappings = (function() {
         applyAllActiveMappings 
     };
 })();
-

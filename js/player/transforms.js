@@ -1,4 +1,4 @@
-// js/player/transforms.js - Point cloud references removed
+// js/player/transforms.js
 const PlayerTransforms = (function() {
     
     let videoPlayer, mainVideoContainer;
@@ -8,6 +8,10 @@ const PlayerTransforms = (function() {
     let currentRotation = 0; // 0, 90, 180, 270 degrees
     let fitToScreen = false;
     let originalVideoSize = { width: 0, height: 0 };
+    
+    // Callbacks
+    let currentModeGetter = () => 'videoPlayer';
+    let pointCloudModuleRef;
     
     const ELEMENT_IDS = {
         rotateBtn: 'rotateBtn',
@@ -117,6 +121,13 @@ const PlayerTransforms = (function() {
         // Save rotation preference
         localStorage.setItem('videoPlayerRotation', currentRotation.toString());
         
+        // Update point cloud dimensions if in point cloud mode
+        if (currentModeGetter() === 'pointCloud' && pointCloudModuleRef) {
+            setTimeout(() => {
+                pointCloudModuleRef.setupCanvasDimensions();
+            }, 100);
+        }
+        
         // Dispatch event for other modules
         document.dispatchEvent(new CustomEvent('video:rotated', {
             detail: { rotation: currentRotation }
@@ -130,6 +141,13 @@ const PlayerTransforms = (function() {
         
         // Save fit preference
         localStorage.setItem('videoPlayerFitToScreen', fitToScreen.toString());
+        
+        // Update point cloud dimensions if in point cloud mode
+        if (currentModeGetter() === 'pointCloud' && pointCloudModuleRef) {
+            setTimeout(() => {
+                pointCloudModuleRef.setupCanvasDimensions();
+            }, 100);
+        }
         
         // Dispatch event for other modules
         document.dispatchEvent(new CustomEvent('video:fitToggled', {
@@ -220,9 +238,11 @@ const PlayerTransforms = (function() {
         document.addEventListener('video:loaded', handleVideoLoaded);
     }
     
-    function init(playerCore, container) {
+    function init(playerCore, container, modeGetter, pcModule) {
         videoPlayer = playerCore.getVideoElement();
         mainVideoContainer = container;
+        currentModeGetter = modeGetter;
+        pointCloudModuleRef = pcModule;
         
         cacheDOMElements();
         setupEventListeners();

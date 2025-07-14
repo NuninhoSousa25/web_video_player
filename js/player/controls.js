@@ -1,10 +1,10 @@
-// js/player/controls.js - Point cloud references removed
+// js/player/controls.js
 const PlayerControls = (function() {
     
     let playerCore;
     let playPauseBtn, playPauseFullscreen, loopBtn;
     let progressBar, progressBarFullscreen, mainProgressContainer, fullscreenProgressContainer;
-    let videoPlayerControls, videoPlaceholder;
+    let videoPlayerControls, videoFilterControls, videoPlaceholder;
     
     const ELEMENT_IDS = {
         playPauseBtn: 'playPauseBtn',
@@ -14,6 +14,7 @@ const PlayerControls = (function() {
         progressBarFullscreen: 'progressBarFullscreen',
         mainProgressContainer: 'mainProgressContainer',
         videoPlayerControls: 'videoPlayerControls',
+        videoFilterControls: 'videoFilterControls',
         videoPlaceholder: 'videoPlaceholder'
     };
     
@@ -26,6 +27,7 @@ const PlayerControls = (function() {
         progressBarFullscreen = elements.progressBarFullscreen;
         mainProgressContainer = elements.mainProgressContainer;
         videoPlayerControls = elements.videoPlayerControls;
+        videoFilterControls = elements.videoFilterControls;
         videoPlaceholder = elements.videoPlaceholder;
         
         // Get fullscreen progress container
@@ -65,12 +67,14 @@ const PlayerControls = (function() {
         playerCore.seekToPercentage(percentage);
     }
     
-    function updateControlsVisibility() {
+    function updateControlsVisibility(currentMode) {
         const hasVideo = playerCore.hasVideo();
+        const showControls = hasVideo && currentMode === 'videoPlayer';
         
         DOMUtils.updateVisibility({
             [videoPlaceholder]: !hasVideo,
-            [videoPlayerControls]: hasVideo
+            [videoPlayerControls]: showControls,
+            [videoFilterControls]: showControls
         });
     }
     
@@ -135,8 +139,12 @@ const PlayerControls = (function() {
         });
         
         document.addEventListener('video:loaded', () => {
-            updateControlsVisibility();
+            // Controls visibility will be updated by mode change
         });
+    }
+    
+    function handleModeChange(newMode) {
+        updateControlsVisibility(newMode);
     }
     
     function init(corePlayer) {
@@ -148,18 +156,19 @@ const PlayerControls = (function() {
         // Initialize button states
         updatePlayPauseButtons(false);
         updateLoopButton(playerCore.isLooping);
-        updateControlsVisibility();
     }
     
     function getDOM() {
         return {
             videoPlayerControls,
+            videoFilterControls,
             videoPlaceholder
         };
     }
     
     return {
         init,
+        handleModeChange,
         getDOM,
         updatePlayPauseButtons,
         updateLoopButton,

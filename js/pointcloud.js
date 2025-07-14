@@ -1,10 +1,10 @@
-// js/pointcloud.js - Restored with full slider functionality
+// js/pointcloud.js
 const PointCloud = (function() {
     let pointCloudCanvas, mainPointCloudContainer, pointCloudParams, densitySlider, densityValue,
         displacementSlider, displacementValue, pointSizeSlider, pointSizeValue,
         parallaxSensitivitySlider, parallaxSensitivityValue, 
         pcProcessingResolutionSlider, pcProcessingValue,
-        pcInvertDepthCheckbox;
+        pcInvertDepthCheckbox; // New checkbox element
 
     let videoElementRef; 
     let currentModeGetter = () => 'videoPlayer'; 
@@ -20,7 +20,7 @@ const PointCloud = (function() {
         pointSize: 3,
         parallaxSensitivity: 10, 
         maxProcessingDimension: 120,
-        invertDepth: false
+        invertDepth: false // New config option
     };
     let currentSensorTilt = { beta: 0, gamma: 0 }; 
     let lastCanvasTap = 0;
@@ -40,7 +40,7 @@ const PointCloud = (function() {
         parallaxSensitivityValue = document.getElementById('tiltSensitivityValue'); 
         pcProcessingResolutionSlider = document.getElementById('pcProcessingResolutionSlider'); 
         pcProcessingValue = document.getElementById('pcProcessingValue'); 
-        pcInvertDepthCheckbox = document.getElementById('pcInvertDepthCheckbox');
+        pcInvertDepthCheckbox = document.getElementById('pcInvertDepthCheckbox'); // Cache new checkbox
     }
     
     function setEffect(effectId, value) {
@@ -50,29 +50,27 @@ const PointCloud = (function() {
         if (config.hasOwnProperty(effectDetails.prop)) {
             config[effectDetails.prop] = Math.max(effectDetails.min, Math.min(effectDetails.max, value));
             
-            // Update corresponding slider when effect comes from sensor mapping
             if (effectId === 'pc_density' && densitySlider) densitySlider.value = value;
             else if (effectId === 'pc_displacement' && displacementSlider) displacementSlider.value = value;
             else if (effectId === 'pc_pointSize' && pointSizeSlider) pointSizeSlider.value = value;
 
-            // Update displays
             if(densityValue) UI.updatePointCloudParamDisplays(
                 config, densityValue, displacementValue, pointSizeValue,
                 parallaxSensitivityValue, pcProcessingValue 
+                // Note: invertDepth is not displayed via this function, its state is the checkbox itself
             );
             UI.updateActiveMappingIndicators(); 
         }
     }
     
     function loadInitialPCEffects() {
-        // Set initial values from sliders
         setEffect('pc_density', parseInt(densitySlider.value) || getEffectById('pc_density').default);
         setEffect('pc_displacement', parseInt(displacementSlider.value) || getEffectById('pc_displacement').default);
         setEffect('pc_pointSize', parseInt(pointSizeSlider.value) || getEffectById('pc_pointSize').default);
         
         config.parallaxSensitivity = parseInt(parallaxSensitivitySlider.value) || 10;
         config.maxProcessingDimension = parseInt(pcProcessingResolutionSlider.value) || 120;
-        config.invertDepth = pcInvertDepthCheckbox.checked;
+        config.invertDepth = pcInvertDepthCheckbox.checked; // Load initial state of invertDepth
 
         UI.updatePointCloudParamDisplays(
             config, densityValue, displacementValue, pointSizeValue, 
@@ -82,6 +80,7 @@ const PointCloud = (function() {
     }
 
     function setupCanvasDimensions() {
+        // ... (no changes in this function from previous version) ...
         if (!videoElementRef || !videoElementRef.videoWidth || !videoElementRef.videoHeight || !pointCloudCanvas.parentElement) return;
         const videoAspectRatio = videoElementRef.videoWidth / videoElementRef.videoHeight;
         let canvasWidth = pointCloudCanvas.parentElement.clientWidth;
@@ -111,6 +110,7 @@ const PointCloud = (function() {
         }
     }
 
+
     function drawPointCloudData(imageData) { 
         if (!pointCloudCtx || !pointCloudCanvas) return;
         pointCloudCtx.fillStyle = '#050505'; 
@@ -133,12 +133,13 @@ const PointCloud = (function() {
                 
                 let brightness = (0.299 * r + 0.587 * g + 0.114 * b) / 255; 
                 if (config.invertDepth) {
-                    brightness = 1.0 - brightness;
+                    brightness = 1.0 - brightness; // Invert brightness for depth calculation
                 }
 
                 const canvasX = (x / imgWidth) * pointCloudCanvas.width;
                 const baseCanvasY = (y / imgHeight) * pointCloudCanvas.height;
                 
+                // Displacement: positive for "brighter" (after potential inversion), negative for "darker"
                 const displacement = (brightness - 0.5) * config.displacementScale; 
                 const finalCanvasY = baseCanvasY - displacement; 
 
@@ -146,19 +147,21 @@ const PointCloud = (function() {
                 let shiftY = 0;
 
                 if (sensorsGloballyEnabledGetter() && config.parallaxSensitivity > 0) {
+                    // Depth factor now also reflects inverted brightness if active
                     const depthFactor = config.displacementScale !== 0 ? displacement / (0.5 * config.displacementScale + 1e-6) : 0;
                     
                     shiftX = normTiltGamma * depthFactor * config.parallaxSensitivity;
                     shiftY = normTiltBeta * depthFactor * config.parallaxSensitivity; 
                 }
                 
-                pointCloudCtx.fillStyle = `rgb(${r},${g},${b})`;
+                pointCloudCtx.fillStyle = `rgb(${r},${g},${b})`; // Original color is still used for the point
                 pointCloudCtx.fillRect(canvasX + shiftX, finalCanvasY + shiftY, config.pointSize, config.pointSize);
             }
         }
     }
 
     function renderFrame() {
+        // ... (no changes in this function from previous version) ...
         if (currentModeGetter() !== 'pointCloud' || !videoElementRef || !videoElementRef.src) {
              if (pointCloudAnimationFrameId) cancelAnimationFrame(pointCloudAnimationFrameId);
              pointCloudAnimationFrameId = null;
@@ -205,6 +208,7 @@ const PointCloud = (function() {
     }
     
     function togglePointCloudFullscreen() {
+        // ... (no changes in this function from previous version) ...
         if (!mainPointCloudContainer.classList.contains('fullscreen')) {
             enterPointCloudFullscreenMode();
         } else {
@@ -213,6 +217,7 @@ const PointCloud = (function() {
    }
    
    function enterPointCloudFullscreenMode() {
+       // ... (no changes in this function from previous version) ...
        if (mainPointCloudContainer.classList.contains('fullscreen')) return;
        mainPointCloudContainer.classList.add('fullscreen');
        document.body.style.overflow = 'hidden';
@@ -231,6 +236,7 @@ const PointCloud = (function() {
    }
    
    function exitPointCloudFullscreenMode() {
+       // ... (no changes in this function from previous version) ...
        if (!mainPointCloudContainer.classList.contains('fullscreen') && !document.fullscreenElement && !document.webkitIsFullScreen) return;
        
        const exitFsPromise = document.exitFullscreen ? 
@@ -250,7 +256,6 @@ const PointCloud = (function() {
    }
 
     function setupEventListeners() {
-        // RESTORED: All point cloud slider event listeners
         densitySlider.addEventListener('input', (e) => {
             setEffect('pc_density', parseInt(e.target.value));
         });
@@ -279,11 +284,11 @@ const PointCloud = (function() {
             );
         });
 
-        pcInvertDepthCheckbox.addEventListener('change', (e) => {
+        pcInvertDepthCheckbox.addEventListener('change', (e) => { // Listener for new checkbox
             config.invertDepth = e.target.checked;
+            // No need to call UI.updatePointCloudParamDisplays unless you add a text display for this
         });
     
-        // Fullscreen controls
         pointCloudCanvas.addEventListener('touchend', (e) => {
             if (currentModeGetter() !== 'pointCloud') return;
             const currentTime = new Date().getTime();
@@ -314,6 +319,7 @@ const PointCloud = (function() {
                 setTimeout(setupCanvasDimensions, 50);
             }
         });
+
     }
     
     function init(videoEl, modeGetterFn, sensorStateGetterFn) { 

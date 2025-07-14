@@ -1,8 +1,10 @@
-// js/player.js - Point cloud references removed
+// js/player.js - Fixed to properly route artistic effects
 const Player = (function() {
     
     let mainVideoContainer, videoFullscreenBtn, fullscreenControlsOverlay;
     let fullscreenManager;
+    let currentModeGetter = () => 'videoPlayer';
+    let pointCloudModuleRef;
     
     // Sub-modules
     let core, effects, transforms, controls, unifiedEffects;
@@ -58,7 +60,9 @@ const Player = (function() {
         FullscreenUtils.addDoubleTabFullscreenHandler(
             videoElement,
             () => {
-                fullscreenManager.toggle();
+                if (currentModeGetter() === 'videoPlayer') {
+                    fullscreenManager.toggle();
+                }
             }
         );
     }
@@ -87,7 +91,10 @@ const Player = (function() {
         setupDoubleClickFullscreen();
     }
     
-    function init() {
+    function init(modeGetter, pcModule) {
+        currentModeGetter = modeGetter;
+        pointCloudModuleRef = pcModule;
+        
         cacheDOMElements();
         
         // Initialize sub-modules in correct order
@@ -98,17 +105,21 @@ const Player = (function() {
         controls = PlayerControls;
         
         // Initialize in correct dependency order
-        core.init();
+        core.init(modeGetter, pcModule);
         unifiedEffects.init(core);
         effects.init(core, null);
-        transforms.init(core, mainVideoContainer);
+        transforms.init(core, mainVideoContainer, modeGetter, pcModule);
         controls.init(core);
         
         setupFullscreenManager();
         setupEventListeners();
     }
     
-    // Public API - properly route all effects
+    function handleModeChange(newMode) {
+        controls.handleModeChange(newMode);
+    }
+    
+    // FIXED: Public API - properly route all effects
     function setEffect(effectId, value) {
         const effectDetails = getEffectById(effectId);
         if (!effectDetails) {
@@ -123,7 +134,7 @@ const Player = (function() {
             // Standard player effects (filters, volume, playback rate)
             effects.setEffect(effectId, value);
         } else if (effectDetails.target === 'artistic') {
-            // Artistic effects go directly to unified system
+            // FIXED: Artistic effects go directly to unified system
             if (unifiedEffects) {
                 console.log(`Routing artistic effect ${effectId} to unified system`);
                 unifiedEffects.setEffect(effectId, value);
@@ -141,6 +152,11 @@ const Player = (function() {
                 if (typeof UI !== 'undefined' && UI.updateActiveMappingIndicators) {
                     UI.updateActiveMappingIndicators();
                 }
+            }
+        } else if (effectDetails.target === 'pointcloud') {
+            // Point cloud effects
+            if (pointCloudModuleRef) {
+                pointCloudModuleRef.setEffect(effectId, value);
             }
         } else {
             console.warn(`Unknown effect target: ${effectDetails.target} for effect: ${effectId}`);
@@ -165,6 +181,7 @@ const Player = (function() {
     
     function resetFilters() {
         effects.resetAllFilters();
+        // Unified effects reset is handled by effects module
     }
     
     function getDOM() {
@@ -225,6 +242,7 @@ const Player = (function() {
     return {
         init,
         destroy,
+        handleModeChange,
         
         // Core player methods
         setEffect,

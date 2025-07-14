@@ -44,6 +44,34 @@ body {
     font-weight: 600; 
 }
 
+/* Mode Switcher */
+.mode-switcher { 
+    display: flex; 
+    background-color: #2d2d2d; 
+    border-bottom: 1px solid #333;
+}
+
+.mode-switcher button {
+    flex: 1; 
+    padding: 12px; 
+    background-color: #2d2d2d; 
+    color: #aaa;
+    border: none; 
+    border-bottom: 3px solid transparent; 
+    font-size: 14px; 
+    cursor: pointer;
+}
+
+.mode-switcher button.active { 
+    color: #2c7be5; 
+    border-bottom-color: #2c7be5; 
+    font-weight: bold; 
+}
+
+.mode-switcher button:hover:not(.active) { 
+    background-color: #383838; 
+}
+
 /* Video Container and Player */
 .video-container { 
     position: relative; 
@@ -63,7 +91,8 @@ video {
 }
 
 /* Fullscreen Styles */
-.video-container.fullscreen {
+.video-container.fullscreen, 
+.point-cloud-container.fullscreen {
     position: fixed; 
     top: 0; 
     left: 0; 
@@ -76,7 +105,8 @@ video {
     justify-content: center;
 }
 
-.video-container.fullscreen video {
+.video-container.fullscreen video, 
+.point-cloud-container.fullscreen #pointCloudCanvas {
     max-width: 100%; 
     max-height: 100%; 
     width: auto !important; 
@@ -109,14 +139,16 @@ video {
 
 /* Controls and UI Elements */
 .controls, 
-.filter-controls {
+.filter-controls, 
+.point-cloud-params-container {
     padding: 12px 16px; 
     display: flex; 
     flex-direction: column; 
     gap: 12px;
 }
 
-.filter-controls { 
+.filter-controls, 
+.point-cloud-params-container { 
     background-color: #2a2a2a; 
     border-top: 1px solid #333; 
 }
@@ -327,6 +359,18 @@ input[type="file"] {
     border: none;
 }
 
+/* Special styling for select elements */
+#pcProcessingResolutionSlider.filter-slider {
+    -webkit-appearance: menulist-button;
+    appearance: menulist-button;
+    background-color: #3a3a3a;
+    color: #f0f0f0;
+    border: 1px solid #555;
+    border-radius: 4px;
+    padding: 8px 10px !important;
+    height: auto !important;
+}
+
 .filter-reset {
     background-color: #555; 
     margin-top: 10px; 
@@ -337,6 +381,19 @@ input[type="file"] {
 
 .filter-reset:hover { 
     background-color: #666; 
+}
+
+/* Point Cloud Canvas */
+.point-cloud-container { 
+    width: 100%; 
+}
+
+#pointCloudCanvas {
+    width: 100%; 
+    background-color: #050505;
+    border: 1px solid #333; 
+    display: block; 
+    cursor: pointer; 
 }
 
 /* Sensor Section */
@@ -370,6 +427,161 @@ input[type="file"] {
 
 .sensor-toggle.active { 
     background-color: #4caf50; 
+}
+
+.sensor-values { 
+    display: grid; 
+    grid-template-columns: repeat(3, 1fr); 
+    gap: 10px; 
+    margin-bottom: 10px; 
+}
+
+.sensor-value { 
+    background-color: #2d2d2d; 
+    padding: 8px; 
+    border-radius: 6px; 
+    text-align: center; 
+}
+
+.value-label { 
+    font-size: 12px; 
+    color: #aaa; 
+    margin-bottom: 5px; 
+}
+
+.value-number { 
+    font-size: 16px; 
+    font-weight: 500; 
+    font-family: monospace; 
+    color: #2c7be5; 
+}
+
+/* Compass */
+.compass {
+    width: 100px; 
+    height: 100px; 
+    margin: 10px auto; 
+    position: relative; 
+    border-radius: 50%;
+    background-color: #2d2d2d; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center;
+    box-shadow: 0 0 8px rgba(0,0,0,0.4) inset;
+}
+
+.compass-needle {
+    position: absolute; 
+    width: 3px; 
+    height: 70px;
+    background: linear-gradient(to bottom, #f44336 50%, #fff 50%);
+    transform-origin: center center; 
+    transition: transform 0.1s ease;
+}
+
+.compass-center { 
+    width: 10px; 
+    height: 10px; 
+    background-color: #333; 
+    border-radius: 50%; 
+    z-index: 1;
+}
+
+.compass-marker span { 
+    position: absolute; 
+    width: 18px; 
+    text-align: center; 
+    font-weight: bold; 
+    color: #ddd; 
+    font-size: 12px;
+}
+
+.compass-marker .north { top: 5px; left: calc(50% - 9px); }
+.compass-marker .east { right: 5px; top: calc(50% - 9px); }
+.compass-marker .south { bottom: 5px; left: calc(50% - 9px); }
+.compass-marker .west { left: 5px; top: calc(50% - 9px); }
+
+/* Sensor Configuration */
+.sensor-configuration { 
+    margin-top: 15px; 
+    border-top: 1px solid #333; 
+    padding-top: 15px; 
+}
+
+.sensor-config-title { 
+    font-size: 14px; 
+    font-weight: 600; 
+    margin-bottom: 10px; 
+    color: #ddd; 
+}
+
+.sensor-config-controls { 
+    display: grid; 
+    grid-template-columns: repeat(2, 1fr); 
+    gap: 10px; 
+}
+
+.sensor-config-control { 
+    background-color: #2d2d2d; 
+    padding: 10px; 
+    border-radius: 6px; 
+}
+
+.config-label { 
+    display: flex; 
+    justify-content: space-between; 
+    font-size: 12px; 
+    margin-bottom: 5px; 
+}
+
+.config-value { 
+    color: #2c7be5; 
+    font-weight: 500; 
+}
+
+.config-slider { 
+    width: 100%; 
+    -webkit-appearance: none; 
+    height: 5px; 
+    border-radius: 5px; 
+    background: #333; 
+    outline: none;
+}
+
+.config-slider::-webkit-slider-thumb { 
+    -webkit-appearance: none; 
+    appearance: none; 
+    width: 15px; 
+    height: 15px;
+    border-radius: 50%; 
+    background: #2c7be5; 
+    cursor: pointer;
+}
+
+.config-slider::-moz-range-thumb { 
+    width: 15px; 
+    height: 15px; 
+    border-radius: 50%; 
+    background: #2c7be5; 
+    cursor: pointer; 
+    border: none;
+}
+
+.sensor-actions { 
+    display: flex; 
+    gap: 10px; 
+    margin-top: 10px; 
+}
+
+.sensor-action-btn {
+    flex: 1; 
+    padding: 8px; 
+    font-size: 13px; 
+    background-color: #555;
+}
+
+.sensor-action-btn:hover { 
+    background-color: #666; 
 }
 
 /* Mapping Info and Indicators */
@@ -413,30 +625,15 @@ input[type="file"] {
 
 /* Mapping Panel */
 .mapping-panel-toggle-container {
-    padding: 20px; 
+    padding: 10px; 
     text-align: center; 
     background-color: #2d2d2d; 
     border-top: 1px solid #333;
-    border-bottom: 1px solid #333;
 }
 
-.mapping-panel-toggle-container .button { 
-    background-color: #2c7be5;
-    color: white;
-    border: none;
-    border-radius: 8px;
-    padding: 12px 24px;
-    font-size: 16px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    box-shadow: 0 2px 4px rgba(44, 123, 229, 0.3);
-}
-
-.mapping-panel-toggle-container .button:hover {
-    background-color: #1a68d1;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(44, 123, 229, 0.4);
+.mapping-panel-toggle-container button.button { 
+    width: auto; 
+    padding: 8px 15px; 
 }
 
 .sensor-mapping-panel {
@@ -663,117 +860,6 @@ input[type="file"] {
     margin-top: 5px; 
 }
 
-/* Effects controls section */
-.effects-controls {
-    display: flex;
-    justify-content: center;
-    margin-top: 10px;
-    padding-top: 10px;
-    border-top: 1px solid #333;
-}
-
-.effects-controls .filter-reset {
-    background-color: #ff6b35;
-    color: white;
-    border: none;
-    border-radius: 6px;
-    padding: 10px 20px;
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: background-color 0.3s ease;
-}
-
-.effects-controls .filter-reset:hover {
-    background-color: #e55a2e;
-}
-
-.mapping-info-text {
-    margin: 10px 0 0 0;
-    font-size: 14px;
-    color: #aaa;
-    line-height: 1.4;
-}
-
-/* Simplified sensor section */
-.sensor-section .mapping-info {
-    padding: 15px;
-    background-color: #1a1a1a;
-    border-radius: 6px;
-    margin-top: 10px;
-}
-
-.sensor-section .mapping-info p {
-    margin: 0;
-    color: #bbb;
-    font-size: 14px;
-    line-height: 1.5;
-    text-align: center;
-}
-
-/* Enhanced sensor toggle button */
-.sensor-toggle {
-    background-color: #4caf50;
-    color: white;
-    border: none;
-    border-radius: 6px;
-    padding: 10px 20px;
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.3s ease;
-}
-
-.sensor-toggle:hover {
-    background-color: #45a049;
-    transform: translateY(-1px);
-}
-
-.sensor-toggle.active {
-    background-color: #ff9800;
-}
-
-.sensor-toggle.active:hover {
-    background-color: #e68900;
-}
-
-/* Status indicators */
-.effect-status {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    background-color: rgba(0, 0, 0, 0.8);
-    color: white;
-    padding: 10px 15px;
-    border-radius: 6px;
-    font-size: 12px;
-    z-index: 1000;
-    opacity: 0;
-    transition: opacity 0.3s ease;
-}
-
-.effect-status.active {
-    opacity: 1;
-}
-
-/* Improved mapping indicators */
-.active-mapping-dot.active {
-    background-color: #4caf50;
-    box-shadow: 0 0 6px #4caf50;
-    animation: pulse-green 2s infinite;
-}
-
-@keyframes pulse-green {
-    0%, 100% {
-        opacity: 1;
-        transform: scale(1);
-    }
-    50% {
-        opacity: 0.7;
-        transform: scale(1.2);
-    }
-}
-
 /* Responsive Design */
 @media (max-width: 768px) and (min-width: 481px) {
     .main-controls {
@@ -786,25 +872,12 @@ input[type="file"] {
         min-width: 60px;
         font-size: 11px;
     }
-    
-    .mapping-panel-toggle-container {
-        padding: 15px;
-    }
-    
-    .mapping-panel-toggle-container .button {
-        width: 100%;
-        max-width: 300px;
-    }
-    
-    .effects-controls .filter-reset {
-        width: 100%;
-        max-width: 200px;
-    }
 }
 
 @media (max-width: 480px) {
     .controls, 
-    .filter-controls { 
+    .filter-controls, 
+    .point-cloud-params-container { 
         padding: 10px; 
         gap: 10px;
     }
@@ -831,6 +904,10 @@ input[type="file"] {
         grid-column: 1 / -1;
     }
     
+    .sensor-config-controls { 
+        grid-template-columns: 1fr; 
+    } 
+    
     .sensor-mapping-panel { 
         width: 95%; 
         max-height: 90vh; 
@@ -839,45 +916,4 @@ input[type="file"] {
     .sensor-mapping-panel .panel-content { 
         padding: 10px; 
     }
-}
-
-/* Empty state styles */
-.empty-state {
-    text-align: center;
-    padding: 40px 20px;
-    color: #666;
-}
-
-.empty-state h3 {
-    margin: 0 0 10px 0;
-    color: #888;
-    font-size: 18px;
-}
-
-.empty-state p {
-    margin: 0;
-    line-height: 1.5;
-    font-size: 14px;
-}
-
-/* Instruction callouts */
-.instruction-callout {
-    background-color: #1a3a5c;
-    border-left: 4px solid #2c7be5;
-    padding: 15px;
-    margin: 15px 0;
-    border-radius: 0 6px 6px 0;
-}
-
-.instruction-callout h4 {
-    margin: 0 0 8px 0;
-    color: #2c7be5;
-    font-size: 16px;
-}
-
-.instruction-callout p {
-    margin: 0;
-    color: #ddd;
-    font-size: 14px;
-    line-height: 1.4;
 }
