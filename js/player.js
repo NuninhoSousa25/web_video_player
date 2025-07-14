@@ -1,4 +1,4 @@
-// js/player.js - Performance optimized version
+// js/player.js - Enhanced fullscreen with auto-hide UI and double-tap
 const Player = (function() {
     
     let mainVideoContainer, videoFullscreenBtn, fullscreenControlsOverlay;
@@ -7,12 +7,20 @@ const Player = (function() {
     // Sub-modules
     let core, effects, transforms, controls, unifiedEffects;
     
-    // Performance optimization: reduce logging
-    const DEBUG_MODE = false; // Set to false for production
-    
-    // Fullscreen controls management
+    // Fullscreen UI management
     let fsControlsTimeout;
     let lastVideoTap = 0;
+    let isMouseIdle = false;
+    let mouseIdleTimeout;
+    let lastMouseMove = 0;
+    
+    // Configuration
+    const FULLSCREEN_CONFIG = {
+        UI_HIDE_DELAY: 2000, // 2 seconds
+        DOUBLE_TAP_THRESHOLD: 300, // 300ms for double tap
+        MOUSE_IDLE_DELAY: 2000, // 2 seconds for mouse idle
+        TOUCH_UI_SHOW_DURATION: 3000 // Show UI for 3 seconds on touch
+    };
     
     const ELEMENT_IDS = {
         mainVideoContainer: 'mainVideoContainer',
@@ -27,55 +35,215 @@ const Player = (function() {
         fullscreenControlsOverlay = elements.fullscreenControlsOverlay;
     }
     
-    function showFullscreenControls() {
+    function showFullscreenControls(duration = FULLSCREEN_CONFIG.UI_HIDE_DELAY) {
         if (!mainVideoContainer.classList.contains('fullscreen')) return;
         
         clearTimeout(fsControlsTimeout);
         fullscreenControlsOverlay.classList.add('active');
         
+        // Show cursor
+        mainVideoContainer.style.cursor = 'default';
+        
+        // Auto-hide after specified duration
         fsControlsTimeout = setTimeout(() => {
-            fullscreenControlsOverlay.classList.remove('active');
-        }, 3000);
+            hideFullscreenControls();
+        }, duration);
+    }
+    
+    function hideFullscreenControls() {
+        if (!mainVideoContainer.classList.contains('fullscreen')) return;
+        
+        fullscreenControlsOverlay.classList.remove('active');
+        
+        // Hide cursor for immersive experience
+        mainVideoContainer.style.cursor = 'none';
+    }
+    
+    function handleFullscreenInteraction(event) {
+        if (!mainVideoContainer.classList.contains('fullscreen')) return;
+        
+        const eventType = event.type;
+        
+        if (eventType === 'touchstart' || eventType === 'touchend') {
+            // Touch interaction - show UI for longer duration
+            showFullscreenControls(FULLSCREEN_CONFIG.TOUCH_UI_SHOW_DURATION);
+        } else if (eventType === 'mousemove') {
+            // Mouse movement - show UI and track idle state
+            const now = Date.now();
+            lastMouseMove = now;
+            
+            if (isMouseIdle) {
+                isMouseIdle = false;
+                showFullscreenControls();
+            }
+            
+            clearTimeout(mouseIdleTimeout);
+            mouseIdleTimeout = setTimeout(() => {
+                if (Date.now() - lastMouseMove >= FULLSCREEN_CONFIG.MOUSE_IDLE_DELAY) {
+                    isMouseIdle = true;
+                    hideFullscreenControls();
+                }
+            }, FULLSCREEN_CONFIG.MOUSE_IDLE_DELAY);
+        } else if (eventType === 'click') {
+            // Click - toggle UI visibility
+            if (fullscreenControlsOverlay.classList.contains('active')) {
+                hideFullscreenControls();
+            } else {
+                showFullscreenControls();
+            }
+        }
+    }
+    
+    function handleDoubleTagToggleFullscreen(event) {
+        const currentTime = Date.now();
+        const timeSinceLastTap = currentTime - lastVideoTap;
+        
+        if (timeSinceLastTap < FULLSCREEN_CONFIG.DOUBLE_TAP_THRESHOLD) {
+            // Double tap detected
+            event.preventDefault();
+            event.stopPropagation();
+            
+            fullscreenManager.toggle();
+            
+            // Reset tap timer
+            lastVideoTap = 0;
+        } else {
+            // First tap
+            lastVideoTap = currentTime;
+        }
     }
     
     function setupFullscreenManager() {
         fullscreenManager = FullscreenUtils.createFullscreenManager(mainVideoContainer, {
             onEnter: () => {
+                console.log('Entering fullscreen mode...');
                 core.requestWakeLock();
                 transforms.onFullscreenChange(true);
+                
+                // Show controls initially, then auto-hide
                 showFullscreenControls();
+                
+                // Add fullscreen-specific event listeners
+                setupFullscreenEventListeners();
+                
+                // Hide regular UI elements that shouldn't be visible in fullscreen
+                document.body.classList.add('fullscreen-active');
             },
             onExit: () => {
+                console.log('Exiting fullscreen mode...');
                 core.releaseWakeLock();
                 transforms.onFullscreenChange(false);
+                
+                // Clean up fullscreen event listeners
+                cleanupFullscreenEventListeners();
+                
+                // Restore cursor and clear timeouts
+                mainVideoContainer.style.cursor = 'default';
+                clearTimeout(fsControlsTimeout);
+                clearTimeout(mouseIdleTimeout);
+                
+                // Show regular UI elements
+                document.body.classList.remove('fullscreen-active');
+                
+                isMouseIdle = false;
             },
             onError: (error) => {
-                if (DEBUG_MODE) console.error("Fullscreen error:", error);
+                console.error("Fullscreen error:", error);
             }
         });
     }
     
-    function setupDoubleClickFullscreen() {
+    function setupFullscreenEventListeners() {
+        // Mouse interactions
+        mainVideoContainer.addEventListener('mousemove', handleFullscreenInteraction, { passive: true });
+        mainVideoContainer.addEventListener('click', handleFullscreenInteraction);
+        
+        // Touch interactions  
+        mainVideoContainer.addEventListener('touchstart', handleFullscreenInteraction, { passive: true });
+        mainVideoContainer.addEventListener('touchend', handleFullscreenInteraction, { passive: true });
+        
+        // Keyboard interaction
+        document.addEventListener('keydown', handleFullscreenKeydown);
+        
+        // Prevent context menu in fullscreen for better UX
+        mainVideoContainer.addEventListener('contextmenu', preventContextMenu);
+    }
+    
+    function cleanupFullscreenEventListeners() {
+        mainVideoContainer.removeEventListener('mousemove', handleFullscreenInteraction);
+        mainVideoContainer.removeEventListener('click', handleFullscreenInteraction);
+        mainVideoContainer.removeEventListener('touchstart', handleFullscreenInteraction);
+        mainVideoContainer.removeEventListener('touchend', handleFullscreenInteraction);
+        document.removeEventListener('keydown', handleFullscreenKeydown);
+        mainVideoContainer.removeEventListener('contextmenu', preventContextMenu);
+    }
+    
+    function handleFullscreenKeydown(event) {
+        if (!mainVideoContainer.classList.contains('fullscreen')) return;
+        
+        switch (event.key) {
+            case 'Escape':
+                // Let browser handle escape to exit fullscreen
+                break;
+            case ' ':
+            case 'k':
+                event.preventDefault();
+                core.togglePlayPause();
+                showFullscreenControls();
+                break;
+            case 'f':
+                event.preventDefault();
+                fullscreenManager.exit();
+                break;
+            case 'ArrowLeft':
+                event.preventDefault();
+                core.seekTo(core.getCurrentTime() - 10);
+                showFullscreenControls();
+                break;
+            case 'ArrowRight':
+                event.preventDefault();
+                core.seekTo(core.getCurrentTime() + 10);
+                showFullscreenControls();
+                break;
+            case 'ArrowUp':
+                event.preventDefault();
+                core.setVolume(Math.min(1, core.getVolume() + 0.1));
+                showFullscreenControls();
+                break;
+            case 'ArrowDown':
+                event.preventDefault();
+                core.setVolume(Math.max(0, core.getVolume() - 0.1));
+                showFullscreenControls();
+                break;
+            default:
+                // Any other key shows controls
+                showFullscreenControls();
+        }
+    }
+    
+    function preventContextMenu(event) {
+        event.preventDefault();
+        return false;
+    }
+    
+    function setupVideoDoubleClickHandling() {
         const videoElement = core.getVideoElement();
         
-        FullscreenUtils.addDoubleTabFullscreenHandler(
-            videoElement,
-            () => {
+        if (videoElement) {
+            // Handle double tap/click on video element
+            videoElement.addEventListener('touchend', handleDoubleTagToggleFullscreen, { passive: false });
+            videoElement.addEventListener('dblclick', (e) => {
+                e.preventDefault();
                 fullscreenManager.toggle();
-            }
-        );
-    }
-    
-    function setupFullscreenControlsInteraction() {
-        const interactionEvents = ['click', 'mousemove', 'touchstart'];
-        
-        interactionEvents.forEach(eventType => {
-            mainVideoContainer.addEventListener(eventType, (e) => {
-                if (mainVideoContainer.classList.contains('fullscreen')) {
-                    showFullscreenControls();
-                }
             });
-        });
+            
+            // Also handle on the container for better hit area
+            mainVideoContainer.addEventListener('touchend', handleDoubleTagToggleFullscreen, { passive: false });
+            mainVideoContainer.addEventListener('dblclick', (e) => {
+                e.preventDefault();
+                fullscreenManager.toggle();
+            });
+        }
     }
     
     function setupEventListeners() {
@@ -86,8 +254,21 @@ const Player = (function() {
             });
         }
         
-        setupFullscreenControlsInteraction();
-        setupDoubleClickFullscreen();
+        // Double tap/click fullscreen toggle
+        setupVideoDoubleClickHandling();
+        
+        // Handle video events for fullscreen UI updates
+        document.addEventListener('video:play', () => {
+            if (mainVideoContainer.classList.contains('fullscreen')) {
+                showFullscreenControls();
+            }
+        });
+        
+        document.addEventListener('video:pause', () => {
+            if (mainVideoContainer.classList.contains('fullscreen')) {
+                showFullscreenControls(5000); // Show longer when paused
+            }
+        });
     }
     
     function init() {
@@ -109,62 +290,43 @@ const Player = (function() {
         
         setupFullscreenManager();
         setupEventListeners();
+        
+        console.log('Player initialized with enhanced fullscreen controls');
     }
     
-    // **OPTIMIZED: Reduced logging and improved routing**
     function setEffect(effectId, value) {
         const effectDetails = getEffectById(effectId);
         if (!effectDetails) {
-            if (DEBUG_MODE) console.warn(`Effect not found: ${effectId}`);
+            console.warn(`Effect not found: ${effectId}`);
             return;
-        }
-        
-        // REMOVED: console.log spam for production
-        if (DEBUG_MODE) {
-            console.log(`Player.setEffect: ${effectId} = ${value}, target: ${effectDetails.target}`);
         }
         
         // Route based on effect target
         if (effectDetails.target === 'player') {
-            // Standard player effects (filters, volume, playback rate)
             effects.setEffect(effectId, value);
         } else if (effectDetails.target === 'artistic') {
-            // Artistic effects go directly to unified system
             if (unifiedEffects) {
-                if (DEBUG_MODE) {
-                    console.log(`Routing artistic effect ${effectId} to unified system`);
-                }
                 unifiedEffects.setEffect(effectId, value);
-                
-                // **OPTIMIZED: Throttled slider updates**
                 updateSliderIfNeeded(effectId, value);
             }
         } else {
-            if (DEBUG_MODE) console.warn(`Unknown effect target: ${effectDetails.target} for effect: ${effectId}`);
+            console.warn(`Unknown effect target: ${effectDetails.target} for effect: ${effectId}`);
         }
     }
     
-    // **NEW: Throttled slider update function**
+    // Throttled slider update function
     let sliderUpdateThrottled = throttle(function(effectId, value) {
         const slider = document.getElementById(effectId + 'Slider');
-        if (slider && Math.abs(slider.value - value) > 1) { // Only update if significantly different
+        if (slider && Math.abs(slider.value - value) > 1) {
             slider.value = value;
-            // Trigger display update efficiently
             const event = new Event('input', { bubbles: false });
             slider.dispatchEvent(event);
         }
-    }, 50); // Throttle to 20 updates per second max
+    }, 50);
     
     function updateSliderIfNeeded(effectId, value) {
         sliderUpdateThrottled(effectId, value);
     }
-    
-    // **NEW: Throttled mapping indicator updates**
-    let mappingIndicatorUpdateThrottled = throttle(function() {
-        if (typeof UI !== 'undefined' && UI.updateActiveMappingIndicators) {
-            UI.updateActiveMappingIndicators();
-        }
-    }, 100); // 10 times per second max
     
     // Simple throttle function
     function throttle(func, limit) {
@@ -253,6 +415,10 @@ const Player = (function() {
         if (core) {
             core.destroy();
         }
+        
+        // Clean up timeouts
+        clearTimeout(fsControlsTimeout);
+        clearTimeout(mouseIdleTimeout);
     }
     
     return {
@@ -268,6 +434,8 @@ const Player = (function() {
         // Fullscreen methods
         enterVideoFullscreenMode,
         exitVideoFullscreenMode,
+        showFullscreenControls, // Expose for external use
+        hideFullscreenControls, // Expose for external use
         
         // Effect methods
         resetFilters,
