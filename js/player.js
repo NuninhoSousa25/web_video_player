@@ -1,4 +1,4 @@
-// js/player.js - Point cloud references removed
+// js/player.js - Performance optimized version
 const Player = (function() {
     
     let mainVideoContainer, videoFullscreenBtn, fullscreenControlsOverlay;
@@ -6,6 +6,9 @@ const Player = (function() {
     
     // Sub-modules
     let core, effects, transforms, controls, unifiedEffects;
+    
+    // Performance optimization: reduce logging
+    const DEBUG_MODE = false; // Set to false for production
     
     // Fullscreen controls management
     let fsControlsTimeout;
@@ -47,7 +50,7 @@ const Player = (function() {
                 transforms.onFullscreenChange(false);
             },
             onError: (error) => {
-                console.error("Fullscreen error:", error);
+                if (DEBUG_MODE) console.error("Fullscreen error:", error);
             }
         });
     }
@@ -108,15 +111,18 @@ const Player = (function() {
         setupEventListeners();
     }
     
-    // Public API - properly route all effects
+    // **OPTIMIZED: Reduced logging and improved routing**
     function setEffect(effectId, value) {
         const effectDetails = getEffectById(effectId);
         if (!effectDetails) {
-            console.warn(`Effect not found: ${effectId}`);
+            if (DEBUG_MODE) console.warn(`Effect not found: ${effectId}`);
             return;
         }
         
-        console.log(`Player.setEffect: ${effectId} = ${value}, target: ${effectDetails.target}`);
+        // REMOVED: console.log spam for production
+        if (DEBUG_MODE) {
+            console.log(`Player.setEffect: ${effectId} = ${value}, target: ${effectDetails.target}`);
+        }
         
         // Route based on effect target
         if (effectDetails.target === 'player') {
@@ -125,25 +131,52 @@ const Player = (function() {
         } else if (effectDetails.target === 'artistic') {
             // Artistic effects go directly to unified system
             if (unifiedEffects) {
-                console.log(`Routing artistic effect ${effectId} to unified system`);
+                if (DEBUG_MODE) {
+                    console.log(`Routing artistic effect ${effectId} to unified system`);
+                }
                 unifiedEffects.setEffect(effectId, value);
                 
-                // Also update the UI slider if this came from sensor mapping
-                const slider = document.getElementById(effectId + 'Slider');
-                if (slider && slider.value != value) {
-                    slider.value = value;
-                    // Trigger display update
-                    const event = new Event('input');
-                    slider.dispatchEvent(event);
-                }
-                
-                // Update mapping indicators
-                if (typeof UI !== 'undefined' && UI.updateActiveMappingIndicators) {
-                    UI.updateActiveMappingIndicators();
-                }
+                // **OPTIMIZED: Throttled slider updates**
+                updateSliderIfNeeded(effectId, value);
             }
         } else {
-            console.warn(`Unknown effect target: ${effectDetails.target} for effect: ${effectId}`);
+            if (DEBUG_MODE) console.warn(`Unknown effect target: ${effectDetails.target} for effect: ${effectId}`);
+        }
+    }
+    
+    // **NEW: Throttled slider update function**
+    let sliderUpdateThrottled = throttle(function(effectId, value) {
+        const slider = document.getElementById(effectId + 'Slider');
+        if (slider && Math.abs(slider.value - value) > 1) { // Only update if significantly different
+            slider.value = value;
+            // Trigger display update efficiently
+            const event = new Event('input', { bubbles: false });
+            slider.dispatchEvent(event);
+        }
+    }, 50); // Throttle to 20 updates per second max
+    
+    function updateSliderIfNeeded(effectId, value) {
+        sliderUpdateThrottled(effectId, value);
+    }
+    
+    // **NEW: Throttled mapping indicator updates**
+    let mappingIndicatorUpdateThrottled = throttle(function() {
+        if (typeof UI !== 'undefined' && UI.updateActiveMappingIndicators) {
+            UI.updateActiveMappingIndicators();
+        }
+    }, 100); // 10 times per second max
+    
+    // Simple throttle function
+    function throttle(func, limit) {
+        let inThrottle;
+        return function() {
+            const args = arguments;
+            const context = this;
+            if (!inThrottle) {
+                func.apply(context, args);
+                inThrottle = true;
+                setTimeout(() => inThrottle = false, limit);
+            }
         }
     }
     
