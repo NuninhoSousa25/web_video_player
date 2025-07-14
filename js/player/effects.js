@@ -1,4 +1,4 @@
-// js/player/effects.js - Performance optimized version
+// js/player/effects.js - Slider-free version, effects controlled only by sensors
 const PlayerEffects = (function() {
     
     let videoPlayer;
@@ -12,9 +12,6 @@ const PlayerEffects = (function() {
         resetFiltersBtn: 'resetFiltersBtn'
     };
     
-    // **PERFORMANCE: Reduce logging**
-    const DEBUG_MODE = false;
-    
     function cacheDOMElements() {
         const elements = DOMUtils.cacheElementsWithMapping(ELEMENT_IDS);
         volumeSlider = elements.volumeSlider;
@@ -25,10 +22,7 @@ const PlayerEffects = (function() {
         const effectDetails = getEffectById(effectId);
         if (!effectDetails) return;
 
-        // **REMOVED: console.log spam for production**
-        if (DEBUG_MODE) {
-            console.log(`PlayerEffects.setEffect: ${effectId} = ${value}, target: ${effectDetails.target}`);
-        }
+        console.log(`PlayerEffects.setEffect: ${effectId} = ${value}, target: ${effectDetails.target}`);
 
         // Handle different effect targets
         if (effectDetails.target === 'player') {
@@ -49,31 +43,18 @@ const PlayerEffects = (function() {
             
         } else if (effectDetails.target === 'artistic') {
             // Artistic effects go to unified system
-            if (DEBUG_MODE) {
-                console.log(`Artistic effect ${effectId} routed to unified system`);
-            }
+            console.log(`Artistic effect ${effectId} routed to unified system`);
             if (unifiedEffects) {
                 unifiedEffects.setEffect(effectId, value);
             }
         }
         
-        // **PERFORMANCE: Throttled UI updates only**
-        throttledUIUpdate();
+        // Update mapping indicators (this still works without sliders)
+        UI.updateActiveMappingIndicators();
     }
     
-    // **PERFORMANCE: Throttle UI updates**
-    let uiUpdateThrottled = null;
-    
-    function throttledUIUpdate() {
-        if (uiUpdateThrottled) {
-            uiUpdateThrottled();
-        }
-    }
-    
-    function resetAllEffects() {
-        if (DEBUG_MODE) {
-            console.log('Resetting all effects to defaults...');
-        }
+    function resetAllFilters() {
+        console.log('Resetting all effects to defaults...');
         
         // Reset unified effects
         if (unifiedEffects) {
@@ -97,11 +78,9 @@ const PlayerEffects = (function() {
         localStorage.removeItem('videoPlayerContrast');
         localStorage.removeItem('videoPlayerHue');
         
-        throttledUIUpdate();
+        UI.updateActiveMappingIndicators();
         
-        if (DEBUG_MODE) {
-            console.log('All effects reset to defaults');
-        }
+        console.log('All effects reset to defaults');
     }
     
     function loadInitialSettings() {
@@ -123,9 +102,7 @@ const PlayerEffects = (function() {
             unifiedEffects.resetAllEffects();
         }
         
-        if (DEBUG_MODE) {
-            console.log('Initial settings loaded - effects ready for sensor control');
-        }
+        console.log('Initial settings loaded - effects ready for sensor control');
     }
     
     function setupEventListeners() {
@@ -142,7 +119,7 @@ const PlayerEffects = (function() {
         
         // Reset button
         if (resetFiltersBtn) {
-            resetFiltersBtn.addEventListener('click', resetAllEffects);
+            resetFiltersBtn.addEventListener('click', resetAllFilters);
         }
     }
     
@@ -152,34 +129,11 @@ const PlayerEffects = (function() {
         // Get reference to unified effects system
         unifiedEffects = UnifiedVideoEffects;
         
-        // **PERFORMANCE: Create throttled UI update function**
-        uiUpdateThrottled = throttle(() => {
-            if (typeof UI !== 'undefined' && UI.updateActiveMappingIndicators) {
-                UI.updateActiveMappingIndicators();
-            }
-        }, 100); // Update UI at most 10 times per second
-        
         cacheDOMElements();
         setupEventListeners();
         loadInitialSettings();
         
-        if (DEBUG_MODE) {
-            console.log('PlayerEffects initialized in performance mode');
-        }
-    }
-    
-    // Simple throttle function
-    function throttle(func, limit) {
-        let inThrottle;
-        return function() {
-            const args = arguments;
-            const context = this;
-            if (!inThrottle) {
-                func.apply(context, args);
-                inThrottle = true;
-                setTimeout(() => inThrottle = false, limit);
-            }
-        }
+        console.log('PlayerEffects initialized in slider-free mode');
     }
     
     function isFilterApplied(effectId) {
@@ -192,9 +146,9 @@ const PlayerEffects = (function() {
         if (!effect) return false;
         
         if (effect.prop === 'volume') {
-            return Math.abs(videoPlayer.volume - effect.default) > 0.01;
+            return videoPlayer.volume !== effect.default;
         } else if (effect.prop === 'playbackRate') {
-            return Math.abs(videoPlayer.playbackRate - effect.default) > 0.01;
+            return videoPlayer.playbackRate !== effect.default;
         }
         
         return false;
@@ -211,7 +165,7 @@ const PlayerEffects = (function() {
         
         // Check video element properties for non-visual effects
         if (effect.prop === 'volume') {
-            return Math.abs(videoPlayer.volume - effect.default) > 0.01;
+            return Math.abs(videoPlayer.volume - effect.default) > 0.01; // Small tolerance for floating point
         } else if (effect.prop === 'playbackRate') {
             return Math.abs(videoPlayer.playbackRate - effect.default) > 0.01;
         }
@@ -238,10 +192,8 @@ const PlayerEffects = (function() {
         return null;
     }
     
-    // **PERFORMANCE: Optimized status function**
+    // New function: Get current effect status for debugging
     function getEffectStatus() {
-        if (!DEBUG_MODE) return null; // Don't generate status in production
-        
         const status = {
             unifiedEffects: unifiedEffects ? unifiedEffects.effects : null,
             videoVolume: videoPlayer ? videoPlayer.volume : null,
@@ -255,7 +207,7 @@ const PlayerEffects = (function() {
     return {
         init,
         setEffect,
-        resetAllEffects,
+        resetAllFilters,
         isFilterApplied,
         isEffectActive,
         getCurrentFilterValue,

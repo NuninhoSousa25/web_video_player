@@ -1,4 +1,4 @@
-// js/sensors.js - Performance optimized version
+// js/sensors.js - Corrected version with battery and time sensors
 const Sensors = (function() {
     // Constants
     const SENSOR_CONFIG = {
@@ -7,22 +7,20 @@ const Sensors = (function() {
         UPDATE_FREQUENCY: 2,
         CIRCULAR_SENSORS: ['alpha', 'compassHeading'],
         MAX_MIC_RETRIES: 3,
-        MIC_UPDATE_INTERVAL: 50, // Reduced from 50ms to 100ms for performance
-        BATTERY_UPDATE_INTERVAL: 30000, // 30 seconds instead of on every change
-        TIME_UPDATE_INTERVAL: 60000 // 1 minute instead of 10 seconds
+        MIC_UPDATE_INTERVAL: 50
     };
 
     const MIC_CONFIG = {
         ANALYZER: {
-            smoothingTimeConstant: 0.8, // Increased smoothing for less jitter
-            fftSize: 256 // Reduced from 512 for better performance
+            smoothingTimeConstant: 0.3,
+            fftSize: 512
         },
         AUDIO: {
             echoCancellation: false,
             noiseSuppression: false,
             autoGainControl: false,
             channelCount: 1,
-            sampleRate: 22050 // Reduced sample rate for performance
+            sampleRate: 44100
         }
     };
 
@@ -38,9 +36,6 @@ const Sensors = (function() {
             'proximityNotAvailable': 'Proximity Sensor API not available in this browser/context.'
         }
     };
-
-    // Performance optimization: reduce logging
-    const DEBUG_MODE = false;
 
     // DOM Elements
     let sensorToggleBtn, sensorSectionControls;
@@ -62,7 +57,6 @@ const Sensors = (function() {
     // Battery and time variables
     let batteryManager = null;
     let timeUpdateInterval = null;
-    let batteryUpdateInterval = null;
 
     // Helper functions for initial values
     function getBatteryLevelSync() {
@@ -99,7 +93,7 @@ const Sensors = (function() {
             gyroX: 0, gyroY: 0, gyroZ: 0,
             gravityX: 0, gravityY: 0, gravityZ: 0,
             
-            // Battery and time sensors
+            // NEW: Battery and time sensors
             batteryLevel: getBatteryLevelSync(),
             timeOfDay: getTimeOfDaySync()
         };
@@ -126,10 +120,6 @@ const Sensors = (function() {
     let currentMicStream = null;
     let micRetryCount = 0;
 
-    // **PERFORMANCE: Throttle sensor updates**
-    let lastSensorUpdateTime = 0;
-    const SENSOR_UPDATE_THROTTLE = 16; // ~60fps max
-
     // Device capabilities
     let deviceCapabilities = {
         hasTouch: false,
@@ -138,15 +128,9 @@ const Sensors = (function() {
 
     // Utility Functions
     const Logger = {
-        error: (message, ...args) => {
-            if (DEBUG_MODE) console.error('[Sensors]', message, ...args);
-        },
-        warn: (message, ...args) => {
-            if (DEBUG_MODE) console.warn('[Sensors]', message, ...args);
-        },
-        info: (message, ...args) => {
-            if (DEBUG_MODE) console.log('[Sensors]', message, ...args);
-        }
+        error: (message, ...args) => console.error('[Sensors]', message, ...args),
+        warn: (message, ...args) => console.warn('[Sensors]', message, ...args),
+        info: (message, ...args) => console.log('[Sensors]', message, ...args)
     };
 
     function cacheDOMElements() {
@@ -166,7 +150,7 @@ const Sensors = (function() {
         }
     }
 
-    // **PERFORMANCE: Optimized battery API with less frequent updates**
+    // BATTERY API SETUP
     async function setupBatteryAPI() {
         Logger.info("Setting up Battery API...");
         try {
@@ -176,8 +160,8 @@ const Sensors = (function() {
                 const updateBatteryData = () => {
                     const newLevel = batteryManager.level * 100;
                     
-                    // Only update if significantly changed (2% threshold)
-                    if (Math.abs(latestSensorData.batteryLevel - newLevel) > 2) {
+                    // Only update if significantly changed
+                    if (Math.abs(latestSensorData.batteryLevel - newLevel) > 1) {
                         latestSensorData.batteryLevel = newLevel;
                         Logger.info(`Battery level updated: ${newLevel.toFixed(1)}%`);
                         processSensorDataAndUpdate();
@@ -187,8 +171,9 @@ const Sensors = (function() {
                 // Initial update
                 updateBatteryData();
                 
-                // **PERFORMANCE: Periodic updates instead of event-based**
-                batteryUpdateInterval = setInterval(updateBatteryData, SENSOR_CONFIG.BATTERY_UPDATE_INTERVAL);
+                // Listen for battery changes
+                batteryManager.addEventListener('levelchange', updateBatteryData);
+                batteryManager.addEventListener('chargingchange', updateBatteryData);
                 
                 Logger.info(`Battery API initialized successfully. Current level: ${(batteryManager.level * 100).toFixed(1)}%`);
                 return true;
@@ -202,20 +187,25 @@ const Sensors = (function() {
         }
     }
 
-    // **PERFORMANCE: Less frequent time updates**
+    // TIME OF DAY UPDATES
     function updateTimeOfDay() {
         const now = new Date();
         const hours = now.getHours();
         const minutes = now.getMinutes();
+        const seconds = now.getSeconds();
         
-        // Simplified calculation - don't include seconds for better performance
-        const newTimeOfDay = (hours + minutes / 60) / 24;
+        // More precise calculation including seconds
+        const newTimeOfDay = (hours + minutes / 60 + seconds / 3600) / 24;
         
-        // Only update if it's a meaningful change (more than 5 minutes)
-        if (Math.abs(latestSensorData.timeOfDay - newTimeOfDay) > (5 / (24 * 60))) {
+        // Only update if it's a meaningful change (more than 1 minute)
+        if (Math.abs(latestSensorData.timeOfDay - newTimeOfDay) > (1 / (24 * 60))) {
             latestSensorData.timeOfDay = newTimeOfDay;
             
-            Logger.info(`Time of day updated: ${hours}:${minutes.toString().padStart(2, '0')} (${(newTimeOfDay * 100).toFixed(1)}%)`);
+            // Log time updates less frequently
+            if (seconds === 0) { // Only log on the minute
+                Logger.info(`Time of day updated: ${hours}:${minutes.toString().padStart(2, '0')} (${(newTimeOfDay * 100).toFixed(1)}%)`);
+            }
+            
             processSensorDataAndUpdate();
         }
     }
@@ -244,15 +234,7 @@ const Sensors = (function() {
         return current * smoothingFactor + raw * (1 - smoothingFactor);
     }
 
-    // **PERFORMANCE: Throttled sensor processing**
     function processSensorDataAndUpdate() {
-        const now = performance.now();
-        
-        if (now - lastSensorUpdateTime < SENSOR_UPDATE_THROTTLE) {
-            return; // Skip if too frequent
-        }
-        lastSensorUpdateTime = now;
-
         for (const key in latestSensorData) {
             if (!smoothedSensorData.hasOwnProperty(key)) continue;
 
@@ -389,7 +371,7 @@ const Sensors = (function() {
         });
     }
 
-    // **PERFORMANCE: Optimized microphone handling**
+    // MICROPHONE HANDLING
     function cleanupMicrophone() {
         Logger.info("Cleaning up microphone...");
         
@@ -474,7 +456,6 @@ const Sensors = (function() {
                         
                         audioDataArray = new Uint8Array(analyserNode.frequencyBinCount);
                         
-                        // **PERFORMANCE: Reduced microphone update frequency**
                         micUpdateInterval = setInterval(function() {
                             if (!globallyEnabled || !analyserNode || !audioDataArray) return;
                             
@@ -486,13 +467,9 @@ const Sensors = (function() {
                             }
                             
                             const average = sum / audioDataArray.length;
-                            const newVolume = Math.min(100, (average / 128) * 100);
+                            latestSensorData.micVolume = Math.min(100, (average / 128) * 100);
                             
-                            // **PERFORMANCE: Only update if changed significantly (2% threshold)**
-                            if (Math.abs(latestSensorData.micVolume - newVolume) > 2) {
-                                latestSensorData.micVolume = newVolume;
-                                processSensorDataAndUpdate();
-                            }
+                            processSensorDataAndUpdate();
                         }, SENSOR_CONFIG.MIC_UPDATE_INTERVAL);
                         
                         permissionGranted.microphone = true;
@@ -638,7 +615,7 @@ const Sensors = (function() {
         }
     }
 
-    // **PERFORMANCE: Optimized debug function**
+    // DEBUGGING HELPER
     function debugSensorValues() {
         if (!globallyEnabled) {
             console.log("Sensors not enabled");
@@ -649,7 +626,6 @@ const Sensors = (function() {
         console.log(`Battery Level: ${latestSensorData.batteryLevel.toFixed(1)}%`);
         console.log(`Time of Day: ${(latestSensorData.timeOfDay * 100).toFixed(1)}% (${new Date().toLocaleTimeString()})`);
         console.log(`Microphone: ${latestSensorData.micVolume.toFixed(1)}%`);
-        console.log(`Orientation: α=${latestSensorData.alpha.toFixed(1)}° β=${latestSensorData.beta.toFixed(1)}° γ=${latestSensorData.gamma.toFixed(1)}°`);
         console.log("==============================");
     }
 
@@ -668,8 +644,8 @@ const Sensors = (function() {
             // Setup battery API
             const batterySuccess = await setupBatteryAPI();
             
-            // **PERFORMANCE: Less frequent time updates**
-            timeUpdateInterval = setInterval(updateTimeOfDay, SENSOR_CONFIG.TIME_UPDATE_INTERVAL);
+            // Setup time updates (every 10 seconds)
+            timeUpdateInterval = setInterval(updateTimeOfDay, 10000);
             updateTimeOfDay(); // Initial update
             
             // Log initial sensor values
@@ -712,12 +688,6 @@ const Sensors = (function() {
         if (timeUpdateInterval) {
             clearInterval(timeUpdateInterval);
             timeUpdateInterval = null;
-        }
-        
-        // Clean up battery interval
-        if (batteryUpdateInterval) {
-            clearInterval(batteryUpdateInterval);
-            batteryUpdateInterval = null;
         }
         
         // Clean up battery listeners
@@ -774,10 +744,8 @@ const Sensors = (function() {
         setupEventListeners();
         updateUI();
         
-        // Add debug function to window (only in debug mode)
-        if (DEBUG_MODE) {
-            window.debugSensors = debugSensorValues;
-        }
+        // Add debug function to window
+        window.debugSensors = debugSensorValues;
         
         Logger.info('Sensors module initialized');
     }
